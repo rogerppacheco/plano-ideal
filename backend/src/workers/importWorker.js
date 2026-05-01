@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import { parentPort, workerData } from "node:worker_threads";
 import pg from "pg";
+import { importCsvFileStreaming } from "../services/csvImport.js";
 import { mapRowsToCoverageRecords, parseWorkbookRows } from "../services/importService.js";
 
 const { Pool } = pg;
@@ -74,6 +75,33 @@ async function run() {
       logJob(jobId, `Lendo do disco: ${originalname}`);
 
       await setJobStep(pool, jobId, `Lendo arquivo: ${originalname}…`);
+
+      const isCsv = originalname.toLowerCase().endsWith(".csv");
+
+      if (isCsv) {
+        const csvStats = await importCsvFileStreaming({
+          filePath,
+          originalName: originalname,
+          operator,
+          userId,
+          pool,
+          jobId,
+          setJobStep,
+          updateJobProgress,
+          logJob,
+          baseTotals: {
+            totalRows,
+            processedRows,
+            importedRows,
+            ignoredRows,
+          },
+        });
+        totalRows += csvStats.scannedLines;
+        processedRows += csvStats.processedInserts;
+        importedRows += csvStats.importedRows;
+        ignoredRows += csvStats.ignoredRows;
+        continue;
+      }
 
       const buffer = fs.readFileSync(filePath);
       const sizeMb = (buffer.length / 1024 / 1024).toFixed(2);

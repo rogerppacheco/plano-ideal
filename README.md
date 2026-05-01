@@ -81,7 +81,11 @@ Regras:
 1. O navegador envia o arquivo via `multipart/form-data`.
 2. O **multer** grava o upload em arquivo temporário no disco (pasta do sistema), não mantém o arquivo inteiro na RAM do processo principal.
 3. Um **worker** lê esse arquivo com `fs.readFileSync` para um **Buffer** e a biblioteca **xlsx** converte a planilha/CSV em um **array de linhas na memória** do worker.
-4. Cada linha válida vira um **INSERT** na tabela `coverage_records` (campos completos em JSONB). Arquivos muito grandes ocupam bastante RAM nessa etapa de parse — para bases enormes, o próximo passo ideal é streaming + inserção em lote (`COPY` ou batches).
+4. Cada linha válida vira um **INSERT** na tabela `coverage_records` (campos completos em JSONB).
+
+**Arquivos `.csv` grandes:** a API usa **streaming** (`csv-parse`): lê linha a linha, atualiza progresso durante a leitura e não faz mais o parse monolítico do pacote `xlsx` (que travava minutos em arquivos ~90 MB).
+
+**Arquivos `.xlsx` / `.xls`:** continuam usando `xlsx` em memória — prefira exportar para CSV quando possível em bases muito grandes.
 
 ### Jobs antigos presos
 
