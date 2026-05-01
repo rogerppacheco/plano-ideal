@@ -414,10 +414,11 @@ export default function InternalDashboard() {
 
 function getProgressPercent(job) {
   if (!job?.total_rows || job.total_rows <= 0) return 0;
+  /* Job concluído: barra 100% (não confundir com % de linhas com CEP válido). */
+  if (job.status === "completed") return 100;
   const raw = Math.round((job.processed_rows / job.total_rows) * 100);
   if (raw < 0) return 0;
   if (raw > 100) return 100;
-  /* Enquanto status no DB ainda é "processing", não mostrar 100% — falta gravar "completed". */
   if (job.status === "processing" && raw >= 100) return 99;
   return raw;
 }
