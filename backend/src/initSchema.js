@@ -24,6 +24,10 @@ export async function ensureSchema() {
     ON import_jobs (created_at DESC);
   `);
 
+  await pool.query(`ALTER TABLE import_jobs ADD COLUMN IF NOT EXISTS current_step TEXT;`);
+  await pool.query(`ALTER TABLE import_jobs ADD COLUMN IF NOT EXISTS file_bytes_read BIGINT;`);
+  await pool.query(`ALTER TABLE import_jobs ADD COLUMN IF NOT EXISTS heartbeat_at TIMESTAMPTZ;`);
+
   // Jobs presos em queued/processing por muito tempo (ex.: API reiniciada no meio da importação).
   // Intervalo longo para não encerrar importações grandes legítimas; ajuste via IMPORT_JOB_STALE_HOURS.
   const staleHours = Number(process.env.IMPORT_JOB_STALE_HOURS ?? "168");

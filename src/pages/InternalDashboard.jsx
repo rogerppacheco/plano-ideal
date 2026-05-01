@@ -308,7 +308,27 @@ export default function InternalDashboard() {
                   <p className="font-semibold text-slate-800">
                     Status: {translateJobStatus(jobProgress.status)}
                   </p>
-                  <p className="mt-1 text-slate-700">
+                  {jobProgress.current_step ? (
+                    <p className="mt-2 rounded-lg bg-white px-3 py-2 text-slate-800 ring-1 ring-slate-200">
+                      <span className="text-xs font-semibold uppercase text-slate-500">Etapa atual</span>
+                      <br />
+                      {jobProgress.current_step}
+                    </p>
+                  ) : null}
+                  {jobProgress.file_bytes_read ? (
+                    <p className="mt-1 text-xs text-slate-600">
+                      Arquivo lido: {formatBytes(jobProgress.file_bytes_read)}
+                    </p>
+                  ) : null}
+                  {jobProgress.status === "processing" &&
+                  (jobProgress.total_rows || 0) === 0 &&
+                  !jobProgress.current_step?.includes("Parseando") ? (
+                    <p className="mt-2 text-xs text-amber-800">
+                      Enquanto “Linhas processadas” estiver 0/0, o worker pode estar lendo o arquivo ou
+                      parseando o CSV inteiro na memória — isso pode demorar em arquivos grandes.
+                    </p>
+                  ) : null}
+                  <p className="mt-2 text-slate-700">
                     Linhas processadas: {jobProgress.processed_rows} / {jobProgress.total_rows || 0}
                   </p>
                   <p className="text-slate-700">
@@ -395,4 +415,12 @@ function translateJobStatus(status) {
   if (status === "completed") return "Concluído";
   if (status === "failed") return "Falhou";
   return status;
+}
+
+function formatBytes(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return "—";
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / 1024 / 1024).toFixed(2)} MB`;
 }

@@ -61,7 +61,8 @@ router.get("/import/jobs/:jobId", requireAuth, requireRole("admin"), async (req,
 
   const query = `
     SELECT id, operator, status, created_at, started_at, finished_at,
-           total_files, total_rows, processed_rows, imported_rows, ignored_rows, error_message
+           total_files, total_rows, processed_rows, imported_rows, ignored_rows, error_message,
+           current_step, file_bytes_read, heartbeat_at
     FROM import_jobs
     WHERE id = $1
     LIMIT 1

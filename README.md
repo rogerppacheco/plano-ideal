@@ -70,6 +70,12 @@ Regras:
 - Linhas sem CEP válido são ignoradas.
 - Todos os campos da planilha são guardados no `row_data` (JSONB).
 
+### Acompanhamento em tempo real
+
+- No painel, o campo **Etapa atual** mostra o que o worker está fazendo (ler disco, parsear CSV, inserir linhas).
+- No terminal do backend, linhas `[import-job ID] ...` registram cada fase com timestamp.
+- Enquanto **Linhas processadas** aparecer `0/0`, o arquivo pode estar só na fase de **parse** (normal em CSVs muito grandes).
+
 ### Como a importação funciona (memória e disco)
 
 1. O navegador envia o arquivo via `multipart/form-data`.

@@ -31,7 +31,10 @@ CREATE TABLE IF NOT EXISTS import_jobs (
   processed_rows INTEGER NOT NULL DEFAULT 0,
   imported_rows INTEGER NOT NULL DEFAULT 0,
   ignored_rows INTEGER NOT NULL DEFAULT 0,
-  error_message TEXT
+  error_message TEXT,
+  current_step TEXT,
+  file_bytes_read BIGINT,
+  heartbeat_at TIMESTAMPTZ
 );
 
 CREATE INDEX IF NOT EXISTS idx_coverage_cep ON coverage_records (cep_digits);
