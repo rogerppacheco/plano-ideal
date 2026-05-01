@@ -199,7 +199,9 @@ async function run() {
       }
     }
 
-    await pool.query(
+    await setJobStep(pool, jobId, "Salvando status final no banco (quase pronto)…");
+
+    const completedResult = await pool.query(
       `
         UPDATE import_jobs
         SET status = 'completed',
@@ -215,7 +217,10 @@ async function run() {
       `,
       [jobId, totalRows, processedRows, importedRows, ignoredRows]
     );
-    logJob(jobId, `Concluído. total_rows=${totalRows} processed=${processedRows} imported=${importedRows} ignored=${ignoredRows}`);
+    logJob(
+      jobId,
+      `Concluído no banco (rows afetadas=${completedResult.rowCount}). total_rows=${totalRows} processed=${processedRows} imported=${importedRows} ignored=${ignoredRows}`
+    );
   } catch (error) {
     logJob(jobId, `Erro: ${error?.message || error}`);
     await pool.query(

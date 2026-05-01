@@ -172,7 +172,11 @@ export default function InternalDashboard() {
         return job;
       }
 
-      await new Promise((resolve) => setTimeout(resolve, 1200));
+      const finishing =
+        job.status === "processing" &&
+        job.total_rows > 0 &&
+        job.processed_rows >= job.total_rows;
+      await new Promise((resolve) => setTimeout(resolve, finishing ? 250 : 1200));
     }
   };
 
@@ -334,6 +338,13 @@ export default function InternalDashboard() {
                   <p className="text-slate-700">
                     Válidas: {jobProgress.imported_rows} | Ignoradas: {jobProgress.ignored_rows}
                   </p>
+                  {jobProgress.status === "processing" &&
+                  jobProgress.total_rows > 0 &&
+                  jobProgress.processed_rows >= jobProgress.total_rows ? (
+                    <p className="mt-2 text-xs font-medium text-amber-800">
+                      Dados já processados — aguardando o servidor gravar o status &quot;concluído&quot; (alguns segundos).
+                    </p>
+                  ) : null}
                   <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-200">
                     <div
                       className="h-full rounded-full bg-brand-600 transition-all"
@@ -403,10 +414,12 @@ export default function InternalDashboard() {
 
 function getProgressPercent(job) {
   if (!job?.total_rows || job.total_rows <= 0) return 0;
-  const percent = Math.round((job.processed_rows / job.total_rows) * 100);
-  if (percent < 0) return 0;
-  if (percent > 100) return 100;
-  return percent;
+  const raw = Math.round((job.processed_rows / job.total_rows) * 100);
+  if (raw < 0) return 0;
+  if (raw > 100) return 100;
+  /* Enquanto status no DB ainda é "processing", não mostrar 100% — falta gravar "completed". */
+  if (job.status === "processing" && raw >= 100) return 99;
+  return raw;
 }
 
 function translateJobStatus(status) {
