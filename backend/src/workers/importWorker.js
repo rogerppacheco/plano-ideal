@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import { parentPort, workerData } from "node:worker_threads";
 import pg from "pg";
+import { ensureCoverageDedupSchema } from "../initSchema.js";
 import { importCsvFileStreaming } from "../services/csvImport.js";
 import { insertCoverageRecord } from "../services/coverageUpsert.js";
 import { mapRowsToCoverageRecords, parseWorkbookRows } from "../services/importService.js";
@@ -45,6 +46,8 @@ async function run() {
   const pool = new Pool({ connectionString: databaseUrl });
 
   try {
+    logJob(jobId, "Garantindo migração de dedup/índice (necessário para upsert)…");
+    await ensureCoverageDedupSchema(pool);
     logJob(jobId, "Iniciando worker de importação.");
     await pool.query(
       `
