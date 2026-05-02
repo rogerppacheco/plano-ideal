@@ -15,7 +15,8 @@ CREATE TABLE IF NOT EXISTS coverage_records (
   sheet_name TEXT,
   row_data JSONB NOT NULL,
   imported_by INTEGER REFERENCES internal_users(id),
-  imported_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  imported_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  dedup_secondary TEXT NOT NULL DEFAULT ''
 );
 
 CREATE TABLE IF NOT EXISTS import_jobs (
@@ -39,4 +40,9 @@ CREATE TABLE IF NOT EXISTS import_jobs (
 
 CREATE INDEX IF NOT EXISTS idx_coverage_cep ON coverage_records (cep_digits);
 CREATE INDEX IF NOT EXISTS idx_coverage_operator ON coverage_records (operator);
+
+-- Upsert natural key por operadora (CEP + NUM ou CEP + NUM_FACHADA); vazio = sem deduplicação (várias linhas permitidas).
+CREATE UNIQUE INDEX IF NOT EXISTS idx_coverage_natural_upsert
+ON coverage_records (operator, cep_digits, dedup_secondary)
+WHERE dedup_secondary <> '';
 CREATE INDEX IF NOT EXISTS idx_import_jobs_created_at ON import_jobs (created_at DESC);

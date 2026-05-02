@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import { open } from "node:fs/promises";
 import { parse } from "csv-parse";
+import { insertCoverageRecord } from "./coverageUpsert.js";
 import { mapRowsToCoverageRecords } from "./importService.js";
 
 const BATCH_ROWS = 2500;
@@ -86,21 +87,7 @@ export async function importCsvFileStreaming({
     ignoredRows += mapped.ignored;
 
     for (const record of mapped.records) {
-      await pool.query(
-        `
-          INSERT INTO coverage_records
-          (cep_digits, operator, source_file, sheet_name, row_data, imported_by)
-          VALUES ($1, $2, $3, $4, $5::jsonb, $6)
-        `,
-        [
-          record.cepDigits,
-          record.operator,
-          record.sourceFile,
-          record.sheetName,
-          JSON.stringify(record.rowData),
-          userId,
-        ]
-      );
+      await insertCoverageRecord(pool, record, userId);
       processedInserts += 1;
     }
 

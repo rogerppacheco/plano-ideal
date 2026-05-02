@@ -2,6 +2,7 @@ import fs from "node:fs";
 import { parentPort, workerData } from "node:worker_threads";
 import pg from "pg";
 import { importCsvFileStreaming } from "../services/csvImport.js";
+import { insertCoverageRecord } from "../services/coverageUpsert.js";
 import { mapRowsToCoverageRecords, parseWorkbookRows } from "../services/importService.js";
 
 const { Pool } = pg;
@@ -155,21 +156,7 @@ async function run() {
         const totalInSheet = mapped.records.length;
 
         for (const record of mapped.records) {
-          await pool.query(
-            `
-              INSERT INTO coverage_records
-              (cep_digits, operator, source_file, sheet_name, row_data, imported_by)
-              VALUES ($1, $2, $3, $4, $5::jsonb, $6)
-            `,
-            [
-              record.cepDigits,
-              record.operator,
-              record.sourceFile,
-              record.sheetName,
-              JSON.stringify(record.rowData),
-              userId,
-            ]
-          );
+          await insertCoverageRecord(pool, record, userId);
           insertedInSheet += 1;
           processedRows += 1;
 

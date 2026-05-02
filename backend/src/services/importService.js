@@ -18,6 +18,14 @@ export function parseWorkbookRows(fileBuffer, originalName) {
   return parsed;
 }
 
+/** Normaliza valor da chave secundária (NUM / NUM_FACHADA) para coincidir com dedupe no banco. */
+export function normalizeDedupSecondary(value) {
+  if (value == null) return "";
+  const s = String(value).trim().replace(/\s+/g, " ");
+  if (!s) return "";
+  return s.toLowerCase();
+}
+
 export function mapRowsToCoverageRecords({ rows, operator, sourceFile, sheetName }) {
   let imported = 0;
   let ignored = 0;
@@ -31,17 +39,89 @@ export function mapRowsToCoverageRecords({ rows, operator, sourceFile, sheetName
         return null;
       }
       imported += 1;
+      const dedupSecondary = dedupSecondaryForOperator(operator, row);
       return {
         cepDigits,
         operator,
         sourceFile,
         sheetName,
         rowData: row,
+        dedupSecondary,
       };
     })
     .filter(Boolean);
 
   return { records, imported, ignored };
+}
+
+function dedupSecondaryForOperator(operator, row) {
+  if (operator === "Vivo") {
+    return normalizeDedupSecondary(extractVivoNumFromRow(row));
+  }
+  if (operator === "Nio") {
+    return normalizeDedupSecondary(extractNioNumFachadaFromRow(row));
+  }
+  return "";
+}
+
+function scoreVivoNumColumn(headerNormalized) {
+  const k = headerNormalized;
+  if (!k) return 0;
+  if (k.includes("fachada")) return 0;
+  if (k === "num") return 100;
+  if (k === "nu_num" || k === "nr_num" || k === "num_id" || k === "cod_num") return 95;
+  if (k.endsWith("_num") && !k.includes("cep")) return 88;
+  if (k === "numero") return 72;
+  if (k.includes("numero") && !k.includes("cep") && !k.includes("fachada")) return 75;
+  return 0;
+}
+
+function extractVivoNumFromRow(row) {
+  const entries = Object.entries(row || {});
+  if (!entries.length) return "";
+
+  let bestScore = 0;
+  let bestValue = "";
+
+  for (const [rawKey, value] of entries) {
+    const token = normalizeHeaderToken(rawKey);
+    const score = scoreVivoNumColumn(token);
+    if (score > bestScore) {
+      bestScore = score;
+      bestValue = value;
+    }
+  }
+
+  return bestScore > 0 ? bestValue : "";
+}
+
+function scoreNioNumFachadaColumn(headerNormalized) {
+  const k = headerNormalized;
+  if (!k) return 0;
+  if (k === "num_fachada") return 100;
+  if (k.startsWith("num_fachada") || k.includes("num_fachada")) return 96;
+  if (k.includes("num") && k.includes("fachada")) return 92;
+  if (k === "nu_fachada" || k === "nr_fachada") return 90;
+  return 0;
+}
+
+function extractNioNumFachadaFromRow(row) {
+  const entries = Object.entries(row || {});
+  if (!entries.length) return "";
+
+  let bestScore = 0;
+  let bestValue = "";
+
+  for (const [rawKey, value] of entries) {
+    const token = normalizeHeaderToken(rawKey);
+    const score = scoreNioNumFachadaColumn(token);
+    if (score > bestScore) {
+      bestScore = score;
+      bestValue = value;
+    }
+  }
+
+  return bestScore > 0 ? bestValue : "";
 }
 
 function normalizeHeaderToken(key) {

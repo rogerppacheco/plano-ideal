@@ -28,6 +28,8 @@ export async function ensureSchema() {
   await pool.query(`ALTER TABLE import_jobs ADD COLUMN IF NOT EXISTS file_bytes_read BIGINT;`);
   await pool.query(`ALTER TABLE import_jobs ADD COLUMN IF NOT EXISTS heartbeat_at TIMESTAMPTZ;`);
 
+  await ensureCoverageDedupSchema();
+
   // Jobs presos em queued/processing por muito tempo (ex.: API reiniciada no meio da importação).
   // Intervalo longo para não encerrar importações grandes legítimas; ajuste via IMPORT_JOB_STALE_HOURS.
   const staleHours = Number(process.env.IMPORT_JOB_STALE_HOURS ?? "168");
@@ -44,4 +46,72 @@ export async function ensureSchema() {
       [staleHours]
     );
   }
+}
+
+/** Chave natural Vivo: CEP + NUM | Nio: CEP + NUM_FACHADA — índice único parcial quando dedup_secondary <> ''. */
+async function ensureCoverageDedupSchema() {
+  const { rows } = await pool.query(`
+    SELECT EXISTS (
+      SELECT FROM information_schema.tables
+      WHERE table_schema = 'public' AND table_name = 'coverage_records'
+    ) AS ok
+  `);
+  if (!rows[0]?.ok) return;
+
+  await pool.query(`
+    ALTER TABLE coverage_records ADD COLUMN IF NOT EXISTS dedup_secondary TEXT NOT NULL DEFAULT '';
+  `);
+
+  await pool.query(`
+    UPDATE coverage_records SET dedup_secondary = TRIM(REGEXP_REPLACE(
+      LOWER(COALESCE(
+        NULLIF(TRIM(row_data->>'NUM'), ''),
+        NULLIF(TRIM(row_data->>'num'), '')
+      )),
+      '\\s+', ' ', 'g'))
+    WHERE operator = 'Vivo'
+      AND dedup_secondary = ''
+      AND COALESCE(
+        NULLIF(TRIM(row_data->>'NUM'), ''),
+        NULLIF(TRIM(row_data->>'num'), '')
+      ) IS NOT NULL;
+  `);
+
+  await pool.query(`
+    UPDATE coverage_records SET dedup_secondary = TRIM(REGEXP_REPLACE(
+      LOWER(COALESCE(
+        NULLIF(TRIM(row_data->>'NUM_FACHADA'), ''),
+        NULLIF(TRIM(row_data->>'Num_Fachada'), ''),
+        NULLIF(TRIM(row_data->>'num_fachada'), '')
+      )),
+      '\\s+', ' ', 'g'))
+    WHERE operator = 'Nio'
+      AND dedup_secondary = ''
+      AND COALESCE(
+        NULLIF(TRIM(row_data->>'NUM_FACHADA'), ''),
+        NULLIF(TRIM(row_data->>'Num_Fachada'), ''),
+        NULLIF(TRIM(row_data->>'num_fachada'), '')
+      ) IS NOT NULL;
+  `);
+
+  await pool.query(`
+    WITH ranked AS (
+      SELECT id,
+        ROW_NUMBER() OVER (
+          PARTITION BY operator, cep_digits, dedup_secondary
+          ORDER BY imported_at DESC NULLS LAST, id DESC
+        ) AS rn
+      FROM coverage_records
+      WHERE dedup_secondary <> ''
+    )
+    DELETE FROM coverage_records cr
+    USING ranked r
+    WHERE cr.id = r.id AND r.rn > 1;
+  `);
+
+  await pool.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_coverage_natural_upsert
+    ON coverage_records (operator, cep_digits, dedup_secondary)
+    WHERE dedup_secondary <> '';
+  `);
 }
