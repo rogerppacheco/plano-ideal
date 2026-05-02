@@ -32,15 +32,12 @@ app.use((error, _req, res, _next) => {
   res.status(500).json({ message: "Erro interno do servidor." });
 });
 
-ensureSchema()
-  .then(() => {
-    app.listen(port, () => {
-      // eslint-disable-next-line no-console
-      console.log(`API rodando em http://localhost:${port}`);
-    });
-  })
-  .catch((error) => {
-    // eslint-disable-next-line no-console
-    console.error("Falha ao inicializar schema:", error);
-    process.exit(1);
-  });
+app.listen(port, () => {
+  // eslint-disable-next-line no-console
+  console.log(`API rodando em http://localhost:${port}`);
+});
+
+ensureSchema().catch((error) => {
+  // eslint-disable-next-line no-console
+  console.error("Falha ao inicializar schema:", error);
+});

@@ -137,15 +137,19 @@ function startImportWorker({ jobId, operator, userId, files }) {
 }
 
 async function markJobAsFailed(jobId, message) {
+  const text = String(message || "Falha inesperada durante importação.");
   await pool.query(
     `
       UPDATE import_jobs
       SET status = 'failed',
-          finished_at = NOW(),
-          error_message = $2
+          finished_at = COALESCE(finished_at, NOW()),
+          error_message = CASE
+            WHEN error_message IS NULL OR BTRIM(error_message) = '' THEN $2
+            ELSE error_message
+          END
       WHERE id = $1
     `,
-    [jobId, String(message || "Falha inesperada durante importação.")]
+    [jobId, text]
   );
 }
 

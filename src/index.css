@@ -2,6 +2,51 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  font-family: "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+@layer base {
+  body {
+    font-family: "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    @apply bg-slate-950 text-slate-100 antialiased;
+    background-image: radial-gradient(circle at 10% 0%, rgba(14, 165, 233, 0.16), transparent 42%),
+      radial-gradient(circle at 85% 15%, rgba(99, 102, 241, 0.14), transparent 40%);
+  }
+}
+
+@layer components {
+  .surface-card {
+    @apply rounded-2xl border border-slate-200/70 bg-white/95 shadow-card backdrop-blur;
+    animation: card-enter 420ms ease-out both;
+  }
+
+  .input-modern {
+    @apply w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition duration-200 focus:border-brand-500 focus:ring-4 focus:ring-brand-50;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-xl bg-brand-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-brand-600/20 transition duration-200 hover:-translate-y-[1px] hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition duration-200 hover:bg-slate-100;
+  }
+
+  .muted {
+    @apply text-sm text-slate-700;
+  }
+}
+
+@keyframes card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .surface-card {
+    animation: none;
+  }
 }

@@ -60,6 +60,7 @@ export default function InternalDashboard() {
     byOperator: {},
     fieldsByOperator: {},
   });
+  const consultedAddress = useMemo(() => formatAddressFromRecords(result?.records), [result]);
 
   if (!sessionUser || !token) {
     return null;
@@ -181,9 +182,9 @@ export default function InternalDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 px-4 py-10">
+    <div className="min-h-screen px-4 py-10">
       <div className="mx-auto max-w-5xl space-y-6">
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-card">
+        <div className="surface-card p-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h1 className="text-2xl font-extrabold text-slate-900">Área interna</h1>
@@ -194,14 +195,14 @@ export default function InternalDashboard() {
             <button
               type="button"
               onClick={handleLogout}
-              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+              className="btn-secondary"
             >
               Sair
             </button>
           </div>
         </div>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-card">
+        <section className="surface-card p-6">
           <h2 className="text-xl font-bold text-slate-900">Consulta por CEP</h2>
           <p className="mt-1 text-sm text-slate-600">
             Consulta disponível para admin e vendedor.
@@ -214,12 +215,12 @@ export default function InternalDashboard() {
               value={cep}
               onChange={handleCepChange}
               placeholder="00000-000"
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+              className="input-modern"
               required
             />
             <button
               type="submit"
-              className="rounded-xl bg-brand-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-brand-700"
+              className="btn-primary"
             >
               Consultar
             </button>
@@ -228,8 +229,43 @@ export default function InternalDashboard() {
           {consultError ? <p className="mt-2 text-sm text-red-600">{consultError}</p> : null}
 
           {result ? (
-            <div className="mt-4 rounded-xl bg-slate-50 p-4">
-              <p className="text-sm font-semibold text-slate-700">CEP consultado: {result.cep}</p>
+            <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-sm font-semibold text-slate-700">
+                CEP consultado: {result.cep}
+                {consultedAddress ? `, ${consultedAddress}` : ""}
+              </p>
+              <details className="mt-2 rounded-lg bg-white p-3 ring-1 ring-slate-200">
+                <summary className="cursor-pointer text-sm font-semibold text-slate-700">
+                  Ver todos os números por operadora
+                </summary>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Vivo (NUM)
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {renderNumberChips(result.records, "Vivo", [
+                        "NUM",
+                        "Numero",
+                        "NUMERO",
+                        "numero",
+                      ])}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Nio (NUM_FACHADA)
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {renderNumberChips(result.records, "Nio", [
+                        "NUM_FACHADA",
+                        "Num_Fachada",
+                        "num_fachada",
+                      ])}
+                    </div>
+                  </div>
+                </div>
+              </details>
               {result.operators.length > 0 ? (
                 <>
                   <p className="mt-2 text-sm text-slate-800">
@@ -246,11 +282,18 @@ export default function InternalDashboard() {
                 </p>
               )}
             </div>
-          ) : null}
+          ) : (
+            <div className="mt-4 rounded-xl border border-dashed border-slate-300 bg-slate-50/80 p-4">
+              <p className="text-sm font-semibold text-slate-700">Nenhum CEP consultado ainda</p>
+              <p className="mt-1 text-xs text-slate-600">
+                Digite um CEP valido e clique em consultar para ver operadoras e detalhes.
+              </p>
+            </div>
+          )}
         </section>
 
         {isAdmin ? (
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-card">
+          <section className="surface-card p-6">
             <h2 className="text-xl font-bold text-slate-900">Importar bases para o banco interno</h2>
             <p className="mt-1 text-sm text-slate-600">
               Modelo: coluna com nome contendo "CEP" é obrigatória. Todos os outros campos da
@@ -261,14 +304,14 @@ export default function InternalDashboard() {
               <button
                 type="button"
                 onClick={() => handleTemplateDownload("Vivo")}
-                className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
+                className="btn-secondary px-3 py-2 text-xs"
               >
                 Baixar modelo Vivo (.csv)
               </button>
               <button
                 type="button"
                 onClick={() => handleTemplateDownload("Nio")}
-                className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
+                className="btn-secondary px-3 py-2 text-xs"
               >
                 Baixar modelo Nio (.csv)
               </button>
@@ -283,7 +326,7 @@ export default function InternalDashboard() {
                   id="operator"
                   value={operator}
                   onChange={(event) => setOperator(event.target.value)}
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                  className="input-modern"
                 >
                   <option value="Vivo">Vivo</option>
                   <option value="Nio">Nio</option>
@@ -300,7 +343,7 @@ export default function InternalDashboard() {
                   accept=".xlsx,.xls,.csv"
                   multiple
                   onChange={(event) => setFiles([...event.target.files])}
-                  className="block w-full rounded-xl border border-slate-300 p-2 text-sm"
+                  className="input-modern block p-2"
                 />
               </div>
 
@@ -312,9 +355,26 @@ export default function InternalDashboard() {
                   <p className="font-semibold text-slate-800">
                     Status: {translateJobStatus(jobProgress.status)}
                   </p>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                    {buildJobStages(jobProgress).map((stage) => (
+                      <div
+                        key={stage.label}
+                        className={`rounded-lg border px-3 py-2 text-xs ${
+                          stage.state === "done"
+                            ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                            : stage.state === "active"
+                              ? "border-brand-200 bg-brand-50 text-brand-800"
+                              : "border-slate-200 bg-white text-slate-500"
+                        }`}
+                      >
+                        <p className="font-semibold">{stage.label}</p>
+                        <p className="mt-1">{stage.text}</p>
+                      </div>
+                    ))}
+                  </div>
                   {jobProgress.current_step ? (
                     <p className="mt-2 rounded-lg bg-white px-3 py-2 text-slate-800 ring-1 ring-slate-200">
-                      <span className="text-xs font-semibold uppercase text-slate-500">Etapa atual</span>
+                      <span className="text-xs font-semibold uppercase text-slate-600">Etapa atual</span>
                       <br />
                       {jobProgress.current_step}
                     </p>
@@ -351,7 +411,7 @@ export default function InternalDashboard() {
                       style={{ width: `${getProgressPercent(jobProgress)}%` }}
                     />
                   </div>
-                  <p className="mt-1 text-xs text-slate-600">
+                  <p className="mt-1 text-xs text-slate-700">
                     Progresso: {getProgressPercent(jobProgress)}%
                   </p>
                   {jobProgress.error_message ? (
@@ -363,14 +423,34 @@ export default function InternalDashboard() {
               <button
                 type="submit"
                 disabled={isImporting}
-                className="rounded-xl bg-brand-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
+                className="btn-primary disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isImporting ? "Importando..." : "Importar base"}
               </button>
             </form>
 
-            <div className="mt-6 rounded-xl bg-slate-50 p-4">
+            <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
               <h3 className="text-sm font-bold text-slate-900">Resumo das importações</h3>
+              <div className="mt-3 grid gap-3 md:grid-cols-3">
+                <div className="rounded-lg border border-slate-200 bg-white p-3">
+                  <p className="text-xs font-semibold uppercase text-slate-500">Total importado</p>
+                  <p className="mt-1 text-2xl font-black text-slate-900">
+                    {summary.totalImportedRows.toLocaleString("pt-BR")}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-white p-3">
+                  <p className="text-xs font-semibold uppercase text-slate-500">Operadoras</p>
+                  <p className="mt-1 text-2xl font-black text-slate-900">
+                    {Object.keys(summary.byOperator).length}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-white p-3">
+                  <p className="text-xs font-semibold uppercase text-slate-500">Campos mapeados</p>
+                  <p className="mt-1 text-2xl font-black text-slate-900">
+                    {Object.values(summary.fieldsByOperator).reduce((acc, fields) => acc + fields.length, 0)}
+                  </p>
+                </div>
+              </div>
               <p className="mt-1 text-sm text-slate-700">
                 Total de linhas importadas: <span className="font-semibold">{summary.totalImportedRows}</span>
               </p>
@@ -389,12 +469,21 @@ export default function InternalDashboard() {
               </div>
 
               <div className="mt-3 space-y-2">
-                {Object.entries(summary.fieldsByOperator).map(([name, fields]) => (
-                  <div key={name}>
-                    <p className="text-sm font-semibold text-slate-800">Campos detectados - {name}</p>
-                    <p className="text-xs text-slate-600">{fields.join(", ")}</p>
+                {Object.entries(summary.fieldsByOperator).length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-slate-300 bg-white p-3">
+                    <p className="text-sm font-semibold text-slate-700">Nenhum campo mapeado ainda</p>
+                    <p className="mt-1 text-xs text-slate-600">
+                      Os campos aparecerao aqui apos a primeira importacao concluida.
+                    </p>
                   </div>
-                ))}
+                ) : (
+                  Object.entries(summary.fieldsByOperator).map(([name, fields]) => (
+                    <div key={name}>
+                      <p className="text-sm font-semibold text-slate-800">Campos detectados - {name}</p>
+                      <p className="text-xs text-slate-700">{fields.join(", ")}</p>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           </section>
@@ -437,4 +526,102 @@ function formatBytes(value) {
   if (n < 1024) return `${n} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
   return `${(n / 1024 / 1024).toFixed(2)} MB`;
+}
+
+function formatAddressFromRecords(records) {
+  if (!Array.isArray(records) || records.length === 0) return "";
+  const row = records[0]?.row_data || {};
+  const logradouro = pickField(row, ["LOGRADOURO", "logradouro", "ENDERECO", "ENDEREÇO", "endereco"]);
+  const numero = pickField(row, ["NUM", "Numero", "NUMERO", "numero", "NUM_FACHADA", "num_fachada"]);
+  const bairro = pickField(row, ["BAIRRO", "bairro"]);
+  const cidade = pickField(row, ["CIDADE", "Cidade", "MUNICIPIO", "municipio", "MUNICÍPIO"]);
+  const uf = pickField(row, ["UF", "uf"]);
+
+  const ruaNumero = [logradouro, numero].filter(Boolean).join(", ");
+  const cidadeUf = [cidade, uf].filter(Boolean).join("/");
+  return [ruaNumero, bairro, cidadeUf].filter(Boolean).join(" - ");
+}
+
+function pickField(source, keys) {
+  for (const key of keys) {
+    const value = source?.[key];
+    if (value == null) continue;
+    const text = String(value).trim();
+    if (text) return text;
+  }
+  return "";
+}
+
+function getOperatorNumberList(records, operatorName, keys) {
+  if (!Array.isArray(records) || records.length === 0) return [];
+  const values = new Set();
+  for (const record of records) {
+    if (record?.operator !== operatorName) continue;
+    const raw = pickField(record?.row_data || {}, keys);
+    if (raw) values.add(raw);
+  }
+  return Array.from(values);
+}
+
+function renderNumberChips(records, operatorName, keys) {
+  const list = getOperatorNumberList(records, operatorName, keys);
+  if (list.length === 0) {
+    return <span className="text-sm text-slate-600">—</span>;
+  }
+  const mobileLimit = 16;
+  const fullLimit = 80;
+  const visibleList = list.slice(0, fullLimit);
+  const hiddenCount = Math.max(0, list.length - mobileLimit);
+
+  return (
+    <>
+      {visibleList.map((value, idx) => (
+        <span
+          key={`${operatorName}-${value}`}
+          className={`rounded-full border border-slate-300 bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 ${
+            idx >= mobileLimit ? "hidden sm:inline-flex" : "inline-flex"
+          }`}
+        >
+          {value}
+        </span>
+      ))}
+      {hiddenCount > 0 ? (
+        <span className="inline-flex rounded-full border border-brand-200 bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700 sm:hidden">
+          +{hiddenCount} no mobile
+        </span>
+      ) : null}
+    </>
+  );
+}
+
+function buildJobStages(job) {
+  const status = job?.status;
+  const isQueued = status === "queued";
+  const isProcessing = status === "processing";
+  const isCompleted = status === "completed";
+  const isFailed = status === "failed";
+  const hasRows = Number(job?.total_rows || 0) > 0;
+  const finishing = isProcessing && hasRows && (job?.processed_rows || 0) >= (job?.total_rows || 0);
+
+  return [
+    {
+      label: "1. Fila",
+      state: isQueued ? "active" : "done",
+      text: isQueued ? "Aguardando inicio" : "Etapa concluida",
+    },
+    {
+      label: "2. Processamento",
+      state: isProcessing ? "active" : isCompleted || isFailed ? "done" : "pending",
+      text: isProcessing ? "Lendo e validando planilhas" : "Etapa concluida",
+    },
+    {
+      label: "3. Finalizacao",
+      state: isCompleted ? "done" : finishing ? "active" : isFailed ? "active" : "pending",
+      text: isCompleted
+        ? "Importacao concluida"
+        : isFailed
+          ? "Falha na importacao"
+          : "Consolidando dados",
+    },
+  ];
 }

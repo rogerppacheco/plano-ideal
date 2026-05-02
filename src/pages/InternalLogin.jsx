@@ -26,9 +26,10 @@ export default function InternalLogin() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 px-4 py-10">
-      <div className="mx-auto max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-card">
-        <h1 className="text-2xl font-extrabold text-slate-900">Área interna</h1>
+    <div className="min-h-screen px-4 py-10">
+      <div className="surface-card mx-auto max-w-md p-6">
+        <p className="text-xs font-bold uppercase tracking-wider text-brand-600">Plano Ideal</p>
+        <h1 className="mt-1 text-2xl font-extrabold text-slate-900">Área interna</h1>
         <p className="mt-2 text-sm text-slate-600">
           Acesso para equipe consultar operadoras por CEP e, no perfil admin, importar bases.
         </p>
@@ -43,7 +44,7 @@ export default function InternalLogin() {
               type="text"
               value={user}
               onChange={(event) => setUser(event.target.value)}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+              className="input-modern"
               required
             />
           </div>
@@ -57,7 +58,7 @@ export default function InternalLogin() {
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+              className="input-modern"
               required
             />
           </div>
@@ -66,12 +67,12 @@ export default function InternalLogin() {
 
           <button
             type="submit"
-            className="w-full rounded-xl bg-brand-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-brand-700"
+            className="btn-primary w-full"
           >
             Entrar
           </button>
         </form>
-        <div className="mt-4 rounded-lg bg-slate-50 p-3 text-xs text-slate-600">
+        <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
           <p>Use credenciais cadastradas no PostgreSQL.</p>
         </div>
       </div>

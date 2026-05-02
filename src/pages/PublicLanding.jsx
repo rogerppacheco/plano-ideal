@@ -57,8 +57,8 @@ export default function PublicLanding() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-brand-50 to-slate-100 text-slate-900">
-      <header className="border-b border-slate-200 bg-white/80 backdrop-blur">
+    <div className="min-h-screen text-slate-900">
+      <header className="border-b border-white/60 bg-white/80 backdrop-blur-md">
         <div className="mx-auto max-w-5xl px-4 py-4 md:px-8">
           <div>
             <p className="text-xs font-bold uppercase tracking-wider text-brand-600">
@@ -69,16 +69,20 @@ export default function PublicLanding() {
         </div>
       </header>
 
-      <main className="mx-auto flex min-h-[calc(100vh-80px)] max-w-5xl items-center px-4 py-12 md:px-8">
-        <section className="w-full rounded-3xl border border-slate-200 bg-white p-6 shadow-card md:p-10">
+      <main className="mx-auto flex min-h-[calc(100vh-80px)] max-w-6xl items-center px-4 py-12 md:px-8">
+        <section className="surface-card w-full p-6 md:p-10">
           <p className="mb-2 text-sm font-semibold uppercase tracking-wide text-brand-700">
-            Qual plano ideial
+            Qual plano ideal
           </p>
-          <h2 className="text-2xl font-black leading-tight md:text-4xl">
+          <h2 className="text-2xl font-black leading-tight text-slate-900 md:text-4xl">
             Consulte cobertura pelo CEP
           </h2>
+          <p className="mt-3 max-w-2xl text-sm text-slate-700 md:text-base">
+            Descubra em segundos se a sua regiao possui cobertura e siga direto para o atendimento
+            no WhatsApp.
+          </p>
 
-          <form className="mt-8 grid gap-4 md:grid-cols-2" onSubmit={handleSubmit}>
+          <form className="mt-8 grid gap-4 md:grid-cols-3" onSubmit={handleSubmit}>
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="name">
                 Nome
@@ -89,7 +93,7 @@ export default function PublicLanding() {
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 placeholder="Digite seu nome"
-                className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                className="input-modern"
                 required
               />
             </div>
@@ -105,17 +109,17 @@ export default function PublicLanding() {
                 value={cep}
                 onChange={handleCepChange}
                 placeholder="00000-000"
-                className={`w-full rounded-xl border px-4 py-3 text-sm text-slate-900 outline-none transition focus:ring-2 ${
+                className={`input-modern ${
                   cepError
                     ? "border-red-500 focus:border-red-500 focus:ring-red-100"
-                    : "border-slate-300 focus:border-brand-500 focus:ring-brand-100"
+                    : ""
                 }`}
                 required
               />
               {cepError ? <p className="mt-1 text-xs text-red-600">{cepError}</p> : null}
             </div>
 
-            <div className="md:col-span-2">
+            <div>
               <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="facade">
                 Fachada
               </label>
@@ -125,20 +129,41 @@ export default function PublicLanding() {
                 value={facade}
                 onChange={(event) => setFacade(event.target.value)}
                 placeholder="Ex: casa azul, número 120, perto da praça"
-                className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                className="input-modern"
               />
             </div>
 
             <button
               type="submit"
               disabled={!canSubmit || isSubmitting}
-              className="md:col-span-2 mt-2 rounded-xl bg-brand-600 px-5 py-4 text-base font-bold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
+              className="btn-primary md:col-span-3 mt-2 py-4 text-base font-bold"
             >
               {isSubmitting ? "Consultando..." : "Consultar"}
             </button>
           </form>
 
           {submitError ? <p className="mt-3 text-sm text-red-600">{submitError}</p> : null}
+
+          {!submitError ? (
+            <p className="mt-3 text-xs text-slate-500">
+              Dica: informe a fachada para facilitar a localizacao no atendimento.
+            </p>
+          ) : null}
+
+          <div className="mt-6 grid gap-3 md:grid-cols-3">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 transition duration-200 hover:-translate-y-0.5 hover:bg-white">
+              <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Rapido</p>
+              <p className="mt-1 text-sm text-slate-700">Consulta de viabilidade em poucos segundos.</p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 transition duration-200 hover:-translate-y-0.5 hover:bg-white">
+              <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Direto no WhatsApp</p>
+              <p className="mt-1 text-sm text-slate-700">Fluxo simples para acelerar o atendimento comercial.</p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 transition duration-200 hover:-translate-y-0.5 hover:bg-white">
+              <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Privado</p>
+              <p className="mt-1 text-sm text-slate-700">Triagem interna por referencia, sem expor regras ao cliente.</p>
+            </div>
+          </div>
 
           <div className="mt-4 text-right">
             <a
