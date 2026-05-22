@@ -8,6 +8,11 @@ import {
   setDetectedOperator,
   updateImportJobFileStats,
 } from "../services/importJobService.js";
+import {
+  PHASE,
+  setProgressPhase,
+  updateJobProgress,
+} from "../services/importJobProgress.js";
 import { insertCoverageRecord } from "../services/coverageUpsert.js";
 import {
   mapRowsToCoverageRecords,
@@ -55,15 +60,18 @@ async function run() {
   try {
     logJob(jobId, "Garantindo migração de dedup/índice (necessário para upsert)…");
     await ensureCoverageDedupSchema(pool);
+    await pool.query(`ALTER TABLE import_jobs ADD COLUMN IF NOT EXISTS progress_phase TEXT;`);
     logJob(jobId, "Iniciando worker de importação.");
     await pool.query(
       `
         UPDATE import_jobs
         SET status = 'processing',
-            started_at = NOW()
+            started_at = NOW(),
+            progress_phase = $2,
+            heartbeat_at = NOW()
         WHERE id = $1
       `,
-      [jobId]
+      [jobId, PHASE.READING]
     );
 
     await setJobStep(pool, jobId, "Preparando arquivos…");
@@ -80,13 +88,14 @@ async function run() {
       processedRows,
       importedRows,
       ignoredRows,
+      phase: PHASE.QUEUED,
     });
 
     for (const file of files) {
       const { path: filePath, originalname } = file;
       logJob(jobId, `Lendo do disco: ${originalname}`);
 
-      await setJobStep(pool, jobId, `Lendo arquivo: ${originalname}…`);
+      await setProgressPhase(pool, jobId, PHASE.READING, `Lendo arquivo: ${originalname}…`);
 
       const isCsv = originalname.toLowerCase().endsWith(".csv");
 
@@ -115,18 +124,42 @@ async function run() {
         continue;
       }
 
-      const buffer = fs.readFileSync(filePath);
-      const sizeMb = (buffer.length / 1024 / 1024).toFixed(2);
-      logJob(jobId, `Arquivo lido: ${sizeMb} MB. Iniciando parse (etapa mais lenta em CSVs grandes).`);
-
-      await setJobStep(
+      await setProgressPhase(
         pool,
         jobId,
-        `Arquivo em memória (${sizeMb} MB). Parseando planilha — pode levar vários minutos sem mudar o contador de linhas…`,
-        buffer.length
+        PHASE.READING,
+        `Carregando ${originalname} do disco…`
       );
+      const buffer = fs.readFileSync(filePath);
+      const sizeMb = (buffer.length / 1024 / 1024).toFixed(2);
+      logJob(jobId, `Arquivo lido: ${sizeMb} MB. Iniciando parse.`);
 
-      const parsedSheets = parseWorkbookRows(buffer, originalname);
+      await setProgressPhase(
+        pool,
+        jobId,
+        PHASE.PARSING,
+        `Parseando planilha (${sizeMb} MB) — etapa lenta em arquivos grandes…`
+      );
+      await setJobStep(pool, jobId, `Parseando planilha (${sizeMb} MB)…`, buffer.length);
+
+      const parseStarted = Date.now();
+      const parseHeartbeat = setInterval(() => {
+        const sec = Math.round((Date.now() - parseStarted) / 1000);
+        setJobStep(
+          pool,
+          jobId,
+          `Parseando planilha (${sizeMb} MB) — ${sec}s…`,
+          buffer.length
+        ).catch(() => {});
+        setProgressPhase(pool, jobId, PHASE.PARSING).catch(() => {});
+      }, 4000);
+
+      let parsedSheets;
+      try {
+        parsedSheets = parseWorkbookRows(buffer, originalname);
+      } finally {
+        clearInterval(parseHeartbeat);
+      }
       const firstLen = parsedSheets[0]?.rows?.length ?? 0;
       logJob(
         jobId,
@@ -134,10 +167,11 @@ async function run() {
       );
 
       for (const sheet of parsedSheets) {
-        await setJobStep(
+        await setProgressPhase(
           pool,
           jobId,
-          `Processando aba "${sheet.sheetName || "Planilha"}": ${sheet.rows.length.toLocaleString("pt-BR")} linhas detectadas.`
+          PHASE.INSERTING,
+          `Aba "${sheet.sheetName || "Planilha"}": ${sheet.rows.length.toLocaleString("pt-BR")} linhas — inserindo no banco…`
         );
 
         if (sheet.rows[0]) {
@@ -162,10 +196,11 @@ async function run() {
           processedRows,
           importedRows,
           ignoredRows,
+          phase: PHASE.INSERTING,
         });
         logJob(
           jobId,
-          `Aba processada: total_rows=${totalRows}, válidas acumuladas=${importedRows}, ignoradas=${ignoredRows}. Inserindo no banco…`
+          `Aba mapeada: total_rows=${totalRows}, válidas=${importedRows}, ignoradas=${ignoredRows}. Inserindo…`
         );
 
         let insertedInSheet = 0;
@@ -188,6 +223,7 @@ async function run() {
               processedRows,
               importedRows,
               ignoredRows,
+              phase: PHASE.INSERTING,
             });
           }
         }
@@ -198,6 +234,7 @@ async function run() {
           processedRows,
           importedRows,
           ignoredRows,
+          phase: PHASE.INSERTING,
         });
 
         await updateImportJobFileStats(pool, jobId, sheet.sourceFile, {
@@ -207,7 +244,12 @@ async function run() {
       }
     }
 
-    await setJobStep(pool, jobId, "Salvando status final no banco (quase pronto)…");
+    await setProgressPhase(
+      pool,
+      jobId,
+      PHASE.FINALIZING,
+      "Salvando status final no banco (quase pronto)…"
+    );
 
     const completedResult = await pool.query(
       `
@@ -220,6 +262,7 @@ async function run() {
             ignored_rows = $5,
             error_message = NULL,
             current_step = 'Importação concluída.',
+            progress_phase = NULL,
             heartbeat_at = NOW()
         WHERE id = $1
       `,
@@ -238,6 +281,7 @@ async function run() {
             finished_at = NOW(),
             error_message = $2,
             current_step = 'Falha na importação.',
+            progress_phase = NULL,
             heartbeat_at = NOW()
         WHERE id = $1
       `,
@@ -247,21 +291,6 @@ async function run() {
   } finally {
     await pool.end();
   }
-}
-
-async function updateJobProgress(pool, { jobId, totalRows, processedRows, importedRows, ignoredRows }) {
-  await pool.query(
-    `
-      UPDATE import_jobs
-      SET total_rows = $2,
-          processed_rows = $3,
-          imported_rows = $4,
-          ignored_rows = $5,
-          heartbeat_at = NOW()
-      WHERE id = $1
-    `,
-    [jobId, totalRows, processedRows, importedRows, ignoredRows]
-  );
 }
 
 run()

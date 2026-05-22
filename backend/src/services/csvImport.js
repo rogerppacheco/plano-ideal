@@ -3,6 +3,7 @@ import { open } from "node:fs/promises";
 import { parse } from "csv-parse";
 import { insertCoverageRecord } from "./coverageUpsert.js";
 import { mapRowsToCoverageRecords, sniffOperatorFromRow } from "./importService.js";
+import { PHASE, setProgressPhase } from "./importJobProgress.js";
 import { setDetectedOperator, updateImportJobFileStats } from "./importJobService.js";
 
 const BATCH_ROWS = 2500;
@@ -43,11 +44,18 @@ export async function importCsvFileStreaming({
   const stat = fs.statSync(filePath);
   const sizeMb = (stat.size / 1024 / 1024).toFixed(2);
   logJob(jobId, `CSV ${sizeMb} MB — streaming (sem parse monolítico xlsx).`);
+  await setProgressPhase(pool, jobId, PHASE.READING, `CSV: preparando leitura (${sizeMb} MB)…`);
   await setJobStep(pool, jobId, `CSV: preparando leitura (${sizeMb} MB)…`, stat.size);
 
   const delimiter = await detectCsvDelimiter(filePath);
   logJob(jobId, `CSV: delimitador detectado "${delimiter}". Streaming linha a linha.`);
 
+  await setProgressPhase(
+    pool,
+    jobId,
+    PHASE.INSERTING,
+    `CSV (${delimiter}): lendo e inserindo em blocos — o contador sobe durante o processamento…`
+  );
   await setJobStep(
     pool,
     jobId,

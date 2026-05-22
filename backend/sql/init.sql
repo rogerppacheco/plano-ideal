@@ -39,7 +39,8 @@ CREATE TABLE IF NOT EXISTS import_jobs (
   error_message TEXT,
   current_step TEXT,
   file_bytes_read BIGINT,
-  heartbeat_at TIMESTAMPTZ
+  heartbeat_at TIMESTAMPTZ,
+  progress_phase TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_coverage_cep ON coverage_records (cep_digits);

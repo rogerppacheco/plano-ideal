@@ -64,7 +64,7 @@ router.get("/import/jobs/active", requireAuth, requireRole("admin"), async (_req
   const jobQuery = `
     SELECT id, operator, status, created_at, started_at, finished_at,
            total_files, total_rows, processed_rows, imported_rows, ignored_rows, error_message,
-           current_step, file_bytes_read, heartbeat_at
+           current_step, file_bytes_read, heartbeat_at, progress_phase
     FROM import_jobs
     WHERE status IN ('queued', 'processing')
       AND reverted_at IS NULL
@@ -78,7 +78,7 @@ router.get("/import/jobs/active", requireAuth, requireRole("admin"), async (_req
     const fallbackQuery = `
       SELECT id, operator, status, created_at, started_at, finished_at,
              total_files, total_rows, processed_rows, imported_rows, ignored_rows, error_message,
-             current_step, file_bytes_read, heartbeat_at
+             current_step, file_bytes_read, heartbeat_at, progress_phase
       FROM import_jobs
       WHERE status IN ('queued', 'processing')
       ORDER BY created_at DESC
@@ -197,7 +197,7 @@ router.get("/import/jobs/:jobId", requireAuth, requireRole("admin"), async (req,
   const fullQuery = `
     SELECT id, operator, detected_operator, status, created_at, started_at, finished_at,
            total_files, total_rows, processed_rows, imported_rows, ignored_rows, error_message,
-           current_step, file_bytes_read, heartbeat_at, reverted_at, records_deleted
+           current_step, file_bytes_read, heartbeat_at, progress_phase, reverted_at, records_deleted
     FROM import_jobs
     WHERE id = $1
     LIMIT 1
@@ -205,7 +205,7 @@ router.get("/import/jobs/:jobId", requireAuth, requireRole("admin"), async (req,
   const basicQuery = `
     SELECT id, operator, status, created_at, started_at, finished_at,
            total_files, total_rows, processed_rows, imported_rows, ignored_rows, error_message,
-           current_step, file_bytes_read, heartbeat_at
+           current_step, file_bytes_read, heartbeat_at, progress_phase
     FROM import_jobs
     WHERE id = $1
     LIMIT 1
@@ -298,7 +298,7 @@ router.get("/import/summary", requireAuth, requireRole("admin"), async (_req, re
       `
         SELECT id, operator, status, created_at, started_at,
                total_rows, processed_rows, imported_rows, ignored_rows,
-               current_step, error_message
+               current_step, error_message, heartbeat_at, progress_phase
         FROM import_jobs
         WHERE status IN ('queued', 'processing')
         ORDER BY created_at DESC

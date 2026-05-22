@@ -15,6 +15,15 @@ import {
 import nioLogo from "../assets/operators/nio.png";
 import vivoLogo from "../assets/operators/vivo.png";
 import { maskCep } from "../utils/coverage";
+import {
+  getHeartbeatAgeMs,
+  getImportProgressLabel,
+  getImportProgressPercent,
+  getPollIntervalMs,
+  inferProgressPhase,
+  isImportStalled,
+  translateProgressPhase,
+} from "../utils/importProgress";
 
 const OPERATOR_LOGOS = {
   vivo: vivoLogo,
@@ -262,11 +271,7 @@ export default function InternalDashboard() {
         return job;
       }
 
-      const finishing =
-        job.status === "processing" &&
-        job.total_rows > 0 &&
-        job.processed_rows >= job.total_rows;
-      await new Promise((resolve) => setTimeout(resolve, finishing ? 250 : 1200));
+      await new Promise((resolve) => setTimeout(resolve, getPollIntervalMs(job)));
     }
   };
 
@@ -368,10 +373,9 @@ export default function InternalDashboard() {
                 "Processando… Você pode atualizar a página; o progresso continua sendo carregado."}
             </p>
             <p className="mt-2 text-sm text-slate-700">
-              Linhas: {Number(jobProgress.processed_rows || 0).toLocaleString("pt-BR")} /{" "}
-              {Number(jobProgress.total_rows || 0).toLocaleString("pt-BR")} · Válidas:{" "}
-              {Number(jobProgress.imported_rows || 0).toLocaleString("pt-BR")}
+              {getImportProgressLabel(jobProgress)}
             </p>
+            <ImportProgressDetails job={jobProgress} compact />
             <button
               type="button"
               onClick={() => setActiveTab("importacoes")}
@@ -636,36 +640,27 @@ export default function InternalDashboard() {
                       Arquivo lido: {formatBytes(jobProgress.file_bytes_read)}
                     </p>
                   ) : null}
-                  {jobProgress.status === "processing" &&
-                  (jobProgress.total_rows || 0) === 0 &&
-                  !jobProgress.current_step?.includes("Parseando") ? (
-                    <p className="mt-2 text-xs text-amber-800">
-                      Enquanto “Linhas processadas” estiver 0/0, o worker pode estar lendo o arquivo ou
-                      parseando o CSV inteiro na memória — isso pode demorar em arquivos grandes.
-                    </p>
-                  ) : null}
+                  <ImportProgressDetails job={jobProgress} />
                   <p className="mt-2 text-slate-700">
-                    Linhas processadas: {jobProgress.processed_rows} / {jobProgress.total_rows || 0}
+                    Linhas processadas:{" "}
+                    {Number(jobProgress.processed_rows || 0).toLocaleString("pt-BR")} /{" "}
+                    {Number(jobProgress.total_rows || 0).toLocaleString("pt-BR")}
                   </p>
                   <p className="text-slate-700">
-                    Válidas: {jobProgress.imported_rows} | Ignoradas: {jobProgress.ignored_rows}
+                    Válidas: {Number(jobProgress.imported_rows || 0).toLocaleString("pt-BR")} | Ignoradas:{" "}
+                    {Number(jobProgress.ignored_rows || 0).toLocaleString("pt-BR")}
                   </p>
-                  {jobProgress.status === "processing" &&
-                  jobProgress.total_rows > 0 &&
-                  jobProgress.processed_rows >= jobProgress.total_rows ? (
-                    <p className="mt-2 text-xs font-medium text-amber-800">
-                      Dados já processados — aguardando o servidor gravar o status &quot;concluído&quot; (alguns segundos).
-                    </p>
-                  ) : null}
                   <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-200">
                     <div
-                      className="h-full rounded-full bg-brand-600 transition-all"
-                      style={{ width: `${getProgressPercent(jobProgress)}%` }}
+                      className={`h-full rounded-full transition-all ${
+                        inferProgressPhase(jobProgress) === "parsing"
+                          ? "animate-pulse bg-amber-500"
+                          : "bg-brand-600"
+                      }`}
+                      style={{ width: `${getImportProgressPercent(jobProgress)}%` }}
                     />
                   </div>
-                  <p className="mt-1 text-xs text-slate-700">
-                    Progresso: {getProgressPercent(jobProgress)}%
-                  </p>
+                  <p className="mt-1 text-xs text-slate-700">{getImportProgressLabel(jobProgress)}</p>
                   {jobProgress.error_message ? (
                     <p className="mt-1 text-xs text-red-600">{jobProgress.error_message}</p>
                   ) : null}
@@ -964,15 +959,48 @@ export default function InternalDashboard() {
   );
 }
 
-function getProgressPercent(job) {
-  if (!job?.total_rows || job.total_rows <= 0) return 0;
-  /* Job concluído: barra 100% (não confundir com % de linhas com CEP válido). */
-  if (job.status === "completed") return 100;
-  const raw = Math.round((job.processed_rows / job.total_rows) * 100);
-  if (raw < 0) return 0;
-  if (raw > 100) return 100;
-  if (job.status === "processing" && raw >= 100) return 99;
-  return raw;
+function ImportProgressDetails({ job, compact = false }) {
+  if (!job) return null;
+  const phase = inferProgressPhase(job);
+  const stalled = isImportStalled(job);
+  const ageMs = getHeartbeatAgeMs(job);
+  const ageMin = ageMs != null ? Math.floor(ageMs / 60000) : null;
+
+  return (
+    <div className={compact ? "mt-1 space-y-1" : "mt-2 space-y-2"}>
+      <p className={`text-slate-700 ${compact ? "text-xs" : "text-sm"}`}>
+        Fase: <span className="font-semibold">{translateProgressPhase(phase)}</span>
+        {job.heartbeat_at ? (
+          <span className="text-slate-500">
+            {" "}
+            · última atualização há {ageMin != null && ageMin > 0 ? `${ageMin} min` : "poucos segundos"}
+          </span>
+        ) : null}
+      </p>
+      {phase === "parsing" ? (
+        <p className="text-xs text-amber-800">
+          Planilha Excel: leitura/parse na memória — o contador de linhas só sobe depois do parse.
+        </p>
+      ) : null}
+      {phase === "reading" && (job.total_rows || 0) === 0 ? (
+        <p className="text-xs text-amber-800">
+          Preparando arquivo no servidor — em CSV o contador começa a subir em seguida.
+        </p>
+      ) : null}
+      {phase === "finalizing" ? (
+        <p className="text-xs font-medium text-amber-800">
+          Linhas já gravadas — finalizando job no servidor (índices e status).
+        </p>
+      ) : null}
+      {stalled ? (
+        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-800">
+          Possível travamento: sem atualização há {ageMin ?? "3+"} min. Atualize a página ou confira os logs do
+          Railway (job #{job.id}). Se as linhas já estiverem 100%, o worker pode ter caído antes de marcar
+          &quot;concluído&quot;.
+        </p>
+      ) : null}
+    </div>
+  );
 }
 
 function formatJobDate(iso) {
@@ -1072,28 +1100,62 @@ function buildJobStages(job) {
   const isProcessing = status === "processing";
   const isCompleted = status === "completed";
   const isFailed = status === "failed";
-  const hasRows = Number(job?.total_rows || 0) > 0;
-  const finishing = isProcessing && hasRows && (job?.processed_rows || 0) >= (job?.total_rows || 0);
+  const phase = inferProgressPhase(job);
+  const phaseOrder = ["queued", "reading", "parsing", "inserting", "finalizing"];
+  const phaseIndex = phaseOrder.indexOf(phase);
+
+  function stageState(stepIndex) {
+    if (isCompleted) return "done";
+    if (isFailed && stepIndex === 4) return "active";
+    if (isFailed) return stepIndex < phaseIndex ? "done" : "pending";
+    if (isQueued && stepIndex === 0) return "active";
+    if (!isProcessing && !isQueued) return stepIndex <= phaseIndex ? "done" : "pending";
+    if (stepIndex < phaseIndex) return "done";
+    if (stepIndex === phaseIndex) return "active";
+    return "pending";
+  }
 
   return [
     {
       label: "1. Fila",
-      state: isQueued ? "active" : "done",
-      text: isQueued ? "Aguardando inicio" : "Etapa concluida",
+      state: stageState(0),
+      text: isQueued ? "Aguardando início" : "Concluída",
     },
     {
-      label: "2. Processamento",
-      state: isProcessing ? "active" : isCompleted || isFailed ? "done" : "pending",
-      text: isProcessing ? "Lendo e validando planilhas" : "Etapa concluida",
+      label: "2. Leitura",
+      state: stageState(1),
+      text: phase === "reading" ? translateProgressPhase("reading") : stageState(1) === "done" ? "Concluída" : "—",
     },
     {
-      label: "3. Finalizacao",
-      state: isCompleted ? "done" : finishing ? "active" : isFailed ? "active" : "pending",
+      label: "3. Parse",
+      state: stageState(2),
+      text:
+        phase === "parsing"
+          ? "Parseando Excel (memória)"
+          : stageState(2) === "done"
+            ? "Concluído"
+            : "—",
+    },
+    {
+      label: "4. Inserção",
+      state: stageState(3),
+      text:
+        phase === "inserting" && job?.total_rows > 0
+          ? `${Number(job.processed_rows || 0).toLocaleString("pt-BR")} / ${Number(job.total_rows).toLocaleString("pt-BR")} linhas`
+          : stageState(3) === "done"
+            ? "Concluída"
+            : "—",
+    },
+    {
+      label: "5. Finalização",
+      state: stageState(4),
       text: isCompleted
-        ? "Importacao concluida"
+        ? "Importação concluída"
         : isFailed
-          ? "Falha na importacao"
-          : "Consolidando dados",
+          ? "Falha"
+          : phase === "finalizing"
+            ? "Gravando status final"
+            : "—",
     },
   ];
 }

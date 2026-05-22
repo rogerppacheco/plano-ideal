@@ -62,6 +62,7 @@ export async function ensureSchema() {
   await pool.query(`ALTER TABLE import_jobs ADD COLUMN IF NOT EXISTS current_step TEXT;`);
   await pool.query(`ALTER TABLE import_jobs ADD COLUMN IF NOT EXISTS file_bytes_read BIGINT;`);
   await pool.query(`ALTER TABLE import_jobs ADD COLUMN IF NOT EXISTS heartbeat_at TIMESTAMPTZ;`);
+  await pool.query(`ALTER TABLE import_jobs ADD COLUMN IF NOT EXISTS progress_phase TEXT;`);
   await pool.query(`ALTER TABLE import_jobs ADD COLUMN IF NOT EXISTS detected_operator TEXT;`);
   await pool.query(`ALTER TABLE import_jobs ADD COLUMN IF NOT EXISTS reverted_at TIMESTAMPTZ;`);
   await pool.query(`ALTER TABLE import_jobs ADD COLUMN IF NOT EXISTS records_deleted INTEGER;`);
