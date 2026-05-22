@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { clearSession, getSessionToken, getSessionUser } from "../lib/authSession";
 import {
   createInternalUser,
+  completeStuckImportJob,
   createImportJob,
   getActiveImportJob,
   getCoverageByCep,
@@ -87,6 +88,7 @@ export default function InternalDashboard() {
   const [importHistory, setImportHistory] = useState([]);
   const [importHistoryError, setImportHistoryError] = useState("");
   const [revertingJobId, setRevertingJobId] = useState(null);
+  const [completingJobId, setCompletingJobId] = useState(null);
   const [users, setUsers] = useState([]);
   const [usersError, setUsersError] = useState("");
   const [usersFeedback, setUsersFeedback] = useState("");
@@ -144,6 +146,24 @@ export default function InternalDashboard() {
         error.message ||
           "Não foi possível carregar o histórico. Confira se a API no Railway foi atualizada (serviço plano-ideal-api)."
       );
+    }
+  };
+
+  const handleCompleteStuckImport = async (job) => {
+    if (!job?.id) return;
+    try {
+      setCompletingJobId(job.id);
+      const result = await completeStuckImportJob(job.id, token);
+      setImportFeedback(result.message || "Importação marcada como concluída.");
+      setImportError("");
+      setJobProgress(null);
+      sessionStorage.removeItem(ACTIVE_IMPORT_STORAGE_KEY);
+      await loadSummary();
+      await loadImportHistory();
+    } catch (error) {
+      setImportError(error.message || "Não foi possível concluir a importação.");
+    } finally {
+      setCompletingJobId(null);
     }
   };
 
@@ -375,7 +395,12 @@ export default function InternalDashboard() {
             <p className="mt-2 text-sm text-slate-700">
               {getImportProgressLabel(jobProgress)}
             </p>
-            <ImportProgressDetails job={jobProgress} compact />
+            <ImportProgressDetails
+              job={jobProgress}
+              compact
+              onCompleteStuck={handleCompleteStuckImport}
+              completing={completingJobId === jobProgress.id}
+            />
             <button
               type="button"
               onClick={() => setActiveTab("importacoes")}
@@ -640,7 +665,11 @@ export default function InternalDashboard() {
                       Arquivo lido: {formatBytes(jobProgress.file_bytes_read)}
                     </p>
                   ) : null}
-                  <ImportProgressDetails job={jobProgress} />
+                  <ImportProgressDetails
+                    job={jobProgress}
+                    onCompleteStuck={handleCompleteStuckImport}
+                    completing={completingJobId === jobProgress?.id}
+                  />
                   <p className="mt-2 text-slate-700">
                     Linhas processadas:{" "}
                     {Number(jobProgress.processed_rows || 0).toLocaleString("pt-BR")} /{" "}
@@ -959,12 +988,14 @@ export default function InternalDashboard() {
   );
 }
 
-function ImportProgressDetails({ job, compact = false }) {
+function ImportProgressDetails({ job, compact = false, onCompleteStuck, completing = false }) {
   if (!job) return null;
   const phase = inferProgressPhase(job);
   const stalled = isImportStalled(job);
   const ageMs = getHeartbeatAgeMs(job);
   const ageMin = ageMs != null ? Math.floor(ageMs / 60000) : null;
+  const linesDone =
+    (job.total_rows || 0) > 0 && (job.processed_rows || 0) >= (job.total_rows || 0);
 
   return (
     <div className={compact ? "mt-1 space-y-1" : "mt-2 space-y-2"}>
@@ -993,11 +1024,24 @@ function ImportProgressDetails({ job, compact = false }) {
         </p>
       ) : null}
       {stalled ? (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-800">
-          Possível travamento: sem atualização há {ageMin ?? "3+"} min. Atualize a página ou confira os logs do
-          Railway (job #{job.id}). Se as linhas já estiverem 100%, o worker pode ter caído antes de marcar
-          &quot;concluído&quot;.
-        </p>
+        <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-800">
+          <p>
+            Possível travamento: sem atualização há {ageMin ?? "3+"} min (job #{job.id}). As linhas já foram
+            gravadas no banco; o processo em segundo plano pode ter caído antes de marcar &quot;concluído&quot;.
+          </p>
+          {linesDone && onCompleteStuck ? (
+            <button
+              type="button"
+              disabled={completing}
+              onClick={() => onCompleteStuck(job)}
+              className="btn-primary mt-2 text-xs disabled:opacity-50"
+            >
+              {completing ? "Concluindo…" : "Marcar importação como concluída"}
+            </button>
+          ) : (
+            <p className="mt-1 text-red-700">Atualize a página — após o deploy da API, a conclusão pode ser automática.</p>
+          )}
+        </div>
       ) : null}
     </div>
   );

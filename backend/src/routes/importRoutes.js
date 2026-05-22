@@ -11,6 +11,7 @@ import {
   registerImportJobFiles,
   revertImportJob,
 } from "../services/importJobService.js";
+import { autoCompleteStuckJob } from "../services/importJobRecovery.js";
 
 const router = express.Router();
 const upload = multer({ dest: path.join(os.tmpdir(), "planoideal-imports") });
@@ -108,7 +109,23 @@ router.get("/import/jobs/active", requireAuth, requireRole("admin"), async (_req
     // tabela ainda não migrada
   }
 
-  return res.json({ job: { ...job, files } });
+  await autoCompleteStuckJob(pool, job.id);
+  const refreshed = await pool.query(
+    `
+      SELECT id, operator, status, created_at, started_at, finished_at,
+             total_files, total_rows, processed_rows, imported_rows, ignored_rows, error_message,
+             current_step, file_bytes_read, heartbeat_at, progress_phase
+      FROM import_jobs
+      WHERE id = $1
+      LIMIT 1
+    `,
+    [job.id]
+  );
+  const finalJob = refreshed.rows[0];
+  if (!finalJob || !["queued", "processing"].includes(finalJob.status)) {
+    return res.json({ job: null });
+  }
+  return res.json({ job: { ...finalJob, files } });
 });
 
 router.get("/import/jobs", requireAuth, requireRole("admin"), async (_req, res) => {
@@ -220,11 +237,54 @@ router.get("/import/jobs/:jobId", requireAuth, requireRole("admin"), async (req,
     return res.status(404).json({ message: "Job não encontrado." });
   }
 
-  const row = result.rows[0];
+  const recovery = await autoCompleteStuckJob(pool, jobId);
+  const row = recovery.completed
+    ? (await pool.query(fullQuery, [jobId]).catch(() => pool.query(basicQuery, [jobId]))).rows[0]
+    : result.rows[0];
+
   return res.json({
     ...row,
+    recovered: recovery.completed,
     operator_mismatch:
       row.detected_operator && row.operator && row.detected_operator !== row.operator,
+  });
+});
+
+router.post("/import/jobs/:jobId/complete", requireAuth, requireRole("admin"), async (req, res) => {
+  const jobId = Number(req.params.jobId);
+  if (!Number.isInteger(jobId) || jobId <= 0) {
+    return res.status(400).json({ message: "Job inválido." });
+  }
+
+  const recovery = await autoCompleteStuckJob(pool, jobId);
+  if (recovery.completed) {
+    return res.json({
+      message: `Importação #${jobId} marcada como concluída. Os dados já estavam no banco.`,
+      job: recovery.job,
+    });
+  }
+
+  const job = recovery.job;
+  if (!job) {
+    return res.status(404).json({ message: "Job não encontrado." });
+  }
+  if (job.status === "completed") {
+    return res.json({ message: "Esta importação já está concluída.", job });
+  }
+  if (job.status !== "processing") {
+    return res.status(409).json({ message: `Job em status "${job.status}" — não é possível concluir.` });
+  }
+
+  const total = Number(job.total_rows || 0);
+  const processed = Number(job.processed_rows || 0);
+  if (total <= 0 || processed < total) {
+    return res.status(409).json({
+      message: `Ainda faltam linhas (${processed.toLocaleString("pt-BR")} / ${total.toLocaleString("pt-BR")}).`,
+    });
+  }
+
+  return res.status(409).json({
+    message: "Aguarde alguns minutos ou atualize a página para recuperação automática.",
   });
 });
 
@@ -306,6 +366,12 @@ router.get("/import/summary", requireAuth, requireRole("admin"), async (_req, re
       `
     );
     activeJob = activeResult.rows[0] || null;
+    if (activeJob?.id) {
+      const recovery = await autoCompleteStuckJob(pool, activeJob.id);
+      if (recovery.completed) {
+        activeJob = null;
+      }
+    }
   } catch {
     // ignora se tabela/colunas ainda não existirem
   }
@@ -326,6 +392,25 @@ function startImportWorker({ jobId, operator, userId, files }) {
     },
   });
 
+  worker.on("message", async (msg) => {
+    if (msg?.ok) {
+      const recovery = await autoCompleteStuckJob(pool, jobId);
+      if (!recovery.completed) {
+        const row = await pool.query(
+          `SELECT status FROM import_jobs WHERE id = $1`,
+          [jobId]
+        );
+        if (row.rows[0]?.status === "processing") {
+          await markJobAsCompleted(jobId);
+        }
+      }
+      return;
+    }
+    if (msg?.ok === false) {
+      await markJobAsFailed(jobId, msg.message || "Falha no worker de importação.");
+    }
+  });
+
   worker.on("error", async (error) => {
     await markJobAsFailed(jobId, error?.message || "Falha no worker de importação.");
     await cleanupFiles(files);
@@ -334,9 +419,28 @@ function startImportWorker({ jobId, operator, userId, files }) {
   worker.on("exit", async (code) => {
     if (code !== 0) {
       await markJobAsFailed(jobId, `Worker finalizado com código ${code}.`);
+    } else {
+      await autoCompleteStuckJob(pool, jobId);
     }
     await cleanupFiles(files);
   });
+}
+
+async function markJobAsCompleted(jobId) {
+  await pool.query(
+    `
+      UPDATE import_jobs
+      SET status = 'completed',
+          finished_at = COALESCE(finished_at, NOW()),
+          error_message = NULL,
+          current_step = 'Importação concluída.',
+          progress_phase = NULL,
+          heartbeat_at = NOW()
+      WHERE id = $1
+        AND status = 'processing'
+    `,
+    [jobId]
+  );
 }
 
 async function markJobAsFailed(jobId, message) {

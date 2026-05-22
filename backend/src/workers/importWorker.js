@@ -28,6 +28,53 @@ function logJob(jobId, message) {
   console.log(`[import-job ${jobId}] ${ts} ${message}`);
 }
 
+async function markJobCompleted({
+  databaseUrl,
+  jobId,
+  totalRows,
+  processedRows,
+  importedRows,
+  ignoredRows,
+  pool,
+  logJob,
+}) {
+  await setProgressPhase(pool, jobId, PHASE.FINALIZING, "Salvando status final no banco (quase pronto)…");
+
+  const sql = `
+    UPDATE import_jobs
+    SET status = 'completed',
+        finished_at = NOW(),
+        total_rows = $2,
+        processed_rows = $3,
+        imported_rows = $4,
+        ignored_rows = $5,
+        error_message = NULL,
+        current_step = 'Importação concluída.',
+        progress_phase = NULL,
+        heartbeat_at = NOW()
+    WHERE id = $1
+  `;
+  const params = [jobId, totalRows, processedRows, importedRows, ignoredRows];
+
+  let completedResult;
+  try {
+    completedResult = await pool.query(sql, params);
+  } catch (firstError) {
+    logJob(jobId, `Retry conclusão com conexão nova: ${firstError?.message || firstError}`);
+    const freshPool = createPool(databaseUrl);
+    try {
+      completedResult = await freshPool.query(sql, params);
+    } finally {
+      await freshPool.end();
+    }
+  }
+
+  logJob(
+    jobId,
+    `Concluído no banco (rows afetadas=${completedResult.rowCount}). total_rows=${totalRows} processed=${processedRows} imported=${importedRows} ignored=${ignoredRows}`
+  );
+}
+
 async function setJobStep(pool, jobId, step, fileBytesRead = null) {
   if (fileBytesRead != null) {
     await pool.query(
@@ -244,34 +291,16 @@ async function run() {
       }
     }
 
-    await setProgressPhase(
+    await markJobCompleted({
+      databaseUrl,
+      jobId,
+      totalRows,
+      processedRows,
+      importedRows,
+      ignoredRows,
       pool,
-      jobId,
-      PHASE.FINALIZING,
-      "Salvando status final no banco (quase pronto)…"
-    );
-
-    const completedResult = await pool.query(
-      `
-        UPDATE import_jobs
-        SET status = 'completed',
-            finished_at = NOW(),
-            total_rows = $2,
-            processed_rows = $3,
-            imported_rows = $4,
-            ignored_rows = $5,
-            error_message = NULL,
-            current_step = 'Importação concluída.',
-            progress_phase = NULL,
-            heartbeat_at = NOW()
-        WHERE id = $1
-      `,
-      [jobId, totalRows, processedRows, importedRows, ignoredRows]
-    );
-    logJob(
-      jobId,
-      `Concluído no banco (rows afetadas=${completedResult.rowCount}). total_rows=${totalRows} processed=${processedRows} imported=${importedRows} ignored=${ignoredRows}`
-    );
+      logJob,
+    });
   } catch (error) {
     logJob(jobId, `Erro: ${error?.message || error}`);
     await pool.query(

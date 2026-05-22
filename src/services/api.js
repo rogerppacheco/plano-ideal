@@ -84,6 +84,15 @@ export function revertImportJob(jobId, token) {
   });
 }
 
+export function completeStuckImportJob(jobId, token) {
+  return request(`/import/jobs/${jobId}/complete`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
 export function getInternalUsers(token) {
   return request("/users", {
     headers: {
