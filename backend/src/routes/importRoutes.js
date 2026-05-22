@@ -6,6 +6,11 @@ import { Worker } from "node:worker_threads";
 import multer from "multer";
 import { pool } from "../db.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
+import {
+  countRecordsForJob,
+  registerImportJobFiles,
+  revertImportJob,
+} from "../services/importJobService.js";
 
 const router = express.Router();
 const upload = multer({ dest: path.join(os.tmpdir(), "planoideal-imports") });
@@ -43,6 +48,8 @@ router.post("/import", requireAuth, requireRole("admin"), upload.array("files"),
   const createResult = await pool.query(createJobQuery, [operator, req.user.sub, files.length]);
   const jobId = createResult.rows[0].id;
 
+  await registerImportJobFiles(pool, jobId, files);
+
   // Copia payload para processamento assíncrono sem depender do objeto req.
   const filePayload = files.map((file) => ({
     path: file.path,
@@ -53,6 +60,56 @@ router.post("/import", requireAuth, requireRole("admin"), upload.array("files"),
   return res.status(202).json({ jobId, status: "queued" });
 });
 
+router.get("/import/jobs", requireAuth, requireRole("admin"), async (_req, res) => {
+  const query = `
+    SELECT
+      j.id,
+      j.operator,
+      j.detected_operator,
+      j.status,
+      j.created_at,
+      j.started_at,
+      j.finished_at,
+      j.total_files,
+      j.total_rows,
+      j.imported_rows,
+      j.ignored_rows,
+      j.error_message,
+      j.reverted_at,
+      j.records_deleted,
+      u.full_name AS created_by_name,
+      COALESCE(
+        (
+          SELECT json_agg(
+            json_build_object(
+              'file_name', f.file_name,
+              'file_size_bytes', f.file_size_bytes,
+              'rows_imported', f.rows_imported,
+              'rows_ignored', f.rows_ignored
+            )
+            ORDER BY f.id
+          )
+          FROM import_job_files f
+          WHERE f.job_id = j.id
+        ),
+        '[]'::json
+      ) AS files
+    FROM import_jobs j
+    LEFT JOIN internal_users u ON u.id = j.created_by
+    ORDER BY j.created_at DESC
+    LIMIT 100
+  `;
+  const result = await pool.query(query);
+  const jobs = result.rows.map((row) => ({
+    ...row,
+    operator_mismatch:
+      row.detected_operator &&
+      row.operator &&
+      row.detected_operator !== row.operator,
+  }));
+  return res.json({ jobs });
+});
+
 router.get("/import/jobs/:jobId", requireAuth, requireRole("admin"), async (req, res) => {
   const jobId = Number(req.params.jobId);
   if (!Number.isInteger(jobId) || jobId <= 0) {
@@ -60,9 +117,9 @@ router.get("/import/jobs/:jobId", requireAuth, requireRole("admin"), async (req,
   }
 
   const query = `
-    SELECT id, operator, status, created_at, started_at, finished_at,
+    SELECT id, operator, detected_operator, status, created_at, started_at, finished_at,
            total_files, total_rows, processed_rows, imported_rows, ignored_rows, error_message,
-           current_step, file_bytes_read, heartbeat_at
+           current_step, file_bytes_read, heartbeat_at, reverted_at, records_deleted
     FROM import_jobs
     WHERE id = $1
     LIMIT 1
@@ -72,7 +129,39 @@ router.get("/import/jobs/:jobId", requireAuth, requireRole("admin"), async (req,
     return res.status(404).json({ message: "Job não encontrado." });
   }
 
-  return res.json(result.rows[0]);
+  const row = result.rows[0];
+  return res.json({
+    ...row,
+    operator_mismatch:
+      row.detected_operator && row.operator && row.detected_operator !== row.operator,
+  });
+});
+
+router.delete("/import/jobs/:jobId", requireAuth, requireRole("admin"), async (req, res) => {
+  const jobId = Number(req.params.jobId);
+  if (!Number.isInteger(jobId) || jobId <= 0) {
+    return res.status(400).json({ message: "Job inválido." });
+  }
+
+  const pending = await pool.query(
+    `SELECT id FROM import_jobs WHERE id = $1 AND status IN ('queued', 'processing')`,
+    [jobId]
+  );
+  if (pending.rows[0]) {
+    return res.status(409).json({ message: "Aguarde a importação terminar." });
+  }
+
+  const estimate = await countRecordsForJob(pool, jobId);
+  const outcome = await revertImportJob(pool, jobId);
+  if (!outcome.ok) {
+    return res.status(outcome.status).json({ message: outcome.message });
+  }
+
+  return res.json({
+    message: `Importação #${jobId} removida do banco.`,
+    deletedRows: outcome.deleted,
+    estimatedRows: estimate,
+  });
 });
 
 router.get("/import/summary", requireAuth, requireRole("admin"), async (_req, res) => {

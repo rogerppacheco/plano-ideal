@@ -50,3 +50,27 @@ ON coverage_records (operator, cep_digits, dedup_secondary)
 WHERE dedup_secondary <> '';
 
 CREATE INDEX IF NOT EXISTS idx_import_jobs_created_at ON import_jobs (created_at DESC);
+
+ALTER TABLE import_jobs ADD COLUMN IF NOT EXISTS detected_operator TEXT;
+ALTER TABLE import_jobs ADD COLUMN IF NOT EXISTS reverted_at TIMESTAMPTZ;
+ALTER TABLE import_jobs ADD COLUMN IF NOT EXISTS records_deleted INTEGER;
+
+ALTER TABLE coverage_records ADD COLUMN IF NOT EXISTS import_job_id BIGINT
+  REFERENCES import_jobs(id) ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS idx_coverage_import_job
+ON coverage_records (import_job_id)
+WHERE import_job_id IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS import_job_files (
+  id BIGSERIAL PRIMARY KEY,
+  job_id BIGINT NOT NULL REFERENCES import_jobs(id) ON DELETE CASCADE,
+  file_name TEXT NOT NULL,
+  file_size_bytes BIGINT NOT NULL DEFAULT 0,
+  rows_imported INTEGER NOT NULL DEFAULT 0,
+  rows_ignored INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (job_id, file_name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_import_job_files_job ON import_job_files (job_id);

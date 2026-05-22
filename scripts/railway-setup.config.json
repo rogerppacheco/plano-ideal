@@ -1,0 +1,9 @@
+{
+  "projectName": "cooperative-acceptance",
+  "environmentName": "production",
+  "githubRepo": "rogerppacheco/plano-ideal",
+  "frontendServiceName": "plano-ideal",
+  "apiServiceName": "plano-ideal-api",
+  "apiRootDirectory": "backend",
+  "dbSchema": "plano_ideal"
+}

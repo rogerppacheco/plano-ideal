@@ -48,7 +48,26 @@ npm run seed-users
 
 Depois do deploy do frontend, copie a URL pública para `FRONTEND_ORIGIN` na API.
 
-## Ordem recomendada
+## Script automático (Railway)
+
+1. Crie um token em https://railway.com/account/tokens  
+2. Copie `.env.railway.example` → `.env.railway` e preencha:
+
+```env
+RAILWAY_TOKEN=...
+DATABASE_URL=postgresql://...
+```
+
+3. Execute:
+
+```powershell
+cd c:\PlanoIdeal\comparador-leads
+.\scripts\railway-setup.ps1
+```
+
+O script tenta: criar serviço `plano-ideal-api` (pasta `backend`), variáveis, domínios públicos e redeploy.
+
+## Ordem recomendada (manual)
 
 1. Push no GitHub
 2. Conectar repositório no Railway (serviço API)

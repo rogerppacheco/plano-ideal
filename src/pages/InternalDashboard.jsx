@@ -6,8 +6,10 @@ import {
   createImportJob,
   getCoverageByCep,
   getImportJobStatus,
+  getImportJobsHistory,
   getImportSummary,
   getInternalUsers,
+  revertImportJob,
 } from "../services/api";
 import nioLogo from "../assets/operators/nio.png";
 import vivoLogo from "../assets/operators/vivo.png";
@@ -70,6 +72,8 @@ export default function InternalDashboard() {
     byOperator: {},
     fieldsByOperator: {},
   });
+  const [importHistory, setImportHistory] = useState([]);
+  const [revertingJobId, setRevertingJobId] = useState(null);
   const [users, setUsers] = useState([]);
   const [usersError, setUsersError] = useState("");
   const [usersFeedback, setUsersFeedback] = useState("");
@@ -95,6 +99,7 @@ export default function InternalDashboard() {
     if (isAdmin) {
       loadSummary();
       loadUsers();
+      loadImportHistory();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionUser, token, isAdmin, navigate]);
@@ -109,6 +114,37 @@ export default function InternalDashboard() {
         byOperator: {},
         fieldsByOperator: {},
       });
+    }
+  };
+
+  const loadImportHistory = async () => {
+    try {
+      const data = await getImportJobsHistory(token);
+      setImportHistory(data.jobs || []);
+    } catch {
+      setImportHistory([]);
+    }
+  };
+
+  const handleRevertImport = async (job) => {
+    if (job.reverted_at) return;
+    const label = job.files?.map((f) => f.file_name).join(", ") || `#${job.id}`;
+    const ok = window.confirm(
+      `Remover do banco todos os registros da importação #${job.id}?\n\nArquivo(s): ${label}\nOperadora marcada: ${job.operator}\n\nEsta ação não pode ser desfeita.`
+    );
+    if (!ok) return;
+
+    try {
+      setRevertingJobId(job.id);
+      const result = await revertImportJob(job.id, token);
+      setImportFeedback(result.message || "Importação removida.");
+      setImportError("");
+      await loadSummary();
+      await loadImportHistory();
+    } catch (error) {
+      setImportError(error.message || "Não foi possível remover a importação.");
+    } finally {
+      setRevertingJobId(null);
     }
   };
 
@@ -208,6 +244,12 @@ export default function InternalDashboard() {
           `Importação concluída. Registros válidos: ${started.imported_rows}. Ignorados (sem CEP válido): ${started.ignored_rows}.`
         );
         await loadSummary();
+        await loadImportHistory();
+        if (started.operator_mismatch) {
+          setImportError(
+            `Atenção: você marcou "${started.operator}" mas o arquivo parece ser da operadora "${started.detected_operator}". Os dados foram gravados como ${started.operator}.`
+          );
+        }
         setFiles([]);
         event.target.reset();
       } else if (started.status === "failed") {
@@ -436,6 +478,11 @@ export default function InternalDashboard() {
                   <option value="Vivo">Vivo</option>
                   <option value="Nio">Nio</option>
                 </select>
+                <p className="mt-1 text-xs text-slate-600">
+                  A operadora escolhida define como os dados são gravados e consultados. Se enviar base
+                  da Nio com &quot;Vivo&quot; selecionado, os CEPs aparecerão como Vivo e a deduplicação
+                  por NUM_FACHADA não será aplicada.
+                </p>
               </div>
 
               <div>
@@ -533,6 +580,106 @@ export default function InternalDashboard() {
                 {isImporting ? "Importando..." : "Importar base"}
               </button>
             </form>
+
+            <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-sm font-bold text-slate-900">Histórico de importações</h3>
+                <button
+                  type="button"
+                  onClick={loadImportHistory}
+                  className="btn-secondary px-3 py-1.5 text-xs"
+                >
+                  Atualizar
+                </button>
+              </div>
+              {importHistory.length === 0 ? (
+                <p className="mt-2 text-sm text-slate-600">Nenhuma importação registrada ainda.</p>
+              ) : (
+                <div className="mt-3 overflow-x-auto">
+                  <table className="min-w-full text-left text-sm text-slate-800">
+                    <thead>
+                      <tr className="border-b border-slate-200 text-xs uppercase text-slate-500">
+                        <th className="px-2 py-2">#</th>
+                        <th className="px-2 py-2">Data</th>
+                        <th className="px-2 py-2">Operadora</th>
+                        <th className="px-2 py-2">Arquivo(s)</th>
+                        <th className="px-2 py-2">Status</th>
+                        <th className="px-2 py-2">Linhas</th>
+                        <th className="px-2 py-2" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {importHistory.map((job) => (
+                        <tr key={job.id} className="border-b border-slate-100 align-top">
+                          <td className="px-2 py-2 font-mono text-xs">{job.id}</td>
+                          <td className="px-2 py-2 whitespace-nowrap text-xs">
+                            {formatJobDate(job.finished_at || job.created_at)}
+                          </td>
+                          <td className="px-2 py-2">
+                            <span className="font-semibold">{job.operator}</span>
+                            {job.operator_mismatch ? (
+                              <p className="mt-0.5 text-xs text-amber-700">
+                                Arquivo parece {job.detected_operator}
+                              </p>
+                            ) : job.detected_operator ? (
+                              <p className="mt-0.5 text-xs text-slate-500">
+                                Detectado: {job.detected_operator}
+                              </p>
+                            ) : null}
+                          </td>
+                          <td className="px-2 py-2 text-xs">
+                            {(job.files || []).map((f) => (
+                              <div key={f.file_name} className="mb-1">
+                                <span className="font-medium">{f.file_name}</span>
+                                {f.file_size_bytes ? (
+                                  <span className="text-slate-500">
+                                    {" "}
+                                    ({formatBytes(f.file_size_bytes)})
+                                  </span>
+                                ) : null}
+                              </div>
+                            ))}
+                          </td>
+                          <td className="px-2 py-2 text-xs">
+                            {job.reverted_at ? (
+                              <span className="font-semibold text-slate-600">Removida</span>
+                            ) : (
+                              translateJobStatus(job.status)
+                            )}
+                            {job.reverted_at && job.records_deleted != null ? (
+                              <p className="text-slate-500">{job.records_deleted} apagadas</p>
+                            ) : null}
+                          </td>
+                          <td className="px-2 py-2 text-xs">
+                            {job.imported_rows != null
+                              ? `${Number(job.imported_rows).toLocaleString("pt-BR")} válidas`
+                              : "—"}
+                            {job.ignored_rows > 0 ? (
+                              <p className="text-slate-500">
+                                {Number(job.ignored_rows).toLocaleString("pt-BR")} ignoradas
+                              </p>
+                            ) : null}
+                          </td>
+                          <td className="px-2 py-2">
+                            {!job.reverted_at &&
+                            (job.status === "completed" || job.status === "failed") ? (
+                              <button
+                                type="button"
+                                disabled={revertingJobId === job.id}
+                                onClick={() => handleRevertImport(job)}
+                                className="rounded-lg border border-red-200 bg-red-50 px-2 py-1 text-xs font-semibold text-red-700 hover:bg-red-100 disabled:opacity-50"
+                              >
+                                {revertingJobId === job.id ? "Removendo…" : "Limpar importação"}
+                              </button>
+                            ) : null}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
 
             <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
               <h3 className="text-sm font-bold text-slate-900">Resumo das importações</h3>
@@ -720,6 +867,15 @@ function getProgressPercent(job) {
   if (raw > 100) return 100;
   if (job.status === "processing" && raw >= 100) return 99;
   return raw;
+}
+
+function formatJobDate(iso) {
+  if (!iso) return "—";
+  try {
+    return new Date(iso).toLocaleString("pt-BR");
+  } catch {
+    return iso;
+  }
 }
 
 function translateJobStatus(status) {

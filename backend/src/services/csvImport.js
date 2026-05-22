@@ -2,7 +2,8 @@ import fs from "node:fs";
 import { open } from "node:fs/promises";
 import { parse } from "csv-parse";
 import { insertCoverageRecord } from "./coverageUpsert.js";
-import { mapRowsToCoverageRecords } from "./importService.js";
+import { mapRowsToCoverageRecords, sniffOperatorFromRow } from "./importService.js";
+import { setDetectedOperator, updateImportJobFileStats } from "./importJobService.js";
 
 const BATCH_ROWS = 2500;
 const PROGRESS_LOG_EVERY = 10000;
@@ -59,6 +60,7 @@ export async function importCsvFileStreaming({
   let importedRows = 0;
   let ignoredRows = 0;
   let batch = [];
+  let headerSniffDone = false;
 
   const parser = fs.createReadStream(filePath).pipe(
     parse({
@@ -81,6 +83,7 @@ export async function importCsvFileStreaming({
       operator,
       sourceFile: originalName,
       sheetName: "CSV",
+      importJobId: jobId,
     });
 
     importedRows += mapped.imported;
@@ -108,6 +111,11 @@ export async function importCsvFileStreaming({
 
   try {
     for await (const row of parser) {
+      if (!headerSniffDone) {
+        headerSniffDone = true;
+        const hint = sniffOperatorFromRow(row);
+        await setDetectedOperator(pool, jobId, hint);
+      }
       batch.push(row);
       scannedLines += 1;
 
@@ -133,6 +141,8 @@ export async function importCsvFileStreaming({
   }
 
   await flushBatch();
+
+  await updateImportJobFileStats(pool, jobId, originalName, { importedRows, ignoredRows });
 
   logJob(
     jobId,

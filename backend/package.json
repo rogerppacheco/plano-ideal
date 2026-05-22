@@ -9,7 +9,8 @@
     "start": "node src/server.js",
     "setup-schema": "node ./scripts/setup-schema.js",
     "seed-users": "node ./scripts/seed-users.js",
-    "audit-db": "node ./scripts/audit-db.js"
+    "audit-db": "node ./scripts/audit-db.js",
+    "railway-setup": "node ../scripts/railway-setup.mjs"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

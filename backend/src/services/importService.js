@@ -26,7 +26,22 @@ export function normalizeDedupSecondary(value) {
   return s.toLowerCase();
 }
 
-export function mapRowsToCoverageRecords({ rows, operator, sourceFile, sheetName }) {
+/** Sugere operadora pelos cabeçalhos/colunas (NUM vs NUM_FACHADA). */
+export function sniffOperatorFromRow(row) {
+  const entries = Object.entries(row || {});
+  let nioScore = 0;
+  let vivoScore = 0;
+  for (const [rawKey] of entries) {
+    const token = normalizeHeaderToken(rawKey);
+    if (scoreNioNumFachadaColumn(token) > 0) nioScore += 1;
+    if (scoreVivoNumColumn(token) > 0) vivoScore += 1;
+  }
+  if (nioScore > vivoScore && nioScore > 0) return "Nio";
+  if (vivoScore > nioScore && vivoScore > 0) return "Vivo";
+  return null;
+}
+
+export function mapRowsToCoverageRecords({ rows, operator, sourceFile, sheetName, importJobId }) {
   let imported = 0;
   let ignored = 0;
 
@@ -47,6 +62,7 @@ export function mapRowsToCoverageRecords({ rows, operator, sourceFile, sheetName
         sheetName,
         rowData: row,
         dedupSecondary,
+        importJobId,
       };
     })
     .filter(Boolean);

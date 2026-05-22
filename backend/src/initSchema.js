@@ -62,6 +62,34 @@ export async function ensureSchema() {
   await pool.query(`ALTER TABLE import_jobs ADD COLUMN IF NOT EXISTS current_step TEXT;`);
   await pool.query(`ALTER TABLE import_jobs ADD COLUMN IF NOT EXISTS file_bytes_read BIGINT;`);
   await pool.query(`ALTER TABLE import_jobs ADD COLUMN IF NOT EXISTS heartbeat_at TIMESTAMPTZ;`);
+  await pool.query(`ALTER TABLE import_jobs ADD COLUMN IF NOT EXISTS detected_operator TEXT;`);
+  await pool.query(`ALTER TABLE import_jobs ADD COLUMN IF NOT EXISTS reverted_at TIMESTAMPTZ;`);
+  await pool.query(`ALTER TABLE import_jobs ADD COLUMN IF NOT EXISTS records_deleted INTEGER;`);
+  await pool.query(`
+    ALTER TABLE coverage_records ADD COLUMN IF NOT EXISTS import_job_id BIGINT
+      REFERENCES import_jobs(id) ON DELETE SET NULL;
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_coverage_import_job
+    ON coverage_records (import_job_id)
+    WHERE import_job_id IS NOT NULL;
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS import_job_files (
+      id BIGSERIAL PRIMARY KEY,
+      job_id BIGINT NOT NULL REFERENCES import_jobs(id) ON DELETE CASCADE,
+      file_name TEXT NOT NULL,
+      file_size_bytes BIGINT NOT NULL DEFAULT 0,
+      rows_imported INTEGER NOT NULL DEFAULT 0,
+      rows_ignored INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (job_id, file_name)
+    );
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_import_job_files_job
+    ON import_job_files (job_id);
+  `);
 
   ensureCoverageDedupSchema(pool).catch((error) => {
     // eslint-disable-next-line no-console

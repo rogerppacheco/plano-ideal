@@ -3,8 +3,17 @@ import { parentPort, workerData } from "node:worker_threads";
 import { createPool } from "../db.js";
 import { ensureCoverageDedupSchema } from "../initSchema.js";
 import { importCsvFileStreaming } from "../services/csvImport.js";
+import {
+  registerImportJobFiles,
+  setDetectedOperator,
+  updateImportJobFileStats,
+} from "../services/importJobService.js";
 import { insertCoverageRecord } from "../services/coverageUpsert.js";
-import { mapRowsToCoverageRecords, parseWorkbookRows } from "../services/importService.js";
+import {
+  mapRowsToCoverageRecords,
+  parseWorkbookRows,
+  sniffOperatorFromRow,
+} from "../services/importService.js";
 
 const INSERT_PROGRESS_EVERY = 500;
 
@@ -58,6 +67,7 @@ async function run() {
     );
 
     await setJobStep(pool, jobId, "Preparando arquivos…");
+    await registerImportJobFiles(pool, jobId, files);
 
     let totalRows = 0;
     let processedRows = 0;
@@ -130,11 +140,16 @@ async function run() {
           `Processando aba "${sheet.sheetName || "Planilha"}": ${sheet.rows.length.toLocaleString("pt-BR")} linhas detectadas.`
         );
 
+        if (sheet.rows[0]) {
+          await setDetectedOperator(pool, jobId, sniffOperatorFromRow(sheet.rows[0]));
+        }
+
         const mapped = mapRowsToCoverageRecords({
           rows: sheet.rows,
           operator,
           sourceFile: sheet.sourceFile,
           sheetName: sheet.sheetName,
+          importJobId: jobId,
         });
 
         totalRows += sheet.rows.length;
@@ -183,6 +198,11 @@ async function run() {
           processedRows,
           importedRows,
           ignoredRows,
+        });
+
+        await updateImportJobFileStats(pool, jobId, sheet.sourceFile, {
+          importedRows: mapped.imported,
+          ignoredRows: mapped.ignored,
         });
       }
     }
