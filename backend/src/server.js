@@ -19,6 +19,14 @@ app.use(
 );
 app.use(express.json({ limit: "10mb" }));
 
+app.get("/", (_req, res) => {
+  res.json({
+    service: "Plano Ideal API",
+    docs: "Rotas em /api/*",
+    health: "/api/health",
+  });
+});
+
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true });
 });
