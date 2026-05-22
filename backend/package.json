@@ -10,6 +10,8 @@
     "setup-schema": "node ./scripts/setup-schema.js",
     "seed-users": "node ./scripts/seed-users.js",
     "audit-db": "node ./scripts/audit-db.js",
+    "db-status": "node ./scripts/db-status.js",
+    "clear-db": "node ./scripts/clear-plano-ideal-db.js",
     "railway-setup": "node ../scripts/railway-setup.mjs"
   },
   "dependencies": {

@@ -60,6 +60,57 @@ router.post("/import", requireAuth, requireRole("admin"), upload.array("files"),
   return res.status(202).json({ jobId, status: "queued" });
 });
 
+router.get("/import/jobs/active", requireAuth, requireRole("admin"), async (_req, res) => {
+  const jobQuery = `
+    SELECT id, operator, status, created_at, started_at, finished_at,
+           total_files, total_rows, processed_rows, imported_rows, ignored_rows, error_message,
+           current_step, file_bytes_read, heartbeat_at
+    FROM import_jobs
+    WHERE status IN ('queued', 'processing')
+      AND reverted_at IS NULL
+    ORDER BY created_at DESC
+    LIMIT 1
+  `;
+  let jobResult;
+  try {
+    jobResult = await pool.query(jobQuery);
+  } catch {
+    const fallbackQuery = `
+      SELECT id, operator, status, created_at, started_at, finished_at,
+             total_files, total_rows, processed_rows, imported_rows, ignored_rows, error_message,
+             current_step, file_bytes_read, heartbeat_at
+      FROM import_jobs
+      WHERE status IN ('queued', 'processing')
+      ORDER BY created_at DESC
+      LIMIT 1
+    `;
+    jobResult = await pool.query(fallbackQuery);
+  }
+
+  const job = jobResult.rows[0];
+  if (!job) {
+    return res.json({ job: null });
+  }
+
+  let files = [];
+  try {
+    const filesResult = await pool.query(
+      `
+        SELECT file_name, file_size_bytes, rows_imported, rows_ignored
+        FROM import_job_files
+        WHERE job_id = $1
+        ORDER BY id
+      `,
+      [job.id]
+    );
+    files = filesResult.rows;
+  } catch {
+    // tabela ainda não migrada
+  }
+
+  return res.json({ job: { ...job, files } });
+});
+
 router.get("/import/jobs", requireAuth, requireRole("admin"), async (_req, res) => {
   const query = `
     SELECT
