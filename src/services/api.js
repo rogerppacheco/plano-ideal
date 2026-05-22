@@ -67,6 +67,14 @@ export function getImportJobsHistory(token) {
   });
 }
 
+export function getActiveImportJob(token) {
+  return request("/import/jobs/active", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
 export function revertImportJob(jobId, token) {
   return request(`/import/jobs/${jobId}`, {
     method: "DELETE",

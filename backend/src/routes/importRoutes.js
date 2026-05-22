@@ -112,7 +112,7 @@ router.get("/import/jobs/active", requireAuth, requireRole("admin"), async (_req
 });
 
 router.get("/import/jobs", requireAuth, requireRole("admin"), async (_req, res) => {
-  const query = `
+  const fullQuery = `
     SELECT
       j.id,
       j.operator,
@@ -150,7 +150,34 @@ router.get("/import/jobs", requireAuth, requireRole("admin"), async (_req, res) 
     ORDER BY j.created_at DESC
     LIMIT 100
   `;
-  const result = await pool.query(query);
+  const basicQuery = `
+    SELECT
+      j.id,
+      j.operator,
+      j.status,
+      j.created_at,
+      j.started_at,
+      j.finished_at,
+      j.total_files,
+      j.total_rows,
+      j.imported_rows,
+      j.ignored_rows,
+      j.error_message,
+      u.full_name AS created_by_name,
+      '[]'::json AS files
+    FROM import_jobs j
+    LEFT JOIN internal_users u ON u.id = j.created_by
+    ORDER BY j.created_at DESC
+    LIMIT 100
+  `;
+
+  let result;
+  try {
+    result = await pool.query(fullQuery);
+  } catch {
+    result = await pool.query(basicQuery);
+  }
+
   const jobs = result.rows.map((row) => ({
     ...row,
     operator_mismatch:
@@ -167,7 +194,7 @@ router.get("/import/jobs/:jobId", requireAuth, requireRole("admin"), async (req,
     return res.status(400).json({ message: "Job inválido." });
   }
 
-  const query = `
+  const fullQuery = `
     SELECT id, operator, detected_operator, status, created_at, started_at, finished_at,
            total_files, total_rows, processed_rows, imported_rows, ignored_rows, error_message,
            current_step, file_bytes_read, heartbeat_at, reverted_at, records_deleted
@@ -175,7 +202,20 @@ router.get("/import/jobs/:jobId", requireAuth, requireRole("admin"), async (req,
     WHERE id = $1
     LIMIT 1
   `;
-  const result = await pool.query(query, [jobId]);
+  const basicQuery = `
+    SELECT id, operator, status, created_at, started_at, finished_at,
+           total_files, total_rows, processed_rows, imported_rows, ignored_rows, error_message,
+           current_step, file_bytes_read, heartbeat_at
+    FROM import_jobs
+    WHERE id = $1
+    LIMIT 1
+  `;
+  let result;
+  try {
+    result = await pool.query(fullQuery, [jobId]);
+  } catch {
+    result = await pool.query(basicQuery, [jobId]);
+  }
   if (!result.rows[0]) {
     return res.status(404).json({ message: "Job não encontrado." });
   }
@@ -251,7 +291,26 @@ router.get("/import/summary", requireAuth, requireRole("admin"), async (_req, re
   }, {});
 
   const totalImportedRows = totalsResult.rows.reduce((acc, row) => acc + row.total, 0);
-  return res.json({ totalImportedRows, byOperator, fieldsByOperator });
+
+  let activeJob = null;
+  try {
+    const activeResult = await pool.query(
+      `
+        SELECT id, operator, status, created_at, started_at,
+               total_rows, processed_rows, imported_rows, ignored_rows,
+               current_step, error_message
+        FROM import_jobs
+        WHERE status IN ('queued', 'processing')
+        ORDER BY created_at DESC
+        LIMIT 1
+      `
+    );
+    activeJob = activeResult.rows[0] || null;
+  } catch {
+    // ignora se tabela/colunas ainda não existirem
+  }
+
+  return res.json({ totalImportedRows, byOperator, fieldsByOperator, activeJob });
 });
 
 export default router;

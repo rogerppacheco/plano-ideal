@@ -4,6 +4,7 @@ import { clearSession, getSessionToken, getSessionUser } from "../lib/authSessio
 import {
   createInternalUser,
   createImportJob,
+  getActiveImportJob,
   getCoverageByCep,
   getImportJobStatus,
   getImportJobsHistory,
@@ -19,6 +20,8 @@ const OPERATOR_LOGOS = {
   vivo: vivoLogo,
   nio: nioLogo,
 };
+
+const ACTIVE_IMPORT_STORAGE_KEY = "planoideal_active_import_job_id";
 
 function buildTemplateCsv(operator) {
   const headers = [
@@ -73,6 +76,7 @@ export default function InternalDashboard() {
     fieldsByOperator: {},
   });
   const [importHistory, setImportHistory] = useState([]);
+  const [importHistoryError, setImportHistoryError] = useState("");
   const [revertingJobId, setRevertingJobId] = useState(null);
   const [users, setUsers] = useState([]);
   const [usersError, setUsersError] = useState("");
@@ -100,6 +104,7 @@ export default function InternalDashboard() {
       loadSummary();
       loadUsers();
       loadImportHistory();
+      resumeActiveImportJob();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionUser, token, isAdmin, navigate]);
@@ -108,12 +113,14 @@ export default function InternalDashboard() {
     try {
       const data = await getImportSummary(token);
       setSummary(data);
+      return data;
     } catch {
       setSummary({
         totalImportedRows: 0,
         byOperator: {},
         fieldsByOperator: {},
       });
+      return null;
     }
   };
 
@@ -121,8 +128,13 @@ export default function InternalDashboard() {
     try {
       const data = await getImportJobsHistory(token);
       setImportHistory(data.jobs || []);
-    } catch {
+      setImportHistoryError("");
+    } catch (error) {
       setImportHistory([]);
+      setImportHistoryError(
+        error.message ||
+          "Não foi possível carregar o histórico. Confira se a API no Railway foi atualizada (serviço plano-ideal-api)."
+      );
     }
   };
 
@@ -222,6 +234,93 @@ export default function InternalDashboard() {
     }
   };
 
+  const finishImportJob = async (job) => {
+    sessionStorage.removeItem(ACTIVE_IMPORT_STORAGE_KEY);
+    if (job.status === "completed") {
+      setImportFeedback(
+        `Importação #${job.id} concluída. Registros válidos: ${job.imported_rows}. Ignorados (sem CEP válido): ${job.ignored_rows}.`
+      );
+      await loadSummary();
+      await loadImportHistory();
+      if (job.operator_mismatch) {
+        setImportError(
+          `Atenção: você marcou "${job.operator}" mas o arquivo parece ser da operadora "${job.detected_operator}". Os dados foram gravados como ${job.operator}.`
+        );
+      }
+    } else if (job.status === "failed") {
+      setImportError(job.error_message || `A importação #${job.id} falhou.`);
+    }
+  };
+
+  const pollImportJob = async (jobId) => {
+    while (true) {
+      const job = await getImportJobStatus(jobId, token);
+      setJobProgress(job);
+      sessionStorage.setItem(ACTIVE_IMPORT_STORAGE_KEY, String(jobId));
+
+      if (job.status === "completed" || job.status === "failed") {
+        return job;
+      }
+
+      const finishing =
+        job.status === "processing" &&
+        job.total_rows > 0 &&
+        job.processed_rows >= job.total_rows;
+      await new Promise((resolve) => setTimeout(resolve, finishing ? 250 : 1200));
+    }
+  };
+
+  const resumeActiveImportJob = async () => {
+    let activeJob = null;
+    try {
+      const { job } = await getActiveImportJob(token);
+      activeJob = job;
+    } catch {
+      // rota /import/jobs/active pode não existir em deploy antigo
+    }
+
+    if (!activeJob?.id) {
+      const summaryData = await loadSummary();
+      activeJob = summaryData?.activeJob || null;
+    }
+
+    if (activeJob?.id) {
+      setActiveTab("importacoes");
+      setIsImporting(true);
+      setJobProgress(activeJob);
+      sessionStorage.setItem(ACTIVE_IMPORT_STORAGE_KEY, String(activeJob.id));
+      try {
+        const finished = await pollImportJob(activeJob.id);
+        await finishImportJob(finished);
+      } finally {
+        setIsImporting(false);
+      }
+      return;
+    }
+
+    try {
+      const storedId = sessionStorage.getItem(ACTIVE_IMPORT_STORAGE_KEY);
+      if (storedId) {
+        try {
+          const job = await getImportJobStatus(Number(storedId), token);
+          if (job.status === "queued" || job.status === "processing") {
+            setActiveTab("importacoes");
+            setIsImporting(true);
+            setJobProgress(job);
+            const finished = await pollImportJob(job.id);
+            await finishImportJob(finished);
+            return;
+          }
+          sessionStorage.removeItem(ACTIVE_IMPORT_STORAGE_KEY);
+        } catch {
+          sessionStorage.removeItem(ACTIVE_IMPORT_STORAGE_KEY);
+        }
+      }
+    } catch {
+      sessionStorage.removeItem(ACTIVE_IMPORT_STORAGE_KEY);
+    }
+  };
+
   const handleImportSubmit = async (event) => {
     event.preventDefault();
     setImportFeedback("");
@@ -237,51 +336,52 @@ export default function InternalDashboard() {
       setJobProgress(null);
 
       const payload = await createImportJob({ operator, files, token });
+      sessionStorage.setItem(ACTIVE_IMPORT_STORAGE_KEY, String(payload.jobId));
+      setActiveTab("importacoes");
       const started = await pollImportJob(payload.jobId);
-
+      await finishImportJob(started);
       if (started.status === "completed") {
-        setImportFeedback(
-          `Importação concluída. Registros válidos: ${started.imported_rows}. Ignorados (sem CEP válido): ${started.ignored_rows}.`
-        );
-        await loadSummary();
-        await loadImportHistory();
-        if (started.operator_mismatch) {
-          setImportError(
-            `Atenção: você marcou "${started.operator}" mas o arquivo parece ser da operadora "${started.detected_operator}". Os dados foram gravados como ${started.operator}.`
-          );
-        }
         setFiles([]);
         event.target.reset();
-      } else if (started.status === "failed") {
-        setImportError(started.error_message || "A importação falhou.");
       }
     } catch (apiError) {
       setImportError(apiError.message || "Não foi possível importar os arquivos.");
+      sessionStorage.removeItem(ACTIVE_IMPORT_STORAGE_KEY);
     } finally {
       setIsImporting(false);
     }
   };
 
-  const pollImportJob = async (jobId) => {
-    while (true) {
-      const job = await getImportJobStatus(jobId, token);
-      setJobProgress(job);
-
-      if (job.status === "completed" || job.status === "failed") {
-        return job;
-      }
-
-      const finishing =
-        job.status === "processing" &&
-        job.total_rows > 0 &&
-        job.processed_rows >= job.total_rows;
-      await new Promise((resolve) => setTimeout(resolve, finishing ? 250 : 1200));
-    }
-  };
+  const importInProgress =
+    jobProgress && (jobProgress.status === "queued" || jobProgress.status === "processing");
 
   return (
     <div className="min-h-screen px-4 py-10">
       <div className="mx-auto max-w-5xl space-y-6">
+        {isAdmin && importInProgress ? (
+          <div className="rounded-xl border-2 border-brand-400 bg-brand-50 p-4 shadow-sm">
+            <p className="font-bold text-brand-900">
+              Importação em andamento — job #{jobProgress.id} ({jobProgress.operator})
+            </p>
+            <p className="mt-1 text-sm text-brand-800">
+              {jobProgress.current_step ||
+                "Processando… Você pode atualizar a página; o progresso continua sendo carregado."}
+            </p>
+            <p className="mt-2 text-sm text-slate-700">
+              Linhas: {Number(jobProgress.processed_rows || 0).toLocaleString("pt-BR")} /{" "}
+              {Number(jobProgress.total_rows || 0).toLocaleString("pt-BR")} · Válidas:{" "}
+              {Number(jobProgress.imported_rows || 0).toLocaleString("pt-BR")}
+            </p>
+            <button
+              type="button"
+              onClick={() => setActiveTab("importacoes")}
+              className="btn-primary mt-3 text-sm"
+            >
+              Ver detalhes da importação
+            </button>
+          </div>
+        ) : null}
+
         <div className="surface-card p-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -592,9 +692,15 @@ export default function InternalDashboard() {
                   Atualizar
                 </button>
               </div>
-              {importHistory.length === 0 ? (
-                <p className="mt-2 text-sm text-slate-600">Nenhuma importação registrada ainda.</p>
-              ) : (
+              {importHistoryError ? (
+                <p className="mt-2 text-sm text-amber-800">{importHistoryError}</p>
+              ) : null}
+              {importHistory.length === 0 && !importHistoryError ? (
+                <p className="mt-2 text-sm text-slate-600">
+                  Nenhuma importação registrada ainda. Se você acabou de enviar um arquivo, aguarde o
+                  upload terminar antes de atualizar a página.
+                </p>
+              ) : importHistory.length > 0 ? (
                 <div className="mt-3 overflow-x-auto">
                   <table className="min-w-full text-left text-sm text-slate-800">
                     <thead>
@@ -678,7 +784,7 @@ export default function InternalDashboard() {
                     </tbody>
                   </table>
                 </div>
-              )}
+              ) : null}
             </div>
 
             <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
