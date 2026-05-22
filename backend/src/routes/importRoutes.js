@@ -11,7 +11,8 @@ import {
   registerImportJobFiles,
   revertImportJob,
 } from "../services/importJobService.js";
-import { autoCompleteStuckJob } from "../services/importJobRecovery.js";
+import { validateImportFile } from "../config/importLimits.js";
+import { recoverStuckJob } from "../services/importJobRecovery.js";
 
 const router = express.Router();
 const upload = multer({ dest: path.join(os.tmpdir(), "planoideal-imports") });
@@ -25,6 +26,13 @@ router.post("/import", requireAuth, requireRole("admin"), upload.array("files"),
   const files = req.files || [];
   if (files.length === 0) {
     return res.status(400).json({ message: "Nenhum arquivo enviado." });
+  }
+
+  for (const file of files) {
+    const check = validateImportFile(file);
+    if (!check.ok) {
+      return res.status(400).json({ message: check.message });
+    }
   }
 
   const processingQuery = `
@@ -109,7 +117,7 @@ router.get("/import/jobs/active", requireAuth, requireRole("admin"), async (_req
     // tabela ainda não migrada
   }
 
-  await autoCompleteStuckJob(pool, job.id);
+  await recoverStuckJob(pool, job.id);
   const refreshed = await pool.query(
     `
       SELECT id, operator, status, created_at, started_at, finished_at,
@@ -237,14 +245,14 @@ router.get("/import/jobs/:jobId", requireAuth, requireRole("admin"), async (req,
     return res.status(404).json({ message: "Job não encontrado." });
   }
 
-  const recovery = await autoCompleteStuckJob(pool, jobId);
-  const row = recovery.completed
+  const recovery = await recoverStuckJob(pool, jobId);
+  const row = recovery.action === "completed"
     ? (await pool.query(fullQuery, [jobId]).catch(() => pool.query(basicQuery, [jobId]))).rows[0]
     : result.rows[0];
 
   return res.json({
     ...row,
-    recovered: recovery.completed,
+    recovered: recovery.action === "completed" || recovery.action === "failed",
     operator_mismatch:
       row.detected_operator && row.operator && row.detected_operator !== row.operator,
   });
@@ -256,10 +264,16 @@ router.post("/import/jobs/:jobId/complete", requireAuth, requireRole("admin"), a
     return res.status(400).json({ message: "Job inválido." });
   }
 
-  const recovery = await autoCompleteStuckJob(pool, jobId);
-  if (recovery.completed) {
+  const recovery = await recoverStuckJob(pool, jobId);
+  if (recovery.action === "completed") {
     return res.json({
       message: `Importação #${jobId} marcada como concluída. Os dados já estavam no banco.`,
+      job: recovery.job,
+    });
+  }
+  if (recovery.action === "failed") {
+    return res.json({
+      message: recovery.job?.error_message || `Importação #${jobId} marcada como falha.`,
       job: recovery.job,
     });
   }
@@ -367,8 +381,8 @@ router.get("/import/summary", requireAuth, requireRole("admin"), async (_req, re
     );
     activeJob = activeResult.rows[0] || null;
     if (activeJob?.id) {
-      const recovery = await autoCompleteStuckJob(pool, activeJob.id);
-      if (recovery.completed) {
+      const recovery = await recoverStuckJob(pool, activeJob.id);
+      if (recovery.action === "completed" || recovery.action === "failed") {
         activeJob = null;
       }
     }
@@ -394,8 +408,8 @@ function startImportWorker({ jobId, operator, userId, files }) {
 
   worker.on("message", async (msg) => {
     if (msg?.ok) {
-      const recovery = await autoCompleteStuckJob(pool, jobId);
-      if (!recovery.completed) {
+      const recovery = await recoverStuckJob(pool, jobId);
+      if (recovery.action !== "completed") {
         const row = await pool.query(
           `SELECT status FROM import_jobs WHERE id = $1`,
           [jobId]
@@ -420,7 +434,7 @@ function startImportWorker({ jobId, operator, userId, files }) {
     if (code !== 0) {
       await markJobAsFailed(jobId, `Worker finalizado com código ${code}.`);
     } else {
-      await autoCompleteStuckJob(pool, jobId);
+      await recoverStuckJob(pool, jobId);
     }
     await cleanupFiles(files);
   });

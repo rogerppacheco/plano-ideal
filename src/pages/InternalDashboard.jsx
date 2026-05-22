@@ -616,12 +616,16 @@ export default function InternalDashboard() {
 
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="files">
-                  Arquivos (.xlsx, .xls, .csv)
+                  Arquivos (.csv recomendado, .xlsx)
                 </label>
+                <p className="mb-2 text-xs text-slate-600">
+                  Arquivos grandes: prefira <strong>CSV</strong> (delimitador ;). Excel acima de ~60 MB pode falhar
+                  no servidor.
+                </p>
                 <input
                   id="files"
                   type="file"
-                  accept=".xlsx,.xls,.csv"
+                  accept=".xlsx,.csv"
                   multiple
                   onChange={(event) => setFiles([...event.target.files])}
                   className="input-modern block p-2"
@@ -1010,7 +1014,8 @@ function ImportProgressDetails({ job, compact = false, onCompleteStuck, completi
       </p>
       {phase === "parsing" ? (
         <p className="text-xs text-amber-800">
-          Planilha Excel: leitura/parse na memória — o contador de linhas só sobe depois do parse.
+          Planilha Excel grande: se passar de alguns minutos sem subir o contador, o servidor pode ter ficado sem
+          memória. Prefira exportar como CSV (;) e importar o .csv.
         </p>
       ) : null}
       {phase === "reading" && (job.total_rows || 0) === 0 ? (
@@ -1026,8 +1031,12 @@ function ImportProgressDetails({ job, compact = false, onCompleteStuck, completi
       {stalled ? (
         <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-800">
           <p>
-            Possível travamento: sem atualização há {ageMin ?? "3+"} min (job #{job.id}). As linhas já foram
-            gravadas no banco; o processo em segundo plano pode ter caído antes de marcar &quot;concluído&quot;.
+            Possível travamento: sem atualização há {ageMin ?? "3+"} min (job #{job.id}).
+            {linesDone
+              ? " As linhas já foram gravadas; o processo pode ter caído antes de marcar concluído."
+              : phase === "parsing" || phase === "reading"
+                ? " O Excel grande costuma estourar a memória do servidor — exporte como CSV (;) e tente de novo."
+                : " Atualize a página ou confira os logs no Railway."}
           </p>
           {linesDone && onCompleteStuck ? (
             <button

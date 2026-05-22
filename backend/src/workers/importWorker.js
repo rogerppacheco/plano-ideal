@@ -1,26 +1,14 @@
-import fs from "node:fs";
 import { parentPort, workerData } from "node:worker_threads";
 import { createPool } from "../db.js";
 import { ensureCoverageDedupSchema } from "../initSchema.js";
 import { importCsvFileStreaming } from "../services/csvImport.js";
-import {
-  registerImportJobFiles,
-  setDetectedOperator,
-  updateImportJobFileStats,
-} from "../services/importJobService.js";
+import { importXlsxFileStreaming } from "../services/xlsxStreamImport.js";
+import { registerImportJobFiles } from "../services/importJobService.js";
 import {
   PHASE,
   setProgressPhase,
   updateJobProgress,
 } from "../services/importJobProgress.js";
-import { insertCoverageRecord } from "../services/coverageUpsert.js";
-import {
-  mapRowsToCoverageRecords,
-  parseWorkbookRows,
-  sniffOperatorFromRow,
-} from "../services/importService.js";
-
-const INSERT_PROGRESS_EVERY = 500;
 
 function logJob(jobId, message) {
   const ts = new Date().toISOString();
@@ -171,124 +159,27 @@ async function run() {
         continue;
       }
 
-      await setProgressPhase(
+      const xlsxStats = await importXlsxFileStreaming({
+        filePath,
+        originalName: originalname,
+        operator,
+        userId,
         pool,
         jobId,
-        PHASE.READING,
-        `Carregando ${originalname} do disco…`
-      );
-      const buffer = fs.readFileSync(filePath);
-      const sizeMb = (buffer.length / 1024 / 1024).toFixed(2);
-      logJob(jobId, `Arquivo lido: ${sizeMb} MB. Iniciando parse.`);
-
-      await setProgressPhase(
-        pool,
-        jobId,
-        PHASE.PARSING,
-        `Parseando planilha (${sizeMb} MB) — etapa lenta em arquivos grandes…`
-      );
-      await setJobStep(pool, jobId, `Parseando planilha (${sizeMb} MB)…`, buffer.length);
-
-      const parseStarted = Date.now();
-      const parseHeartbeat = setInterval(() => {
-        const sec = Math.round((Date.now() - parseStarted) / 1000);
-        setJobStep(
-          pool,
-          jobId,
-          `Parseando planilha (${sizeMb} MB) — ${sec}s…`,
-          buffer.length
-        ).catch(() => {});
-        setProgressPhase(pool, jobId, PHASE.PARSING).catch(() => {});
-      }, 4000);
-
-      let parsedSheets;
-      try {
-        parsedSheets = parseWorkbookRows(buffer, originalname);
-      } finally {
-        clearInterval(parseHeartbeat);
-      }
-      const firstLen = parsedSheets[0]?.rows?.length ?? 0;
-      logJob(
-        jobId,
-        `Parse concluído. ${parsedSheets.length} aba(s), primeira aba com ${firstLen} linhas (aprox.).`
-      );
-
-      for (const sheet of parsedSheets) {
-        await setProgressPhase(
-          pool,
-          jobId,
-          PHASE.INSERTING,
-          `Aba "${sheet.sheetName || "Planilha"}": ${sheet.rows.length.toLocaleString("pt-BR")} linhas — inserindo no banco…`
-        );
-
-        if (sheet.rows[0]) {
-          await setDetectedOperator(pool, jobId, sniffOperatorFromRow(sheet.rows[0]));
-        }
-
-        const mapped = mapRowsToCoverageRecords({
-          rows: sheet.rows,
-          operator,
-          sourceFile: sheet.sourceFile,
-          sheetName: sheet.sheetName,
-          importJobId: jobId,
-        });
-
-        totalRows += sheet.rows.length;
-        importedRows += mapped.imported;
-        ignoredRows += mapped.ignored;
-
-        await updateJobProgress(pool, {
-          jobId,
+        setJobStep,
+        updateJobProgress,
+        logJob,
+        baseTotals: {
           totalRows,
           processedRows,
           importedRows,
           ignoredRows,
-          phase: PHASE.INSERTING,
-        });
-        logJob(
-          jobId,
-          `Aba mapeada: total_rows=${totalRows}, válidas=${importedRows}, ignoradas=${ignoredRows}. Inserindo…`
-        );
-
-        let insertedInSheet = 0;
-        const totalInSheet = mapped.records.length;
-
-        for (const record of mapped.records) {
-          await insertCoverageRecord(pool, record, userId);
-          insertedInSheet += 1;
-          processedRows += 1;
-
-          if (insertedInSheet % INSERT_PROGRESS_EVERY === 0 || insertedInSheet === totalInSheet) {
-            await setJobStep(
-              pool,
-              jobId,
-              `Inserindo no banco: ${insertedInSheet.toLocaleString("pt-BR")} / ${totalInSheet.toLocaleString("pt-BR")} (aba "${sheet.sheetName || "—"}")…`
-            );
-            await updateJobProgress(pool, {
-              jobId,
-              totalRows,
-              processedRows,
-              importedRows,
-              ignoredRows,
-              phase: PHASE.INSERTING,
-            });
-          }
-        }
-
-        await updateJobProgress(pool, {
-          jobId,
-          totalRows,
-          processedRows,
-          importedRows,
-          ignoredRows,
-          phase: PHASE.INSERTING,
-        });
-
-        await updateImportJobFileStats(pool, jobId, sheet.sourceFile, {
-          importedRows: mapped.imported,
-          ignoredRows: mapped.ignored,
-        });
-      }
+        },
+      });
+      totalRows += xlsxStats.scannedLines;
+      processedRows += xlsxStats.processedInserts;
+      importedRows += xlsxStats.importedRows;
+      ignoredRows += xlsxStats.ignoredRows;
     }
 
     await markJobCompleted({
