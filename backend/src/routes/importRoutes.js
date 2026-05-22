@@ -84,10 +84,14 @@ router.get("/import/summary", requireAuth, requireRole("admin"), async (_req, re
   `;
 
   const fieldsQuery = `
-    SELECT operator, ARRAY_AGG(DISTINCT key ORDER BY key) AS fields
-    FROM coverage_records,
-         LATERAL jsonb_object_keys(row_data) AS key
-    GROUP BY operator
+    WITH latest_per_operator AS (
+      SELECT DISTINCT ON (operator) operator, row_data
+      FROM coverage_records
+      ORDER BY operator, imported_at DESC, id DESC
+    )
+    SELECT operator,
+           ARRAY(SELECT jsonb_object_keys(row_data) ORDER BY 1) AS fields
+    FROM latest_per_operator
     ORDER BY operator
   `;
 

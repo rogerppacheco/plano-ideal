@@ -1,3 +1,7 @@
+-- Schema isolado do Plano Ideal (não usa public do Record/CRM).
+CREATE SCHEMA IF NOT EXISTS plano_ideal;
+SET search_path TO plano_ideal;
+
 CREATE TABLE IF NOT EXISTS internal_users (
   id BIGSERIAL PRIMARY KEY,
   username TEXT UNIQUE NOT NULL,
@@ -41,8 +45,8 @@ CREATE TABLE IF NOT EXISTS import_jobs (
 CREATE INDEX IF NOT EXISTS idx_coverage_cep ON coverage_records (cep_digits);
 CREATE INDEX IF NOT EXISTS idx_coverage_operator ON coverage_records (operator);
 
--- Upsert natural key por operadora (CEP + NUM ou CEP + NUM_FACHADA); vazio = sem deduplicação (várias linhas permitidas).
 CREATE UNIQUE INDEX IF NOT EXISTS idx_coverage_natural_upsert
 ON coverage_records (operator, cep_digits, dedup_secondary)
 WHERE dedup_secondary <> '';
+
 CREATE INDEX IF NOT EXISTS idx_import_jobs_created_at ON import_jobs (created_at DESC);

@@ -2,12 +2,21 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { clearSession, getSessionToken, getSessionUser } from "../lib/authSession";
 import {
+  createInternalUser,
   createImportJob,
   getCoverageByCep,
   getImportJobStatus,
   getImportSummary,
+  getInternalUsers,
 } from "../services/api";
+import nioLogo from "../assets/operators/nio.png";
+import vivoLogo from "../assets/operators/vivo.png";
 import { maskCep } from "../utils/coverage";
+
+const OPERATOR_LOGOS = {
+  vivo: vivoLogo,
+  nio: nioLogo,
+};
 
 function buildTemplateCsv(operator) {
   const headers = [
@@ -48,6 +57,7 @@ export default function InternalDashboard() {
   const [cep, setCep] = useState("");
   const [result, setResult] = useState(null);
   const [consultError, setConsultError] = useState("");
+  const [activeTab, setActiveTab] = useState("consulta");
 
   const [operator, setOperator] = useState("Vivo");
   const [files, setFiles] = useState([]);
@@ -59,6 +69,16 @@ export default function InternalDashboard() {
     totalImportedRows: 0,
     byOperator: {},
     fieldsByOperator: {},
+  });
+  const [users, setUsers] = useState([]);
+  const [usersError, setUsersError] = useState("");
+  const [usersFeedback, setUsersFeedback] = useState("");
+  const [isCreatingUser, setIsCreatingUser] = useState(false);
+  const [newUser, setNewUser] = useState({
+    username: "",
+    fullName: "",
+    role: "vendedor",
+    password: "",
   });
   const consultedAddress = useMemo(() => formatAddressFromRecords(result?.records), [result]);
 
@@ -74,6 +94,7 @@ export default function InternalDashboard() {
 
     if (isAdmin) {
       loadSummary();
+      loadUsers();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionUser, token, isAdmin, navigate]);
@@ -91,9 +112,21 @@ export default function InternalDashboard() {
     }
   };
 
+  const loadUsers = async () => {
+    if (!isAdmin) return;
+    try {
+      const data = await getInternalUsers(token);
+      setUsers(data.users || []);
+      setUsersError("");
+    } catch (error) {
+      setUsers([]);
+      setUsersError(error.message || "Não foi possível carregar usuários.");
+    }
+  };
+
   const handleLogout = () => {
     clearSession();
-    navigate("/interno");
+    navigate("/");
   };
 
   const handleCepChange = (event) => {
@@ -128,6 +161,29 @@ export default function InternalDashboard() {
     link.download = `modelo-importacao-${templateOperator.toLowerCase()}.csv`;
     link.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleCreateUserSubmit = async (event) => {
+    event.preventDefault();
+    setUsersFeedback("");
+    setUsersError("");
+    try {
+      setIsCreatingUser(true);
+      await createInternalUser({
+        username: newUser.username,
+        fullName: newUser.fullName,
+        role: newUser.role,
+        password: newUser.password,
+        token,
+      });
+      setUsersFeedback("Usuário criado com sucesso.");
+      setNewUser({ username: "", fullName: "", role: "vendedor", password: "" });
+      await loadUsers();
+    } catch (error) {
+      setUsersError(error.message || "Não foi possível criar usuário.");
+    } finally {
+      setIsCreatingUser(false);
+    }
   };
 
   const handleImportSubmit = async (event) => {
@@ -202,7 +258,38 @@ export default function InternalDashboard() {
           </div>
         </div>
 
-        <section className="surface-card p-6">
+        <div className="surface-card p-3">
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setActiveTab("consulta")}
+              className={tabButtonClass(activeTab === "consulta")}
+            >
+              Consulta
+            </button>
+            {isAdmin ? (
+              <button
+                type="button"
+                onClick={() => setActiveTab("importacoes")}
+                className={tabButtonClass(activeTab === "importacoes")}
+              >
+                Importações
+              </button>
+            ) : null}
+            {isAdmin ? (
+              <button
+                type="button"
+                onClick={() => setActiveTab("usuarios")}
+                className={tabButtonClass(activeTab === "usuarios")}
+              >
+                Usuários
+              </button>
+            ) : null}
+          </div>
+        </div>
+
+        {activeTab === "consulta" ? (
+          <section className="surface-card p-6">
           <h2 className="text-xl font-bold text-slate-900">Consulta por CEP</h2>
           <p className="mt-1 text-sm text-slate-600">
             Consulta disponível para admin e vendedor.
@@ -239,38 +326,55 @@ export default function InternalDashboard() {
                   Ver todos os números por operadora
                 </summary>
                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      Vivo (NUM)
-                    </p>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {renderNumberChips(result.records, "Vivo", [
-                        "NUM",
-                        "Numero",
-                        "NUMERO",
-                        "numero",
-                      ])}
+                  {hasOperator(result.operators, "Vivo") ? (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        Vivo (NUM)
+                      </p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {renderNumberChips(result.records, "Vivo", [
+                          "NUM",
+                          "Numero",
+                          "NUMERO",
+                          "numero",
+                        ])}
+                      </div>
                     </div>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      Nio (NUM_FACHADA)
-                    </p>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {renderNumberChips(result.records, "Nio", [
-                        "NUM_FACHADA",
-                        "Num_Fachada",
-                        "num_fachada",
-                      ])}
+                  ) : null}
+                  {hasOperator(result.operators, "Nio") ? (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        Nio (NUM_FACHADA)
+                      </p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {renderNumberChips(result.records, "Nio", [
+                          "NUM_FACHADA",
+                          "Num_Fachada",
+                          "num_fachada",
+                        ])}
+                      </div>
                     </div>
-                  </div>
+                  ) : null}
                 </div>
               </details>
               {result.operators.length > 0 ? (
                 <>
                   <p className="mt-2 text-sm text-slate-800">
-                    Operadoras disponíveis:{" "}
-                    <span className="font-semibold">{result.operators.join(", ")}</span>
+                    Operadoras disponíveis:
+                  </p>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    {result.operators.map((operatorName) => (
+                      <span
+                        key={operatorName}
+                        className="inline-flex items-center rounded-lg border border-slate-200 bg-white px-2.5 py-1.5"
+                        title={operatorName}
+                      >
+                        <OperatorLogo operatorName={operatorName} />
+                      </span>
+                    ))}
+                  </div>
+                  <p className="mt-2 text-xs text-slate-500">
+                    {result.operators.join(" | ")}
                   </p>
                   <p className="mt-2 text-xs text-slate-500">
                     Registros encontrados: {result.records?.length || 0}
@@ -290,9 +394,10 @@ export default function InternalDashboard() {
               </p>
             </div>
           )}
-        </section>
+          </section>
+        ) : null}
 
-        {isAdmin ? (
+        {isAdmin && activeTab === "importacoes" ? (
           <section className="surface-card p-6">
             <h2 className="text-xl font-bold text-slate-900">Importar bases para o banco interno</h2>
             <p className="mt-1 text-sm text-slate-600">
@@ -489,6 +594,111 @@ export default function InternalDashboard() {
           </section>
         ) : null}
 
+        {isAdmin && activeTab === "usuarios" ? (
+          <section className="surface-card p-6">
+            <h2 className="text-xl font-bold text-slate-900">Cadastro de usuários</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Apenas administradores podem criar usuários internos.
+            </p>
+
+            <form className="mt-4 grid gap-3 md:grid-cols-2" onSubmit={handleCreateUserSubmit}>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="new-fullName">
+                  Nome completo
+                </label>
+                <input
+                  id="new-fullName"
+                  type="text"
+                  value={newUser.fullName}
+                  onChange={(event) => setNewUser((prev) => ({ ...prev, fullName: event.target.value }))}
+                  className="input-modern"
+                  required
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="new-username">
+                  Usuário
+                </label>
+                <input
+                  id="new-username"
+                  type="text"
+                  value={newUser.username}
+                  onChange={(event) => setNewUser((prev) => ({ ...prev, username: event.target.value }))}
+                  className="input-modern"
+                  required
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="new-role">
+                  Perfil
+                </label>
+                <select
+                  id="new-role"
+                  value={newUser.role}
+                  onChange={(event) => setNewUser((prev) => ({ ...prev, role: event.target.value }))}
+                  className="input-modern"
+                >
+                  <option value="vendedor">vendedor</option>
+                  <option value="admin">admin</option>
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="new-password">
+                  Senha
+                </label>
+                <input
+                  id="new-password"
+                  type="password"
+                  minLength={6}
+                  value={newUser.password}
+                  onChange={(event) => setNewUser((prev) => ({ ...prev, password: event.target.value }))}
+                  className="input-modern"
+                  required
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                {usersError ? <p className="text-sm text-red-600">{usersError}</p> : null}
+                {usersFeedback ? <p className="text-sm text-emerald-700">{usersFeedback}</p> : null}
+              </div>
+
+              <div className="md:col-span-2">
+                <button type="submit" disabled={isCreatingUser} className="btn-primary">
+                  {isCreatingUser ? "Criando..." : "Criar usuário"}
+                </button>
+              </div>
+            </form>
+
+            <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <div className="mb-2 flex items-center justify-between">
+                <h3 className="text-sm font-bold text-slate-900">Usuários cadastrados</h3>
+                <button type="button" className="btn-secondary text-xs" onClick={loadUsers}>
+                  Atualizar
+                </button>
+              </div>
+              {users.length === 0 ? (
+                <p className="text-xs text-slate-600">Nenhum usuário encontrado.</p>
+              ) : (
+                <div className="space-y-2">
+                  {users.map((user) => (
+                    <div
+                      key={user.id}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2"
+                    >
+                      <p className="text-sm font-semibold text-slate-800">
+                        {user.full_name} <span className="text-slate-500">(@{user.username})</span>
+                      </p>
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">
+                        {user.role}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+        ) : null}
+
         {!isAdmin ? (
           <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
             <p className="text-sm text-amber-900">
@@ -624,4 +834,52 @@ function buildJobStages(job) {
           : "Consolidando dados",
     },
   ];
+}
+
+function OperatorLogo({ operatorName }) {
+  const normalized = normalizeOperatorName(operatorName);
+  const logoSrc = OPERATOR_LOGOS[normalized];
+  const displayName = toOperatorDisplayName(operatorName);
+  if (!logoSrc) {
+    return <span className="text-xs font-semibold text-slate-700">{displayName}</span>;
+  }
+  const [logoFailed, setLogoFailed] = useState(false);
+  if (logoFailed) {
+    return (
+      <span className="inline-flex h-5 items-center text-xs font-semibold text-slate-700">
+        {displayName}
+      </span>
+    );
+  }
+  return (
+    <img
+      src={logoSrc}
+      alt={`Logo ${displayName}`}
+      className="h-7 w-auto max-w-[140px] object-contain"
+      loading="lazy"
+      onError={() => setLogoFailed(true)}
+    />
+  );
+}
+
+function normalizeOperatorName(name) {
+  return String(name || "").trim().toLowerCase();
+}
+
+function toOperatorDisplayName(name) {
+  const n = normalizeOperatorName(name);
+  if (n === "vivo") return "Vivo";
+  if (n === "nio") return "Nio";
+  return String(name || "");
+}
+
+function hasOperator(operators, operatorName) {
+  const target = normalizeOperatorName(operatorName);
+  return Array.isArray(operators) && operators.some((item) => normalizeOperatorName(item) === target);
+}
+
+function tabButtonClass(active) {
+  return active
+    ? "rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white"
+    : "rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700";
 }

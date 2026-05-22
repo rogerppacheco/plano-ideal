@@ -1,12 +1,10 @@
 import fs from "node:fs";
 import { parentPort, workerData } from "node:worker_threads";
-import pg from "pg";
+import { createPool } from "../db.js";
 import { ensureCoverageDedupSchema } from "../initSchema.js";
 import { importCsvFileStreaming } from "../services/csvImport.js";
 import { insertCoverageRecord } from "../services/coverageUpsert.js";
 import { mapRowsToCoverageRecords, parseWorkbookRows } from "../services/importService.js";
-
-const { Pool } = pg;
 
 const INSERT_PROGRESS_EVERY = 500;
 
@@ -43,7 +41,7 @@ async function setJobStep(pool, jobId, step, fileBytesRead = null) {
 
 async function run() {
   const { jobId, operator, userId, files, databaseUrl } = workerData;
-  const pool = new Pool({ connectionString: databaseUrl });
+  const pool = createPool(databaseUrl);
 
   try {
     logJob(jobId, "Garantindo migração de dedup/índice (necessário para upsert)…");

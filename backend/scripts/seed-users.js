@@ -1,6 +1,8 @@
 import bcrypt from "bcryptjs";
 import dotenv from "dotenv";
-import { pool } from "../src/db.js";
+import { createPool } from "../src/db.js";
+
+const pool = createPool();
 
 dotenv.config();
 

@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "node src/server.js",
     "dev:watch": "node --watch src/server.js",
-    "start": "node src/server.js"
+    "start": "node src/server.js",
+    "setup-schema": "node ./scripts/setup-schema.js",
+    "seed-users": "node ./scripts/seed-users.js",
+    "audit-db": "node ./scripts/audit-db.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

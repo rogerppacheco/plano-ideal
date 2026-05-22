@@ -17,19 +17,30 @@ copy .env.example .env
 npm install
 ```
 
-Edite o arquivo `.env` do backend com sua conexão PostgreSQL e `JWT_SECRET`.
+Edite o `.env` do backend: `DATABASE_URL`, `JWT_SECRET`, `DB_SCHEMA=plano_ideal`.
 
 ## 3) Banco PostgreSQL
 
-Execute o SQL de criação:
+O Plano Ideal usa o schema **`plano_ideal`**, separado do CRM Record em `public`.
+
+**Criar schema e tabelas:**
 
 ```bash
-psql "postgresql://postgres:postgres@localhost:5432/planoideal" -f "./sql/init.sql"
+cd backend
+npm run setup-schema
+npm run seed-users
 ```
 
-Depois crie os usuários internos de acesso:
+**Auditar antes de produção (banco compartilhado):**
 
 ```bash
+npm run audit-db
+```
+
+Desenvolvimento local com Postgres próprio:
+
+```bash
+psql "postgresql://..." -f "./sql/init.sql"
 node ./scripts/seed-users.js
 ```
 
@@ -39,54 +50,72 @@ node ./scripts/seed-users.js
 npm run dev
 ```
 
-Recomendação: use `npm run dev` (sem `--watch`) durante importações grandes; reinício automático ao salvar arquivos interrompe jobs. Para desenvolvimento com hot reload do Node: `npm run dev:watch`.
-
 API padrão: `http://localhost:4000`
 
-## 5) Fluxo interno
+## 5) Deploy no Railway (banco compartilhado com Record)
 
-- Login interno: `http://localhost:5173/interno`
-- Perfis:
-  - admin: consulta CEP + importa bases
-  - vendedor: apenas consulta CEP
+Dois serviços no mesmo projeto Railway:
 
-As credenciais de exemplo são inseridas pelo script `seed-users.js`:
+### Serviço API
 
-- admin / admin123
-- vendedor / vendedor123
+| Config | Valor |
+|--------|--------|
+| Root Directory | `comparador-leads/backend` |
+| Start | `npm start` (via `railway.toml`) |
 
-## 6) Importação de bases
+Variáveis:
+
+| Variável | Valor |
+|----------|--------|
+| `DATABASE_URL` | URL do Postgres (a mesma do Record) |
+| `DB_SCHEMA` | `plano_ideal` |
+| `JWT_SECRET` | Segredo forte único |
+| `FRONTEND_ORIGIN` | URL pública do frontend |
+| `IMPORT_JOB_STALE_HOURS` | `168` (opcional) |
+
+Antes do primeiro deploy, na máquina local (com `DATABASE_URL` de produção no `.env`):
+
+```bash
+npm run setup-schema
+npm run seed-users
+```
+
+Troque as senhas padrão do seed em produção.
+
+### Serviço Frontend
+
+| Config | Valor |
+|--------|--------|
+| Root Directory | `comparador-leads` |
+| Build | `npm install && npm run build` |
+| Start | `npm run start` |
+
+Variável de build:
+
+| Variável | Valor |
+|----------|--------|
+| `VITE_API_BASE_URL` | `https://sua-api.up.railway.app/api` |
+
+`DATABASE_SSL` é detectado automaticamente em hosts `*.rlwy.net`. Force com `true` ou `false` se necessário.
+
+## 6) Fluxo interno
+
+- Login: `/interno`
+- admin: consulta CEP + importa bases
+- vendedor: apenas consulta CEP
+
+Credenciais iniciais (`seed-users.js`): `admin` / `admin123`, `vendedor` / `vendedor123` — altere em produção.
+
+## 7) Importação de bases
 
 No painel admin (`/interno/painel`):
 
 1. Escolha a operadora.
-2. Selecione arquivos `.xlsx`, `.xls` ou `.csv`.
+2. Selecione `.xlsx`, `.xls` ou `.csv`.
 3. Clique em `Importar base`.
 
-Regras:
-
-- A planilha precisa ter uma coluna com nome contendo `CEP`.
-- O CEP é normalizado para 8 dígitos.
-- Linhas sem CEP válido são ignoradas.
-- Todos os campos da planilha são guardados no `row_data` (JSONB).
-
-### Acompanhamento em tempo real
-
-- No painel, o campo **Etapa atual** mostra o que o worker está fazendo (ler disco, parsear CSV, inserir linhas).
-- No terminal do backend, linhas `[import-job ID] ...` registram cada fase com timestamp.
-- Enquanto **Linhas processadas** aparecer `0/0`, o arquivo pode estar só na fase de **parse** (normal em CSVs muito grandes).
-
-### Como a importação funciona (memória e disco)
-
-1. O navegador envia o arquivo via `multipart/form-data`.
-2. O **multer** grava o upload em arquivo temporário no disco (pasta do sistema), não mantém o arquivo inteiro na RAM do processo principal.
-3. Um **worker** lê esse arquivo com `fs.readFileSync` para um **Buffer** e a biblioteca **xlsx** converte a planilha/CSV em um **array de linhas na memória** do worker.
-4. Cada linha válida vira um **INSERT** na tabela `coverage_records` (campos completos em JSONB).
-
-**Arquivos `.csv` grandes:** a API usa **streaming** (`csv-parse`): lê linha a linha, atualiza progresso durante a leitura e não faz mais o parse monolítico do pacote `xlsx` (que travava minutos em arquivos ~90 MB).
-
-**Arquivos `.xlsx` / `.xls`:** continuam usando `xlsx` em memória — prefira exportar para CSV quando possível em bases muito grandes.
+Regras: coluna com `CEP`, 8 dígitos, dados em `plano_ideal.coverage_records`.
 
 ### Jobs antigos presos
 
-Ao subir a API, jobs em `queued`/`processing` mais antigos que `IMPORT_JOB_STALE_HOURS` (padrão **168 horas = 7 dias**) são marcados como falha. Configure `IMPORT_JOB_STALE_HOURS=0` no `.env` do backend para **desativar** essa limpeza automática.
+Jobs `queued`/`processing` mais antigos que `IMPORT_JOB_STALE_HOURS` (padrão 168h) viram falha ao subir a API. Use `0` para desativar.
