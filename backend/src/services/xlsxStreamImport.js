@@ -27,9 +27,9 @@ function rowToObject(headers, row) {
 }
 
 /**
- * Importa .xlsx em streaming (linha a linha) — evita carregar a planilha inteira na RAM.
+ * Importa .xlsx em streaming (ExcelJS) — alguns formatos FTTH não são lidos (0 linhas).
  */
-export async function importXlsxFileStreaming({
+export async function importXlsxFileExcelJs({
   filePath,
   originalName,
   operator,

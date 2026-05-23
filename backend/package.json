@@ -12,6 +12,7 @@
     "audit-db": "node ./scripts/audit-db.js",
     "db-status": "node ./scripts/db-status.js",
     "recover-import": "node ./scripts/recover-stuck-import.js",
+    "import-ftth": "node ./scripts/import-ftth-folder.mjs",
     "clear-db": "node ./scripts/clear-plano-ideal-db.js",
     "railway-setup": "node ../scripts/railway-setup.mjs"
   },

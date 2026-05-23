@@ -119,3 +119,28 @@ Regras: coluna com `CEP`, 8 dígitos, dados em `plano_ideal.coverage_records`.
 ### Jobs antigos presos
 
 Jobs `queued`/`processing` mais antigos que `IMPORT_JOB_STALE_HOURS` (padrão 168h) viram falha ao subir a API. Use `0` para desativar.
+
+## 8) Importação em massa FTTH (script local → produção)
+
+Para pastas com dezenas de `.xlsx` no padrão Vivo (colunas `CEP`, `NUM`, etc.), use o script que grava direto no Postgres de produção:
+
+1. Copie `.env.railway.example` → `.env.railway` na raiz do projeto com `DATABASE_URL` do Railway.
+2. Não deixe importação aberta no painel (ou use `--force` no script).
+
+```powershell
+cd c:\PlanoIdeal\comparador-leads\backend
+npm install
+
+# Simular fila (sem gravar)
+node ./scripts/import-ftth-folder.mjs "C:\caminho\Endereços FTTH" --dry-run
+
+# Testar 1 arquivo
+node ./scripts/import-ftth-folder.mjs "C:\caminho\Endereços FTTH" --from AM_2.xlsx --limit 1 --force
+
+# Carga completa (~147 arquivos, ~18M linhas — várias horas)
+node ./scripts/import-ftth-folder.mjs "C:\caminho\Endereços FTTH" --operator Vivo --skip-existing --force
+```
+
+Opções: `--skip-existing` (pula já concluídos), `--from ARQUIVO.xlsx` (retomar), `--limit N`, `--dry-run`, `--force` (libera jobs travados no banco).
+
+Cada arquivo gera um `import_job` no histórico do painel. Excel grande no painel ainda pode falhar por memória; o script usa **SheetJS** automaticamente quando o formato FTTH não é lido pelo ExcelJS.
