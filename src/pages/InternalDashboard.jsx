@@ -15,7 +15,7 @@ import {
 } from "../services/api";
 import nioLogo from "../assets/operators/nio.png";
 import vivoLogo from "../assets/operators/vivo.png";
-import { maskCep } from "../utils/coverage";
+import { maskCep, sortAddressNumbers } from "../utils/coverage";
 import {
   getHeartbeatAgeMs,
   getImportProgressLabel,
@@ -1113,7 +1113,7 @@ function getOperatorNumberList(records, operatorName, keys) {
     const raw = pickField(record?.row_data || {}, keys);
     if (raw) values.add(raw);
   }
-  return Array.from(values);
+  return sortAddressNumbers(Array.from(values));
 }
 
 function renderNumberChips(records, operatorName, keys) {

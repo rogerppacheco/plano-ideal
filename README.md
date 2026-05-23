@@ -144,3 +144,7 @@ node ./scripts/import-ftth-folder.mjs "C:\caminho\Endereços FTTH" --operator Vi
 Opções: `--skip-existing` (pula já concluídos), `--from ARQUIVO.xlsx` (retomar), `--limit N`, `--dry-run`, `--force` (libera jobs travados no banco).
 
 Cada arquivo gera um `import_job` no histórico do painel. Excel grande no painel ainda pode falhar por memória; o script usa **SheetJS** automaticamente quando o formato FTTH não é lido pelo ExcelJS.
+
+**Guia passo a passo (rápido e seguro):** [docs/IMPORTACAO-FTTH.md](docs/IMPORTACAO-FTTH.md)
+
+Insert em lote (padrão 500 linhas/query, env `IMPORT_BATCH_SIZE`) acelera muito a carga em massa.

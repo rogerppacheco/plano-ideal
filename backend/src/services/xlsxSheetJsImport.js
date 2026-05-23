@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import XLSX from "xlsx";
-import { insertCoverageRecord } from "./coverageUpsert.js";
+import { persistMappedRecords } from "./importPersist.js";
 import { mapRowsToCoverageRecords, sniffOperatorFromRow } from "./importService.js";
 import { PHASE, setProgressPhase } from "./importJobProgress.js";
 import { setDetectedOperator, updateImportJobFileStats } from "./importJobService.js";
@@ -89,13 +89,10 @@ export async function importXlsxFileSheetJs({
       importJobId: jobId,
     });
 
-    importedRows += mapped.imported;
-    ignoredRows += mapped.ignored;
-
-    for (const record of mapped.records) {
-      await insertCoverageRecord(pool, record, userId);
-      processedInserts += 1;
-    }
+    const persisted = await persistMappedRecords(pool, mapped, userId);
+    importedRows += persisted.importedRows;
+    ignoredRows += persisted.ignoredRows;
+    processedInserts += persisted.processedInserts;
 
     await updateJobProgress(pool, {
       jobId,

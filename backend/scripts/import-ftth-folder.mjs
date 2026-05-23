@@ -11,10 +11,12 @@
  * Opções:
  *   --operator Vivo          (padrão: Vivo)
  *   --skip-existing          pula arquivos já importados com sucesso
+ *   --retry-failed           só arquivos sem job completed (falhou ou nunca rodou)
  *   --from AL.xlsx             retoma a partir deste arquivo (ordem alfabética)
  *   --limit 5                processa só N arquivos (teste)
  *   --dry-run                só lista o que seria importado
  *   --force                  ignora outro job em processing no banco
+ *   --batch-size 500         registros por INSERT em lote (padrão: 500 ou IMPORT_BATCH_SIZE)
  */
 import dotenv from "dotenv";
 import fs from "node:fs";
@@ -40,16 +42,21 @@ function parseArgs(argv) {
     folder: null,
     operator: "Vivo",
     skipExisting: false,
+    retryFailed: false,
     from: null,
     limit: null,
     dryRun: false,
     force: false,
+    batchSize: null,
   };
   for (let i = 2; i < argv.length; i += 1) {
     const a = argv[i];
     if (a === "--operator" && argv[i + 1]) {
       opts.operator = argv[++i];
     } else if (a === "--skip-existing") {
+      opts.skipExisting = true;
+    } else if (a === "--retry-failed") {
+      opts.retryFailed = true;
       opts.skipExisting = true;
     } else if (a === "--from" && argv[i + 1]) {
       opts.from = argv[++i];
@@ -59,6 +66,8 @@ function parseArgs(argv) {
       opts.dryRun = true;
     } else if (a === "--force") {
       opts.force = true;
+    } else if (a === "--batch-size" && argv[i + 1]) {
+      opts.batchSize = Number(argv[++i]);
     } else if (!a.startsWith("--") && !opts.folder) {
       opts.folder = a;
     }
@@ -150,7 +159,7 @@ Uso: node ./scripts/import-ftth-folder.mjs "<pasta Endereços FTTH>" [opções]
 Exemplo:
   node ./scripts/import-ftth-folder.mjs "C:\\Users\\rogge\\Downloads\\Endereços FTTH-...\\Endereços FTTH" --operator Vivo --skip-existing
 
-Opções: --skip-existing --from MG_3.xlsx --limit 3 --dry-run --force
+Opções: --skip-existing --retry-failed --from MG_1.xlsx --limit 3 --dry-run --force
 `);
   process.exit(1);
 }
@@ -160,12 +169,22 @@ if (!process.env.DATABASE_URL) {
   process.exit(1);
 }
 
+if (opts.batchSize > 0) {
+  process.env.IMPORT_BATCH_SIZE = String(opts.batchSize);
+}
+
+const batchSize = Number(process.env.IMPORT_BATCH_SIZE ?? 500);
+
 const pool = createPool();
 const databaseUrl = process.env.DATABASE_URL;
 
 console.log("\n=== Importação em massa FTTH ===\n");
 console.log("Pasta:", opts.folder);
 console.log("Operadora:", opts.operator);
+if (opts.retryFailed) {
+  console.log("Modo: só arquivos pendentes (sem importação concluída)");
+}
+console.log("Insert em lote:", batchSize, "registros por query");
 console.log("Banco:", process.env.DATABASE_URL.replace(/:[^:@]+@/, ":****@"));
 
 await ensureSchema();
