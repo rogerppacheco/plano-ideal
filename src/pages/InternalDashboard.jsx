@@ -15,7 +15,7 @@ import {
 } from "../services/api";
 import nioLogo from "../assets/operators/nio.png";
 import vivoLogo from "../assets/operators/vivo.png";
-import { maskCep, sortAddressNumbers } from "../utils/coverage";
+import { groupFacadeNumbers, maskCep } from "../utils/coverage";
 import {
   getHeartbeatAgeMs,
   getImportProgressLabel,
@@ -502,14 +502,11 @@ export default function InternalDashboard() {
                       <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                         Vivo (NUM)
                       </p>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {renderNumberChips(result.records, "Vivo", [
-                          "NUM",
-                          "Numero",
-                          "NUMERO",
-                          "numero",
-                        ])}
-                      </div>
+                      <FacadeNumberChips
+                        records={result.records}
+                        operatorName="Vivo"
+                        keys={["NUM", "Numero", "NUMERO", "numero"]}
+                      />
                     </div>
                   ) : null}
                   {hasOperator(result.operators, "Nio") ? (
@@ -517,13 +514,11 @@ export default function InternalDashboard() {
                       <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                         Nio (NUM_FACHADA)
                       </p>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {renderNumberChips(result.records, "Nio", [
-                          "NUM_FACHADA",
-                          "Num_Fachada",
-                          "num_fachada",
-                        ])}
-                      </div>
+                      <FacadeNumberChips
+                        records={result.records}
+                        operatorName="Nio"
+                        keys={["NUM_FACHADA", "Num_Fachada", "num_fachada"]}
+                      />
                     </div>
                   ) : null}
                 </div>
@@ -1113,37 +1108,154 @@ function getOperatorNumberList(records, operatorName, keys) {
     const raw = pickField(record?.row_data || {}, keys);
     if (raw) values.add(raw);
   }
-  return sortAddressNumbers(Array.from(values));
+  return Array.from(values);
 }
 
-function renderNumberChips(records, operatorName, keys) {
-  const list = getOperatorNumberList(records, operatorName, keys);
-  if (list.length === 0) {
-    return <span className="text-sm text-slate-600">—</span>;
+function FacadeNumberChips({ records, operatorName, keys }) {
+  const groups = useMemo(
+    () => groupFacadeNumbers(getOperatorNumberList(records, operatorName, keys)),
+    [records, operatorName, keys]
+  );
+  const [expandedBase, setExpandedBase] = useState(null);
+
+  useEffect(() => {
+    if (!expandedBase) return undefined;
+    const close = () => setExpandedBase(null);
+    document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
+  }, [expandedBase]);
+
+  if (groups.length === 0) {
+    return <span className="mt-2 block text-sm text-slate-600">—</span>;
   }
+
   const mobileLimit = 16;
   const fullLimit = 80;
-  const visibleList = list.slice(0, fullLimit);
-  const hiddenCount = Math.max(0, list.length - mobileLimit);
+  const visibleGroups = groups.slice(0, fullLimit);
+  const hiddenMobile = Math.max(0, groups.length - mobileLimit);
+  const hiddenTotal = Math.max(0, groups.length - fullLimit);
+
+  const toggleBase = (base) => {
+    setExpandedBase((prev) => (prev === base ? null : base));
+  };
 
   return (
-    <>
-      {visibleList.map((value, idx) => (
-        <span
-          key={`${operatorName}-${value}`}
-          className={`rounded-full border border-slate-300 bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 ${
-            idx >= mobileLimit ? "hidden sm:inline-flex" : "inline-flex"
-          }`}
+    <div className="mt-2">
+      <p className="mb-2 text-[11px] leading-snug text-slate-500">
+        <span className="inline-flex items-center gap-1">
+          <span className="inline-block h-2 w-2 rounded-full bg-slate-300" />
+          número único
+        </span>
+        <span className="mx-1.5 text-slate-300">·</span>
+        <span className="inline-flex items-center gap-1">
+          <span className="inline-block h-2 w-2 rounded-full bg-amber-400" />
+          com complemento (clique para ver)
+        </span>
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {visibleGroups.map((group, idx) => (
+          <FacadeChipGroup
+            key={`${operatorName}-${group.base}`}
+            group={group}
+            operatorName={operatorName}
+            expanded={expandedBase === group.base}
+            onToggle={() => toggleBase(group.base)}
+            className={idx >= mobileLimit ? "hidden sm:inline-flex" : "inline-flex"}
+          />
+        ))}
+        {hiddenMobile > 0 ? (
+          <span className="inline-flex rounded-full border border-brand-200 bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700 sm:hidden">
+            +{hiddenMobile} no mobile
+          </span>
+        ) : null}
+        {hiddenTotal > 0 ? (
+          <span className="hidden rounded-full border border-slate-300 bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600 sm:inline-flex">
+            +{hiddenTotal} ocultos
+          </span>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function FacadeChipGroup({ group, operatorName, expanded, onToggle, className }) {
+  const chipId = `${operatorName}-facade-${group.base}`;
+
+  if (!group.isExpandable) {
+    const label = group.variants[0]?.full ?? group.base;
+    return (
+      <span
+        className={`items-center rounded-full border border-slate-300 bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 ${className}`}
+      >
+        {label}
+      </span>
+    );
+  }
+
+  const badgeCount =
+    group.complementCount > 0 ? group.complementCount : Math.max(0, group.variants.length - 1);
+
+  return (
+    <span className={`relative inline-flex flex-col ${className}`} data-facade-chip-root>
+      <button
+        type="button"
+        id={chipId}
+        aria-expanded={expanded}
+        aria-controls={`${chipId}-panel`}
+        onClick={(event) => {
+          event.stopPropagation();
+          onToggle();
+        }}
+        className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold transition ${
+          expanded
+            ? "border-amber-400 bg-amber-100 text-amber-950 ring-2 ring-amber-200"
+            : "border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100"
+        }`}
+      >
+        <span className="tabular-nums text-slate-900">{group.base}</span>
+        {badgeCount > 0 ? (
+          <span className="rounded-full bg-amber-200/80 px-1.5 py-0.5 text-[10px] font-bold text-amber-900">
+            +{badgeCount}
+          </span>
+        ) : null}
+        <span className="text-[10px] text-amber-700" aria-hidden>
+          {expanded ? "▴" : "▾"}
+        </span>
+      </button>
+      {expanded ? (
+        <div
+          id={`${chipId}-panel`}
+          role="region"
+          aria-labelledby={chipId}
+          className="absolute left-0 top-full z-20 mt-1 min-w-[11rem] max-w-[16rem] rounded-lg border border-amber-200 bg-white p-2 shadow-lg"
+          onClick={(event) => event.stopPropagation()}
         >
-          {value}
-        </span>
-      ))}
-      {hiddenCount > 0 ? (
-        <span className="inline-flex rounded-full border border-brand-200 bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700 sm:hidden">
-          +{hiddenCount} no mobile
-        </span>
+          <ul className="space-y-1">
+            {group.variants.map((variant) => (
+              <li
+                key={variant.full}
+                className={`rounded-md px-2 py-1 text-xs ${
+                  variant.isPlain
+                    ? "font-semibold text-slate-800 bg-slate-50"
+                    : "text-amber-950 bg-amber-50"
+                }`}
+              >
+                {variant.isPlain ? (
+                  variant.full
+                ) : (
+                  <>
+                    <span className="tabular-nums font-semibold text-slate-900">{group.base}</span>
+                    {variant.suffix ? (
+                      <span className="ml-1 font-medium text-amber-800">{variant.suffix}</span>
+                    ) : null}
+                  </>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
       ) : null}
-    </>
+    </span>
   );
 }
 

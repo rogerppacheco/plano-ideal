@@ -14,3 +14,69 @@ export function compareAddressNumbers(a, b) {
 export function sortAddressNumbers(values) {
   return [...values].sort(compareAddressNumbers);
 }
+
+/**
+ * Separa número base e complemento (ex.: "120 COMPL A" → base 120, suffix "COMPL A").
+ * @returns {null | { base: string, suffix: string, full: string, hasComplement: boolean, isNumericBase: boolean }}
+ */
+export function parseFacadeLabel(value) {
+  const full = String(value ?? "").trim();
+  if (!full) return null;
+  const match = full.match(/^(\d+)\s*(.*)$/);
+  if (!match) {
+    return {
+      base: full,
+      suffix: "",
+      full,
+      hasComplement: false,
+      isNumericBase: false,
+    };
+  }
+  const suffix = (match[2] || "").trim();
+  return {
+    base: match[1],
+    suffix,
+    full,
+    hasComplement: Boolean(suffix),
+    isNumericBase: true,
+  };
+}
+
+/**
+ * Agrupa fachadas pelo número base para chips expansíveis.
+ * @returns {Array<{ base: string, variants: Array<{ full: string, suffix: string, isPlain: boolean }>, isExpandable: boolean }>}
+ */
+export function groupFacadeNumbers(values) {
+  const byBase = new Map();
+
+  for (const raw of sortAddressNumbers(values)) {
+    const parsed = parseFacadeLabel(raw);
+    if (!parsed) continue;
+
+    const key = parsed.isNumericBase ? parsed.base : parsed.full;
+    if (!byBase.has(key)) {
+      byBase.set(key, { base: key, variants: [], isNumericBase: parsed.isNumericBase });
+    }
+
+    const group = byBase.get(key);
+    if (group.variants.some((v) => v.full === parsed.full)) continue;
+
+    group.variants.push({
+      full: parsed.full,
+      suffix: parsed.suffix,
+      isPlain: !parsed.hasComplement,
+    });
+  }
+
+  const groups = Array.from(byBase.values());
+  groups.sort((a, b) => compareAddressNumbers(a.base, b.base));
+
+  for (const group of groups) {
+    group.variants.sort((a, b) => compareAddressNumbers(a.full, b.full));
+    const withSuffix = group.variants.filter((v) => v.suffix);
+    group.isExpandable = withSuffix.length > 0 || group.variants.length > 1;
+    group.complementCount = withSuffix.length || Math.max(0, group.variants.length - 1);
+  }
+
+  return groups;
+}
