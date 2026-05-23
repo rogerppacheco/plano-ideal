@@ -15,7 +15,7 @@ import {
 } from "../services/api";
 import nioLogo from "../assets/operators/nio.png";
 import vivoLogo from "../assets/operators/vivo.png";
-import { groupFacadeNumbers, maskCep } from "../utils/coverage";
+import { buildFacadeLabel, groupFacadeNumbers, maskCep } from "../utils/coverage";
 import {
   getHeartbeatAgeMs,
   getImportProgressLabel,
@@ -1105,8 +1105,8 @@ function getOperatorNumberList(records, operatorName, keys) {
   const values = new Set();
   for (const record of records) {
     if (record?.operator !== operatorName) continue;
-    const raw = pickField(record?.row_data || {}, keys);
-    if (raw) values.add(raw);
+    const label = buildFacadeLabel(record?.row_data || {}, keys);
+    if (label) values.add(label);
   }
   return Array.from(values);
 }

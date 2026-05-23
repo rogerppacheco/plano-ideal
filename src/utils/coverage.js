@@ -15,6 +15,45 @@ export function sortAddressNumbers(values) {
   return [...values].sort(compareAddressNumbers);
 }
 
+const COMPLEMENT_KEYS = [
+  "COMPLEMENTO",
+  "Complemento",
+  "complemento",
+  "COMPL",
+  "Compl",
+  "COMPLEMENT",
+  "complement",
+];
+
+function pickFieldFromRow(source, keys) {
+  for (const key of keys) {
+    const value = source?.[key];
+    if (value == null) continue;
+    const text = String(value).trim();
+    if (text) return text;
+  }
+  return "";
+}
+
+/**
+ * Rótulo para exibição: NUM ou NUM_FACHADA + COMPLEMENTO (coluna separada, padrão Nio).
+ */
+export function buildFacadeLabel(rowData, numKeys) {
+  const num = pickFieldFromRow(rowData, numKeys);
+  if (!num) return "";
+
+  const complement = pickFieldFromRow(rowData, COMPLEMENT_KEYS);
+  if (!complement) return num;
+
+  const parsed = parseFacadeLabel(num);
+  if (parsed?.hasComplement) {
+    const compLower = complement.toLowerCase();
+    if (num.toLowerCase().includes(compLower)) return num;
+  }
+
+  return `${num} ${complement}`.trim();
+}
+
 /**
  * Separa número base e complemento (ex.: "120 COMPL A" → base 120, suffix "COMPL A").
  * @returns {null | { base: string, suffix: string, full: string, hasComplement: boolean, isNumericBase: boolean }}
