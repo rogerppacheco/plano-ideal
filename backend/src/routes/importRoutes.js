@@ -356,17 +356,23 @@ router.get("/import/summary", requireAuth, requireRole("admin"), async (_req, re
     ORDER BY imported_at DESC NULLS LAST, id DESC
     LIMIT 1
   `;
+  const fieldTimeoutMs = Number(process.env.IMPORT_SUMMARY_FIELD_TIMEOUT_MS ?? 4000);
+
   await Promise.all(
     Object.keys(byOperator).map(async (operator) => {
+      fieldsByOperator[operator] = [];
       try {
-        const sample = await pool.query(fieldSampleQuery, [operator]);
+        const sample = await Promise.race([
+          pool.query(fieldSampleQuery, [operator]),
+          new Promise((_, reject) => {
+            setTimeout(() => reject new Error("timeout")), fieldTimeoutMs);
+          }),
+        ]);
         const rowData = sample.rows[0]?.row_data;
         if (rowData && typeof rowData === "object") {
           fieldsByOperator[operator] = Object.keys(rowData).sort((a, b) =>
             a.localeCompare(b, "pt-BR")
           );
-        } else {
-          fieldsByOperator[operator] = [];
         }
       } catch {
         fieldsByOperator[operator] = [];
