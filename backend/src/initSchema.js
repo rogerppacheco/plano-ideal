@@ -53,6 +53,9 @@ export async function ensureSchema() {
   `);
   await pool.query(`
     CREATE INDEX IF NOT EXISTS idx_coverage_operator ON coverage_records (operator);
+
+    CREATE INDEX IF NOT EXISTS idx_coverage_operator_imported
+    ON coverage_records (operator, imported_at DESC, id DESC);
   `);
   await pool.query(`
     CREATE INDEX IF NOT EXISTS idx_import_jobs_created_at

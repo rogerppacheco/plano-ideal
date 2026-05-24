@@ -330,41 +330,51 @@ router.delete("/import/jobs/:jobId", requireAuth, requireRole("admin"), async (r
 });
 
 router.get("/import/summary", requireAuth, requireRole("admin"), async (_req, res) => {
+  // Soma por job concluído — rápido mesmo com milhões de linhas em coverage_records.
+  // COUNT(*) em coverage_records estourava timeout do Railway e o painel ficava em 0.
   const totalsQuery = `
-    SELECT operator, COUNT(*)::INT AS total
-    FROM coverage_records
+    SELECT operator, COALESCE(SUM(imported_rows), 0)::bigint AS total
+    FROM import_jobs
+    WHERE status = 'completed'
+      AND reverted_at IS NULL
     GROUP BY operator
     ORDER BY operator
   `;
 
-  const fieldsQuery = `
-    WITH latest_per_operator AS (
-      SELECT DISTINCT ON (operator) operator, row_data
-      FROM coverage_records
-      ORDER BY operator, imported_at DESC, id DESC
-    )
-    SELECT operator,
-           ARRAY(SELECT jsonb_object_keys(row_data) ORDER BY 1) AS fields
-    FROM latest_per_operator
-    ORDER BY operator
-  `;
-
-  const [totalsResult, fieldsResult] = await Promise.all([
-    pool.query(totalsQuery),
-    pool.query(fieldsQuery),
-  ]);
+  const totalsResult = await pool.query(totalsQuery);
 
   const byOperator = totalsResult.rows.reduce((acc, row) => {
-    acc[row.operator] = row.total;
+    acc[row.operator] = Number(row.total) || 0;
     return acc;
   }, {});
 
-  const fieldsByOperator = fieldsResult.rows.reduce((acc, row) => {
-    acc[row.operator] = row.fields || [];
-    return acc;
-  }, {});
+  const fieldsByOperator = {};
+  const fieldSampleQuery = `
+    SELECT row_data
+    FROM coverage_records
+    WHERE operator = $1
+    ORDER BY imported_at DESC NULLS LAST, id DESC
+    LIMIT 1
+  `;
+  await Promise.all(
+    Object.keys(byOperator).map(async (operator) => {
+      try {
+        const sample = await pool.query(fieldSampleQuery, [operator]);
+        const rowData = sample.rows[0]?.row_data;
+        if (rowData && typeof rowData === "object") {
+          fieldsByOperator[operator] = Object.keys(rowData).sort((a, b) =>
+            a.localeCompare(b, "pt-BR")
+          );
+        } else {
+          fieldsByOperator[operator] = [];
+        }
+      } catch {
+        fieldsByOperator[operator] = [];
+      }
+    })
+  );
 
-  const totalImportedRows = totalsResult.rows.reduce((acc, row) => acc + row.total, 0);
+  const totalImportedRows = Object.values(byOperator).reduce((acc, n) => acc + n, 0);
 
   let activeJob = null;
   try {

@@ -87,6 +87,7 @@ export default function InternalDashboard() {
   });
   const [importHistory, setImportHistory] = useState([]);
   const [importHistoryError, setImportHistoryError] = useState("");
+  const [summaryError, setSummaryError] = useState("");
   const [revertingJobId, setRevertingJobId] = useState(null);
   const [completingJobId, setCompletingJobId] = useState(null);
   const [users, setUsers] = useState([]);
@@ -124,13 +125,18 @@ export default function InternalDashboard() {
     try {
       const data = await getImportSummary(token);
       setSummary(data);
+      setSummaryError("");
       return data;
-    } catch {
+    } catch (error) {
       setSummary({
         totalImportedRows: 0,
         byOperator: {},
         fieldsByOperator: {},
       });
+      setSummaryError(
+        error?.message ||
+          "Não foi possível carregar o resumo. Tente Atualizar ou aguarde alguns segundos."
+      );
       return null;
     }
   };
@@ -811,7 +817,22 @@ export default function InternalDashboard() {
             </div>
 
             <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
-              <h3 className="text-sm font-bold text-slate-900">Resumo das importações</h3>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-sm font-bold text-slate-900">Resumo das importações</h3>
+                <button
+                  type="button"
+                  className="text-xs font-semibold text-brand-700 hover:text-brand-800"
+                  onClick={() => loadSummary()}
+                >
+                  Atualizar resumo
+                </button>
+              </div>
+              {summaryError ? (
+                <p className="mt-2 text-sm text-amber-800">{summaryError}</p>
+              ) : null}
+              <p className="mt-1 text-xs text-slate-500">
+                Total = soma das linhas válidas nos jobs concluídos (histórico acima).
+              </p>
               <div className="mt-3 grid gap-3 md:grid-cols-3">
                 <div className="rounded-lg border border-slate-200 bg-white p-3">
                   <p className="text-xs font-semibold uppercase text-slate-500">Total importado</p>
