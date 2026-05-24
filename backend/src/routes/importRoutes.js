@@ -365,7 +365,7 @@ router.get("/import/summary", requireAuth, requireRole("admin"), async (_req, re
         const sample = await Promise.race([
           pool.query(fieldSampleQuery, [operator]),
           new Promise((_, reject) => {
-            setTimeout(() => reject new Error("timeout")), fieldTimeoutMs);
+            setTimeout(() => reject(new Error("timeout")), fieldTimeoutMs);
           }),
         ]);
         const rowData = sample.rows[0]?.row_data;
