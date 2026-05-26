@@ -14,6 +14,7 @@ import {
   revertImportJob,
 } from "../services/api";
 import nioLogo from "../assets/operators/nio.png";
+import veroLogo from "../assets/operators/Vero.jpg";
 import vivoLogo from "../assets/operators/vivo.png";
 import { buildFacadeLabel, groupFacadeNumbers, maskCep } from "../utils/coverage";
 import {
@@ -29,6 +30,7 @@ import {
 const OPERATOR_LOGOS = {
   vivo: vivoLogo,
   nio: nioLogo,
+  vero: veroLogo,
 };
 
 const ACTIVE_IMPORT_STORAGE_KEY = "planoideal_active_import_job_id";
