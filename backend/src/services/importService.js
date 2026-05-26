@@ -31,13 +31,16 @@ export function sniffOperatorFromRow(row) {
   const entries = Object.entries(row || {});
   let nioScore = 0;
   let vivoScore = 0;
+  let veroScore = 0;
   for (const [rawKey] of entries) {
     const token = normalizeHeaderToken(rawKey);
     if (scoreNioNumFachadaColumn(token) > 0) nioScore += 1;
     if (scoreVivoNumColumn(token) > 0) vivoScore += 1;
+    if (scoreVeroAddressColumn(token) > 0) veroScore += 1;
   }
-  if (nioScore > vivoScore && nioScore > 0) return "Nio";
-  if (vivoScore > nioScore && vivoScore > 0) return "Vivo";
+  if (nioScore > vivoScore && nioScore > veroScore && nioScore > 0) return "Nio";
+  if (vivoScore > nioScore && vivoScore > veroScore && vivoScore > 0) return "Vivo";
+  if (veroScore > vivoScore && veroScore > nioScore && veroScore > 0) return "Vero";
   return null;
 }
 
@@ -118,6 +121,17 @@ function scoreNioNumFachadaColumn(headerNormalized) {
   if (k.startsWith("num_fachada") || k.includes("num_fachada")) return 96;
   if (k.includes("num") && k.includes("fachada")) return 92;
   if (k === "nu_fachada" || k === "nr_fachada") return 90;
+  return 0;
+}
+
+function scoreVeroAddressColumn(headerNormalized) {
+  const k = headerNormalized;
+  if (!k) return 0;
+  if (k === "logradouro" || k.includes("logradouro")) return 95;
+  if (k === "bairro" || k.includes("bairro")) return 80;
+  if (k === "cidade" || k === "municipio" || k.includes("municipio")) return 80;
+  if (k === "uf") return 70;
+  if (k.includes("cep")) return 65;
   return 0;
 }
 

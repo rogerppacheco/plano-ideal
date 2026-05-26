@@ -13,6 +13,7 @@
     "db-status": "node ./scripts/db-status.js",
     "recover-import": "node ./scripts/recover-stuck-import.js",
     "import-ftth": "node ./scripts/import-ftth-folder.mjs",
+    "import-vero": "node ./scripts/import-ftth-folder.mjs --operator Vero",
     "clear-db": "node ./scripts/clear-plano-ideal-db.js",
     "railway-setup": "node ../scripts/railway-setup.mjs"
   },

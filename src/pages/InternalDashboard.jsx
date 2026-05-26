@@ -592,6 +592,13 @@ export default function InternalDashboard() {
               >
                 Baixar modelo Nio (.csv)
               </button>
+              <button
+                type="button"
+                onClick={() => handleTemplateDownload("Vero")}
+                className="btn-secondary px-3 py-2 text-xs"
+              >
+                Baixar modelo Vero (.csv)
+              </button>
             </div>
 
             <form className="mt-4 space-y-4" onSubmit={handleImportSubmit}>
@@ -607,11 +614,13 @@ export default function InternalDashboard() {
                 >
                   <option value="Vivo">Vivo</option>
                   <option value="Nio">Nio</option>
+                  <option value="Vero">Vero</option>
                 </select>
                 <p className="mt-1 text-xs text-slate-600">
                   A operadora escolhida define como os dados são gravados e consultados. Se enviar base
                   da Nio com &quot;Vivo&quot; selecionado, os CEPs aparecerão como Vivo e a deduplicação
-                  por NUM_FACHADA não será aplicada.
+                  por NUM_FACHADA não será aplicada. Para Vero, a deduplicação específica por número
+                  não é aplicada.
                 </p>
               </div>
 
@@ -1380,6 +1389,7 @@ function toOperatorDisplayName(name) {
   const n = normalizeOperatorName(name);
   if (n === "vivo") return "Vivo";
   if (n === "nio") return "Nio";
+  if (n === "vero") return "Vero";
   return String(name || "");
 }
 

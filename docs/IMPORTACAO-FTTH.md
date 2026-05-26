@@ -84,8 +84,9 @@ node ./scripts/import-ftth-folder.mjs "$FTTH" --operator Vivo --skip-existing --
 |------|-----------|
 | `--batch-size 800` | Tamanho do INSERT em lote (padrão 500) |
 | `--limit N` | Só N arquivos |
+| `--files "A.xlsx,B.xlsx"` | Processa somente arquivos específicos da pasta |
 | `--dry-run` | Só lista |
-| `--operator Vivo` | Obrigatório para bases FTTH |
+| `--operator Vivo` | Define a operadora gravada (`Vivo`, `Nio`, `Vero` etc.) |
 
 Variável de ambiente alternativa: `IMPORT_BATCH_SIZE=800`
 

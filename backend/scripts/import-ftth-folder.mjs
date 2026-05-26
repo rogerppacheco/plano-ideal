@@ -13,6 +13,7 @@
  *   --skip-existing          pula arquivos já importados com sucesso
  *   --retry-failed           só arquivos sem job completed (falhou ou nunca rodou)
  *   --from AL.xlsx             retoma a partir deste arquivo (ordem alfabética)
+ *   --files A.xlsx,B.xlsx    processa somente arquivos informados
  *   --limit 5                processa só N arquivos (teste)
  *   --dry-run                só lista o que seria importado
  *   --force                  ignora outro job em processing no banco
@@ -48,6 +49,8 @@ function parseArgs(argv) {
     dryRun: false,
     force: false,
     batchSize: null,
+    files: null,
+    extraPositionals: [],
   };
   for (let i = 2; i < argv.length; i += 1) {
     const a = argv[i];
@@ -68,9 +71,20 @@ function parseArgs(argv) {
       opts.force = true;
     } else if (a === "--batch-size" && argv[i + 1]) {
       opts.batchSize = Number(argv[++i]);
-    } else if (!a.startsWith("--") && !opts.folder) {
-      opts.folder = a;
+    } else if (a === "--files" && argv[i + 1]) {
+      opts.files = argv[++i].split(",").map((s) => s.trim()).filter(Boolean);
+    } else if (!a.startsWith("--")) {
+      if (!opts.folder) {
+        opts.folder = a;
+      } else {
+        opts.extraPositionals.push(a);
+      }
     }
+  }
+  // Fallback: alguns shells/npm podem "sumir" com --files e deixar apenas argumento posicional.
+  if (!opts.files?.length && opts.extraPositionals.length > 0) {
+    const joined = opts.extraPositionals.join(",");
+    opts.files = joined.split(",").map((s) => s.trim()).filter(Boolean);
   }
   return opts;
 }
@@ -151,6 +165,24 @@ async function createJobForFile(pool, operator, userId, filePath, fileName) {
   };
 }
 
+function listXlsxFiles(folder, filesFilter) {
+  let names = fs
+    .readdirSync(folder)
+    .filter((f) => /\.xlsx$/i.test(f))
+    .filter((f) => !f.startsWith("~$"))
+    .sort((a, b) => a.localeCompare(b, "pt-BR"));
+
+  if (filesFilter?.length) {
+    const wanted = new Set(filesFilter.map((f) => f.toLowerCase()));
+    names = names.filter((n) => wanted.has(n.toLowerCase()));
+    const missing = filesFilter.filter((f) => !names.some((n) => n.toLowerCase() === f.toLowerCase()));
+    if (missing.length) {
+      console.warn("Aviso: não encontrados na pasta:", missing.join(", "));
+    }
+  }
+  return names;
+}
+
 const opts = parseArgs(process.argv);
 if (!opts.folder || !fs.existsSync(opts.folder)) {
   console.error(`
@@ -160,6 +192,7 @@ Exemplo:
   node ./scripts/import-ftth-folder.mjs "C:\\Users\\rogge\\Downloads\\Endereços FTTH-...\\Endereços FTTH" --operator Vivo --skip-existing
 
 Opções: --skip-existing --retry-failed --from MG_1.xlsx --limit 3 --dry-run --force
+        --files "SP_1.xlsx,SP_2.xlsx"   (só estes arquivos)
 `);
   process.exit(1);
 }
@@ -207,10 +240,7 @@ if (!opts.force) {
 
 const userId = await getAdminUserId(pool);
 
-let names = fs
-  .readdirSync(opts.folder)
-  .filter((f) => /\.xlsx$/i.test(f))
-  .sort((a, b) => a.localeCompare(b, "pt-BR"));
+let names = listXlsxFiles(opts.folder, opts.files);
 
 if (opts.from) {
   const idx = names.findIndex((n) => n.toLowerCase() === opts.from.toLowerCase());
@@ -248,6 +278,12 @@ for (let i = 0; i < names.length; i += 1) {
   const fileName = names[i];
   const filePath = path.join(opts.folder, fileName);
   const label = `[${i + 1}/${names.length}]`;
+
+  if (!fs.existsSync(filePath)) {
+    console.log(`${label} SKIP: ${fileName} — arquivo não encontrado (pode ter sido movido/removido).`);
+    skipped += 1;
+    continue;
+  }
 
   if (opts.skipExisting && (await isFileAlreadyImported(pool, fileName, opts.operator))) {
     console.log(`${label} SKIP (já importado): ${fileName}`);

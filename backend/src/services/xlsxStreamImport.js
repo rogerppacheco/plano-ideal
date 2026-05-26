@@ -7,6 +7,7 @@ import { setDetectedOperator, updateImportJobFileStats } from "./importJobServic
 
 const BATCH_ROWS = 2500;
 const PROGRESS_EVERY = 10000;
+const HEADER_SCAN_LIMIT = 50;
 
 function cellToString(value) {
   if (value == null) return "";
@@ -24,6 +25,42 @@ function rowToObject(headers, row) {
     obj[key] = cellToString(values[i + 1]);
   }
   return obj;
+}
+
+function normalizeHeaderToken(value) {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "_")
+    .replace(/[^a-z0-9_]/g, "");
+}
+
+function getHeaderScoreFromTokens(tokens) {
+  if (!tokens.length) return 0;
+  const set = new Set(tokens);
+  let score = 0;
+  if (set.has("cep")) score += 5;
+  if ([...set].some((t) => t.endsWith("_cep") || t.startsWith("cep_") || t.includes("cep"))) score += 3;
+  if (set.has("logradouro")) score += 2;
+  if (set.has("cidade") || set.has("municipio")) score += 2;
+  if (set.has("bairro")) score += 1;
+  if (set.has("uf")) score += 1;
+  if (set.has("num") || set.has("numero")) score += 1;
+  if (set.has("num_fachada") || [...set].some((t) => t.includes("fachada"))) score += 1;
+  return score;
+}
+
+function parseHeaderRowFromValues(values) {
+  const rawHeaders = (values || []).slice(1).map((h, idx) => {
+    const label = cellToString(h).trim();
+    return label || `col_${idx + 1}`;
+  });
+  const nonEmpty = rawHeaders.filter((h) => !/^col_\d+$/i.test(h));
+  const tokens = nonEmpty.map(normalizeHeaderToken).filter(Boolean);
+  const score = getHeaderScoreFromTokens(tokens);
+  return { headers: rawHeaders, score, nonEmptyCount: nonEmpty.length };
 }
 
 /**
@@ -117,13 +154,13 @@ export async function importXlsxFileExcelJs({
       let batch = [];
 
       for await (const row of worksheetReader) {
-        if (row.number === 1) {
-          headers = (row.values || [])
-            .slice(1)
-            .map((h, idx) => {
-              const label = cellToString(h).trim();
-              return label || `col_${idx + 1}`;
-            });
+        if (!headers) {
+          const parsedHeader = parseHeaderRowFromValues(row.values || []);
+          if (parsedHeader.nonEmptyCount === 0) continue;
+          const hasCepLikeHeader = parsedHeader.score >= 5;
+          const fallbackAfterLimit = row.number > HEADER_SCAN_LIMIT && parsedHeader.nonEmptyCount >= 2;
+          if (!hasCepLikeHeader && !fallbackAfterLimit) continue;
+          headers = parsedHeader.headers;
           continue;
         }
 

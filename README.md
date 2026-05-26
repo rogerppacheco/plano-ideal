@@ -122,7 +122,7 @@ Jobs `queued`/`processing` mais antigos que `IMPORT_JOB_STALE_HOURS` (padrão 16
 
 ## 8) Importação em massa FTTH (script local → produção)
 
-Para pastas com dezenas de `.xlsx` no padrão Vivo (colunas `CEP`, `NUM`, etc.), use o script que grava direto no Postgres de produção:
+Para pastas com `.xlsx` (Vivo, Vero etc.), use o script que grava direto no Postgres de produção:
 
 1. Copie `.env.railway.example` → `.env.railway` na raiz do projeto com `DATABASE_URL` do Railway.
 2. Não deixe importação aberta no painel (ou use `--force` no script).
@@ -139,9 +139,12 @@ node ./scripts/import-ftth-folder.mjs "C:\caminho\Endereços FTTH" --from AM_2.x
 
 # Carga completa (~147 arquivos, ~18M linhas — várias horas)
 node ./scripts/import-ftth-folder.mjs "C:\caminho\Endereços FTTH" --operator Vivo --skip-existing --force
+
+# Exemplo Vero (pasta dedicada com só as bases da operadora)
+node ./scripts/import-ftth-folder.mjs "C:\PlanoIdeal\Vero" --operator Vero --force
 ```
 
-Opções: `--skip-existing` (pula já concluídos), `--from ARQUIVO.xlsx` (retomar), `--limit N`, `--dry-run`, `--force` (libera jobs travados no banco).
+Opções: `--skip-existing` (pula já concluídos), `--from ARQUIVO.xlsx` (retomar), `--files "A.xlsx,B.xlsx"` (somente selecionados), `--limit N`, `--dry-run`, `--force` (libera jobs travados no banco).
 
 Cada arquivo gera um `import_job` no histórico do painel. Excel grande no painel ainda pode falhar por memória; o script usa **SheetJS** automaticamente quando o formato FTTH não é lido pelo ExcelJS.
 

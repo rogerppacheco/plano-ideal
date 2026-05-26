@@ -7,11 +7,37 @@ import { setDetectedOperator, updateImportJobFileStats } from "./importJobServic
 
 const BATCH_ROWS = 2500;
 const PROGRESS_EVERY = 10000;
+const HEADER_SCAN_LIMIT = 50;
 
-function readHeaders(ws, range) {
+function normalizeHeaderToken(value) {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "_")
+    .replace(/[^a-z0-9_]/g, "");
+}
+
+function getHeaderScoreFromTokens(tokens) {
+  if (!tokens.length) return 0;
+  const set = new Set(tokens);
+  let score = 0;
+  if (set.has("cep")) score += 5;
+  if ([...set].some((t) => t.endsWith("_cep") || t.startsWith("cep_") || t.includes("cep"))) score += 3;
+  if (set.has("logradouro")) score += 2;
+  if (set.has("cidade") || set.has("municipio")) score += 2;
+  if (set.has("bairro")) score += 1;
+  if (set.has("uf")) score += 1;
+  if (set.has("num") || set.has("numero")) score += 1;
+  if (set.has("num_fachada") || [...set].some((t) => t.includes("fachada"))) score += 1;
+  return score;
+}
+
+function readHeaders(ws, range, headerRowIndex) {
   const headerRange = {
-    s: { r: range.s.r, c: range.s.c },
-    e: { r: range.s.r, c: range.e.c },
+    s: { r: headerRowIndex, c: range.s.c },
+    e: { r: headerRowIndex, c: range.e.c },
   };
   const row = XLSX.utils.sheet_to_json(ws, {
     range: headerRange,
@@ -24,6 +50,36 @@ function readHeaders(ws, range) {
     const label = String(h ?? "").trim();
     return label || `col_${idx + 1}`;
   });
+}
+
+function detectHeaderRowIndex(ws, range) {
+  const maxRow = Math.min(range.e.r, range.s.r + HEADER_SCAN_LIMIT);
+  let best = { rowIndex: range.s.r, score: -1, nonEmpty: 0 };
+  for (let rowIndex = range.s.r; rowIndex <= maxRow; rowIndex += 1) {
+    const rowRange = {
+      s: { r: rowIndex, c: range.s.c },
+      e: { r: rowIndex, c: range.e.c },
+    };
+    const row = XLSX.utils.sheet_to_json(ws, {
+      range: rowRange,
+      header: 1,
+      defval: "",
+      raw: false,
+    })[0];
+    const values = Array.isArray(row) ? row : [];
+    const nonEmptyValues = values.map((v) => String(v ?? "").trim()).filter(Boolean);
+    if (!nonEmptyValues.length) continue;
+    const tokens = nonEmptyValues.map(normalizeHeaderToken).filter(Boolean);
+    const score = getHeaderScoreFromTokens(tokens);
+    if (
+      score > best.score ||
+      (score === best.score && nonEmptyValues.length > best.nonEmpty)
+    ) {
+      best = { rowIndex, score, nonEmpty: nonEmptyValues.length };
+    }
+    if (score >= 5) break;
+  }
+  return best.rowIndex;
 }
 
 function matrixToObjects(headers, matrix) {
@@ -117,7 +173,8 @@ export async function importXlsxFileSheetJs({
     const range = XLSX.utils.decode_range(ws["!ref"]);
     if (range.e.r <= range.s.r) continue;
 
-    const headers = readHeaders(ws, range);
+    const headerRowIndex = detectHeaderRowIndex(ws, range);
+    const headers = readHeaders(ws, range, headerRowIndex);
     if (!headers.length) {
       throw new Error(`Planilha "${sheetName}" sem cabeçalho reconhecível em ${originalName}.`);
     }
@@ -131,7 +188,7 @@ export async function importXlsxFileSheetJs({
       `Aba "${sheetName}": inserindo em blocos…`
     );
 
-    for (let startRow = range.s.r + 1; startRow <= range.e.r; startRow += BATCH_ROWS) {
+    for (let startRow = headerRowIndex + 1; startRow <= range.e.r; startRow += BATCH_ROWS) {
       const endRow = Math.min(startRow + BATCH_ROWS - 1, range.e.r);
       const chunkRange = {
         s: { r: startRow, c: range.s.c },
