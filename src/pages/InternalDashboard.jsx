@@ -557,7 +557,7 @@ export default function InternalDashboard() {
                 <p className="mt-2 text-sm font-semibold text-slate-800">
                   Nenhuma operadora disponível para este CEP.
                 </p>
-              )}
+              ) : null}
             </div>
           ) : (
             <div className="mt-4 rounded-xl border border-dashed border-slate-300 bg-slate-50/80 p-4">
