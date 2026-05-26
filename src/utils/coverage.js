@@ -15,6 +15,44 @@ export function sortAddressNumbers(values) {
   return [...values].sort(compareAddressNumbers);
 }
 
+export function pickFieldFromRow(source, keys) {
+  for (const key of keys) {
+    const value = source?.[key];
+    if (value == null) continue;
+    const text = String(value).trim();
+    if (text) return text;
+  }
+  return "";
+}
+
+/** Rótulo de endereço para bases sem NUM (ex.: Vero). */
+export function buildStreetLabel(rowData) {
+  const logradouro = pickFieldFromRow(rowData, [
+    "LOGRADOURO",
+    "logradouro",
+    "Logradouro",
+    "ENDERECO",
+    "ENDEREÇO",
+    "endereco",
+  ]);
+  if (!logradouro) return "";
+
+  const bairro = pickFieldFromRow(rowData, ["BAIRRO", "bairro", "Bairro"]);
+  if (bairro) return `${logradouro} · ${bairro}`;
+  return logradouro;
+}
+
+export function countRecordsByOperator(records) {
+  const counts = {};
+  if (!Array.isArray(records)) return counts;
+  for (const record of records) {
+    const name = String(record?.operator || "").trim();
+    if (!name) continue;
+    counts[name] = (counts[name] || 0) + 1;
+  }
+  return counts;
+}
+
 const COMPLEMENT_KEYS = [
   "COMPLEMENTO",
   "Complemento",
@@ -24,16 +62,6 @@ const COMPLEMENT_KEYS = [
   "COMPLEMENT",
   "complement",
 ];
-
-function pickFieldFromRow(source, keys) {
-  for (const key of keys) {
-    const value = source?.[key];
-    if (value == null) continue;
-    const text = String(value).trim();
-    if (text) return text;
-  }
-  return "";
-}
 
 /**
  * Rótulo para exibição: NUM ou NUM_FACHADA + COMPLEMENTO (coluna separada, padrão Nio).

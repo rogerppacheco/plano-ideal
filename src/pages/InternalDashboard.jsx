@@ -16,7 +16,7 @@ import {
 import nioLogo from "../assets/operators/nio.png";
 import veroLogo from "../assets/operators/Vero.jpg";
 import vivoLogo from "../assets/operators/vivo.png";
-import { buildFacadeLabel, groupFacadeNumbers, maskCep } from "../utils/coverage";
+import { buildFacadeLabel, buildStreetLabel, countRecordsByOperator, groupFacadeNumbers, maskCep } from "../utils/coverage";
 import {
   getHeartbeatAgeMs,
   getImportProgressLabel,
@@ -31,6 +31,27 @@ const OPERATOR_LOGOS = {
   vivo: vivoLogo,
   nio: nioLogo,
   vero: veroLogo,
+};
+
+const OPERATOR_COVERAGE_CONFIG = {
+  Vivo: {
+    title: "Números de fachada",
+    hint: "Coluna NUM",
+    mode: "numbers",
+    keys: ["NUM", "Numero", "NUMERO", "numero"],
+  },
+  Nio: {
+    title: "Números de fachada",
+    hint: "Coluna NUM_FACHADA + complemento",
+    mode: "numbers",
+    keys: ["NUM_FACHADA", "Num_Fachada", "num_fachada"],
+  },
+  Vero: {
+    title: "Logradouros cobertos",
+    hint: "Endereço por logradouro (sem número de fachada)",
+    mode: "streets",
+    keys: [],
+  },
 };
 
 const ACTIVE_IMPORT_STORAGE_KEY = "planoideal_active_import_job_id";
@@ -500,61 +521,39 @@ export default function InternalDashboard() {
                 CEP consultado: {result.cep}
                 {consultedAddress ? `, ${consultedAddress}` : ""}
               </p>
-              <details className="mt-2 rounded-lg bg-white p-3 ring-1 ring-slate-200">
-                <summary className="cursor-pointer text-sm font-semibold text-slate-700">
-                  Ver todos os números por operadora
-                </summary>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  {hasOperator(result.operators, "Vivo") ? (
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Vivo (NUM)
-                      </p>
-                      <FacadeNumberChips
-                        records={result.records}
-                        operatorName="Vivo"
-                        keys={["NUM", "Numero", "NUMERO", "numero"]}
-                      />
-                    </div>
-                  ) : null}
-                  {hasOperator(result.operators, "Nio") ? (
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Nio (NUM_FACHADA)
-                      </p>
-                      <FacadeNumberChips
-                        records={result.records}
-                        operatorName="Nio"
-                        keys={["NUM_FACHADA", "Num_Fachada", "num_fachada"]}
-                      />
-                    </div>
-                  ) : null}
-                </div>
-              </details>
               {result.operators.length > 0 ? (
                 <>
-                  <p className="mt-2 text-sm text-slate-800">
-                    Operadoras disponíveis:
-                  </p>
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <p className="mt-3 text-sm font-semibold text-slate-800">Resumo por operadora</p>
+                  <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                     {result.operators.map((operatorName) => (
-                      <span
+                      <OperatorSummaryCard
                         key={operatorName}
-                        className="inline-flex items-center rounded-lg border border-slate-200 bg-white px-2.5 py-1.5"
-                        title={operatorName}
-                      >
-                        <OperatorLogo operatorName={operatorName} />
-                      </span>
+                        operatorName={operatorName}
+                        count={countRecordsByOperator(result.records)[operatorName] || 0}
+                        config={getOperatorCoverageConfig(operatorName)}
+                      />
                     ))}
                   </div>
                   <p className="mt-2 text-xs text-slate-500">
-                    {result.operators.join(" | ")}
-                  </p>
-                  <p className="mt-2 text-xs text-slate-500">
-                    Registros encontrados: {result.records?.length || 0}
+                    Total no CEP: {result.records?.length || 0} registro(s)
                   </p>
                 </>
-              ) : (
+              ) : null}
+              <details className="mt-3 rounded-lg bg-white p-3 ring-1 ring-slate-200">
+                <summary className="cursor-pointer text-sm font-semibold text-slate-700">
+                  Ver detalhes por operadora
+                </summary>
+                <div className="mt-3 space-y-4">
+                  {result.operators.map((operatorName) => (
+                    <OperatorCoveragePanel
+                      key={operatorName}
+                      operatorName={operatorName}
+                      records={result.records}
+                    />
+                  ))}
+                </div>
+              </details>
+              {result.operators.length === 0 ? (
                 <p className="mt-2 text-sm font-semibold text-slate-800">
                   Nenhuma operadora disponível para este CEP.
                 </p>
@@ -1132,11 +1131,134 @@ function pickField(source, keys) {
   return "";
 }
 
+function getOperatorCoverageConfig(operatorName) {
+  const displayName = toOperatorDisplayName(operatorName);
+  return (
+    OPERATOR_COVERAGE_CONFIG[displayName] || {
+      title: "Registros",
+      hint: "Dados importados desta operadora",
+      mode: "numbers",
+      keys: ["NUM", "Numero", "NUMERO", "numero", "NUM_FACHADA", "Num_Fachada", "num_fachada"],
+    }
+  );
+}
+
+function recordsMatchOperator(record, operatorName) {
+  return normalizeOperatorName(record?.operator) === normalizeOperatorName(operatorName);
+}
+
+function getRecordsForOperator(records, operatorName) {
+  if (!Array.isArray(records)) return [];
+  return records.filter((record) => recordsMatchOperator(record, operatorName));
+}
+
+function OperatorSummaryCard({ operatorName, count, config }) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white p-3">
+      <div className="flex items-center gap-2">
+        <OperatorLogo operatorName={operatorName} />
+        <div>
+          <p className="text-sm font-semibold text-slate-800">{toOperatorDisplayName(operatorName)}</p>
+          <p className="text-xs text-slate-500">{config.hint}</p>
+        </div>
+      </div>
+      <p className="mt-2 text-2xl font-black text-slate-900">{count.toLocaleString("pt-BR")}</p>
+      <p className="text-xs text-slate-500">{config.title}</p>
+    </div>
+  );
+}
+
+function OperatorCoveragePanel({ operatorName, records }) {
+  const config = getOperatorCoverageConfig(operatorName);
+  const opRecords = getRecordsForOperator(records, operatorName);
+  const uniqueCount =
+    config.mode === "streets"
+      ? getOperatorStreetList(records, operatorName).length
+      : getOperatorNumberList(records, operatorName, config.keys).length;
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className="inline-flex rounded-lg border border-slate-200 bg-white px-2 py-1">
+            <OperatorLogo operatorName={operatorName} />
+          </span>
+          <div>
+            <p className="text-sm font-bold text-slate-900">{toOperatorDisplayName(operatorName)}</p>
+            <p className="text-xs text-slate-500">{config.hint}</p>
+          </div>
+        </div>
+        <p className="text-xs font-semibold text-slate-600">
+          {opRecords.length.toLocaleString("pt-BR")} registro(s)
+          {uniqueCount > 0 ? ` · ${uniqueCount.toLocaleString("pt-BR")} distinto(s)` : ""}
+        </p>
+      </div>
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+        {config.title}
+      </p>
+      {config.mode === "streets" ? (
+        <StreetChips records={records} operatorName={operatorName} />
+      ) : (
+        <FacadeNumberChips records={records} operatorName={operatorName} keys={config.keys} />
+      )}
+    </div>
+  );
+}
+
+function getOperatorStreetList(records, operatorName) {
+  if (!Array.isArray(records) || records.length === 0) return [];
+  const values = new Set();
+  for (const record of records) {
+    if (!recordsMatchOperator(record, operatorName)) continue;
+    const label = buildStreetLabel(record?.row_data || {});
+    if (label) values.add(label);
+  }
+  return Array.from(values).sort((a, b) => a.localeCompare(b, "pt-BR"));
+}
+
+function StreetChips({ records, operatorName }) {
+  const streets = useMemo(
+    () => getOperatorStreetList(records, operatorName),
+    [records, operatorName]
+  );
+
+  if (streets.length === 0) {
+    return (
+      <p className="text-sm text-slate-600">
+        Nenhum logradouro identificado nos registros desta operadora.
+      </p>
+    );
+  }
+
+  const visible = streets.slice(0, 40);
+  const hidden = Math.max(0, streets.length - visible.length);
+
+  return (
+    <div>
+      <div className="flex flex-wrap gap-2">
+        {visible.map((street) => (
+          <span
+            key={street}
+            className="inline-flex max-w-full items-center rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-900"
+          >
+            {street}
+          </span>
+        ))}
+        {hidden > 0 ? (
+          <span className="inline-flex rounded-full border border-slate-300 bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
+            +{hidden} logradouros
+          </span>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 function getOperatorNumberList(records, operatorName, keys) {
   if (!Array.isArray(records) || records.length === 0) return [];
   const values = new Set();
   for (const record of records) {
-    if (record?.operator !== operatorName) continue;
+    if (!recordsMatchOperator(record, operatorName)) continue;
     const label = buildFacadeLabel(record?.row_data || {}, keys);
     if (label) values.add(label);
   }
