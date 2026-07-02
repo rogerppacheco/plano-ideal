@@ -7,6 +7,8 @@ import {
 } from "../services/api";
 import { ScreenshotModal } from "./ScreenshotModal";
 
+const PENDING_CONSULTATION_KEY = "planoideal_pending_credit_consultation_id";
+
 function formatDate(iso) {
   if (!iso) return "—";
   try {
@@ -53,33 +55,61 @@ export function CreditConsultTab({ token }) {
   const loadHistory = useCallback(async () => {
     try {
       const data = await getCreditConsultationHistory(token);
-      setHistory(data.consultations || []);
+      const items = data.consultations || [];
+      setHistory(items);
+      return items;
     } catch (err) {
       setHistory([]);
+      return [];
+    }
+  }, [token]);
+
+  const resumePendingConsultation = useCallback(async () => {
+    const storedId = sessionStorage.getItem(PENDING_CONSULTATION_KEY);
+    if (!storedId) return;
+
+    try {
+      const data = await getCreditConsultation(storedId, token);
+      setActiveConsultation(data.consultation);
+      if (data.consultation.status === "success" || data.consultation.status === "failed") {
+        sessionStorage.removeItem(PENDING_CONSULTATION_KEY);
+      }
+    } catch {
+      sessionStorage.removeItem(PENDING_CONSULTATION_KEY);
     }
   }, [token]);
 
   useEffect(() => {
     loadHistory();
-  }, [loadHistory]);
+    resumePendingConsultation();
+  }, [loadHistory, resumePendingConsultation]);
 
   useEffect(() => {
-    if (!activeConsultation?.id) return undefined;
-    if (activeConsultation.status === "success" || activeConsultation.status === "failed") {
-      return undefined;
-    }
+    const hasPending =
+      activeConsultation &&
+      activeConsultation.status !== "success" &&
+      activeConsultation.status !== "failed";
 
     const interval = setInterval(async () => {
-      try {
-        const data = await getCreditConsultation(activeConsultation.id, token);
-        setActiveConsultation(data.consultation);
-        if (data.consultation.status === "success" || data.consultation.status === "failed") {
-          await loadHistory();
+      const items = await loadHistory();
+      if (hasPending && activeConsultation?.id) {
+        try {
+          const data = await getCreditConsultation(activeConsultation.id, token);
+          setActiveConsultation(data.consultation);
+          if (data.consultation.status === "success" || data.consultation.status === "failed") {
+            sessionStorage.removeItem(PENDING_CONSULTATION_KEY);
+          }
+        } catch (err) {
+          setError(err.message || "Falha ao acompanhar consulta.");
         }
-      } catch (err) {
-        setError(err.message || "Falha ao acompanhar consulta.");
+      } else if (items.some((item) => item.status === "queued" || item.status === "processing")) {
+        const pending = items.find((item) => item.status === "queued" || item.status === "processing");
+        if (pending) {
+          setActiveConsultation(pending);
+          sessionStorage.setItem(PENDING_CONSULTATION_KEY, String(pending.id));
+        }
       }
-    }, 2500);
+    }, 3000);
 
     return () => clearInterval(interval);
   }, [activeConsultation?.id, activeConsultation?.status, token, loadHistory]);
@@ -95,6 +125,7 @@ export function CreditConsultTab({ token }) {
         cpfRepresentative: cpfRepresentative.replace(/\D/g, "") || null,
       });
       setActiveConsultation(data.consultation);
+      sessionStorage.setItem(PENDING_CONSULTATION_KEY, String(data.consultation.id));
       await loadHistory();
     } catch (err) {
       setError(err.message || "Não foi possível iniciar a consulta.");
@@ -122,7 +153,8 @@ export function CreditConsultTab({ token }) {
     <section className="surface-card p-6">
       <h2 className="text-xl font-bold text-slate-900">Consulta de Crédito PAP Nio</h2>
       <p className="mt-1 text-sm text-slate-600">
-        Disponível para admin e vendedor. A consulta leva cerca de 30–60 segundos.
+        Disponível para admin e vendedor. A consulta leva cerca de 30–60 segundos. Você pode trocar
+        de aba — o processamento continua no servidor e o histórico atualiza automaticamente.
       </p>
 
       <form className="mt-4 grid gap-3 sm:grid-cols-2" onSubmit={handleSubmit}>
@@ -170,7 +202,7 @@ export function CreditConsultTab({ token }) {
 
           {activeConsultation.status === "processing" || activeConsultation.status === "queued" ? (
             <p className="mt-2 text-sm text-amber-800">
-              Aguardando retorno do PAP… não feche esta página.
+              Aguardando retorno do PAP… o histórico abaixo atualiza sozinho.
             </p>
           ) : null}
 

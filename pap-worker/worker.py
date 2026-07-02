@@ -47,6 +47,30 @@ def _release_stale_bo_locks(cur) -> None:
           AND started_at < NOW() - INTERVAL '15 minutes'
         """
     )
+    cur.execute(
+        """
+        UPDATE pap_bo_credentials b
+        SET in_use_by = NULL, locked_at = NULL
+        FROM credit_consultations c
+        WHERE b.in_use_by = c.id
+          AND c.status = 'processing'
+          AND c.started_at IS NOT NULL
+          AND c.started_at < NOW() - INTERVAL '3 minutes'
+          AND c.attempts < c.max_attempts
+        """
+    )
+    cur.execute(
+        """
+        UPDATE credit_consultations
+        SET status = 'queued',
+            started_at = NULL,
+            pap_bo_credential_id = NULL
+        WHERE status = 'processing'
+          AND started_at IS NOT NULL
+          AND started_at < NOW() - INTERVAL '3 minutes'
+          AND attempts < max_attempts
+        """
+    )
 
 
 def _claim_bo_credential(cur) -> dict | None:
@@ -112,15 +136,36 @@ def _requeue_if_no_bo(cur) -> None:
 
 
 def process_once() -> bool:
-    with db_cursor() as (_conn, cur):
-        _release_stale_bo_locks(cur)
-        job = _claim_next_consultation(cur)
-        if not job:
-            return False
-        consultation_id = job["id"]
+    consultation_id = None
+    try:
+        with db_cursor() as (_conn, cur):
+            _release_stale_bo_locks(cur)
+            job = _claim_next_consultation(cur)
+            if not job:
+                return False
+            consultation_id = job["id"]
 
-    execute_credit_consultation(consultation_id)
-    return True
+        execute_credit_consultation(consultation_id)
+        return True
+    except Exception:
+        logger.exception("Erro ao processar consulta %s", consultation_id)
+        if consultation_id:
+            try:
+                from credit_executor import _finish_consultation
+
+                _finish_consultation(
+                    consultation_id,
+                    status="failed",
+                    approved=None,
+                    result_detail=None,
+                    error_message="Erro interno no worker. Tente novamente.",
+                    screenshot_b64=None,
+                    duration_seconds=0,
+                    bo_credential_id=None,
+                )
+            except Exception:
+                logger.exception("Falha ao marcar consulta %s como erro", consultation_id)
+        return False
 
 
 def main() -> None:
