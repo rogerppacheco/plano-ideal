@@ -4,6 +4,8 @@
   "githubRepo": "rogerppacheco/plano-ideal",
   "frontendServiceName": "plano-ideal",
   "apiServiceName": "plano-ideal-api",
+  "papServiceName": "plano-ideal-pap",
   "apiRootDirectory": "backend",
+  "papRootDirectory": "pap-worker",
   "dbSchema": "plano_ideal"
 }

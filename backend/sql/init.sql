@@ -75,3 +75,57 @@ CREATE TABLE IF NOT EXISTS import_job_files (
 );
 
 CREATE INDEX IF NOT EXISTS idx_import_job_files_job ON import_job_files (job_id);
+
+CREATE TABLE IF NOT EXISTS pap_bo_credentials (
+  id BIGSERIAL PRIMARY KEY,
+  label TEXT NOT NULL,
+  matricula_pap TEXT NOT NULL,
+  senha_pap_encrypted TEXT NOT NULL,
+  enabled BOOLEAN NOT NULL DEFAULT true,
+  in_use_by BIGINT,
+  locked_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS pap_tt_matriculas (
+  id BIGSERIAL PRIMARY KEY,
+  matricula TEXT NOT NULL UNIQUE,
+  enabled BOOLEAN NOT NULL DEFAULT true,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS pap_tt_daily_usage (
+  matricula TEXT NOT NULL,
+  usage_date DATE NOT NULL,
+  consultas INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (matricula, usage_date)
+);
+
+CREATE TABLE IF NOT EXISTS credit_consultations (
+  id BIGSERIAL PRIMARY KEY,
+  requested_by INTEGER NOT NULL REFERENCES internal_users(id),
+  document TEXT NOT NULL,
+  cpf_representative TEXT,
+  status TEXT NOT NULL CHECK (status IN ('queued', 'processing', 'success', 'failed')),
+  approved BOOLEAN,
+  result_detail TEXT,
+  error_message TEXT,
+  screenshot_base64 TEXT,
+  duration_seconds NUMERIC(8,1),
+  pap_bo_credential_id INTEGER REFERENCES pap_bo_credentials(id),
+  pap_tt_matricula TEXT,
+  attempts INTEGER NOT NULL DEFAULT 0,
+  max_attempts INTEGER NOT NULL DEFAULT 2,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  started_at TIMESTAMPTZ,
+  finished_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_credit_consultations_status_created
+ON credit_consultations (status, created_at ASC);
+
+CREATE INDEX IF NOT EXISTS idx_credit_consultations_user_created
+ON credit_consultations (requested_by, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_pap_bo_credentials_enabled
+ON pap_bo_credentials (enabled, in_use_by);

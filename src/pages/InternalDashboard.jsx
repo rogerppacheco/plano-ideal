@@ -17,6 +17,8 @@ import nioLogo from "../assets/operators/nio.png";
 import veroLogo from "../assets/operators/Vero.jpg";
 import vivoLogo from "../assets/operators/vivo.png";
 import { buildFacadeLabel, buildStreetLabel, countRecordsByOperator, groupFacadeNumbers, maskCep } from "../utils/coverage";
+import { CreditConsultTab } from "../components/CreditConsultTab";
+import { PapAdminTab } from "../components/PapAdminTab";
 import {
   getHeartbeatAgeMs,
   getImportProgressLabel,
@@ -467,6 +469,22 @@ export default function InternalDashboard() {
             >
               Consulta
             </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("credito")}
+              className={tabButtonClass(activeTab === "credito")}
+            >
+              Consulta Crédito
+            </button>
+            {isAdmin ? (
+              <button
+                type="button"
+                onClick={() => setActiveTab("pap")}
+                className={tabButtonClass(activeTab === "pap")}
+              >
+                PAP
+              </button>
+            ) : null}
             {isAdmin ? (
               <button
                 type="button"
@@ -569,6 +587,10 @@ export default function InternalDashboard() {
           )}
           </section>
         ) : null}
+
+        {activeTab === "credito" ? <CreditConsultTab token={token} /> : null}
+
+        {isAdmin && activeTab === "pap" ? <PapAdminTab token={token} /> : null}
 
         {isAdmin && activeTab === "importacoes" ? (
           <section className="surface-card p-6">

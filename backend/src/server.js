@@ -4,7 +4,9 @@ import express from "express";
 import { ensureSchema } from "./initSchema.js";
 import authRoutes from "./routes/authRoutes.js";
 import coverageRoutes from "./routes/coverageRoutes.js";
+import creditRoutes from "./routes/creditRoutes.js";
 import importRoutes from "./routes/importRoutes.js";
+import papCredentialRoutes from "./routes/papCredentialRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 
 dotenv.config();
@@ -33,6 +35,8 @@ app.get("/api/health", (_req, res) => {
 
 app.use("/api/auth", authRoutes);
 app.use("/api", coverageRoutes);
+app.use("/api", creditRoutes);
+app.use("/api", papCredentialRoutes);
 app.use("/api", importRoutes);
 app.use("/api", userRoutes);
 
