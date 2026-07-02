@@ -38,6 +38,16 @@ def _release_stale_bo_locks(cur) -> None:
     )
     cur.execute(
         """
+        UPDATE pap_bo_credentials b
+        SET in_use_by = NULL, locked_at = NULL
+        FROM credit_consultations c
+        WHERE b.in_use_by = c.id
+          AND c.status IN ('failed', 'success')
+          AND c.finished_at IS NOT NULL
+        """
+    )
+    cur.execute(
+        """
         UPDATE credit_consultations
         SET status = 'failed',
             error_message = COALESCE(error_message, 'Consulta expirou (timeout do worker).'),
