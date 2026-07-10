@@ -55,4 +55,31 @@ router.post("/users", requireAuth, requireRole("admin"), async (req, res) => {
   }
 });
 
+router.patch("/users/:id/password", requireAuth, requireRole("admin"), async (req, res) => {
+  const userId = Number(req.params.id);
+  const rawPassword = String(req.body?.password || "");
+
+  if (!Number.isInteger(userId) || userId <= 0) {
+    return res.status(400).json({ message: "ID de usuário inválido." });
+  }
+  if (rawPassword.length < 6) {
+    return res.status(400).json({ message: "Senha deve ter ao menos 6 caracteres." });
+  }
+
+  const passwordHash = await bcrypt.hash(rawPassword, 10);
+  const updateQuery = `
+    UPDATE internal_users
+    SET password_hash = $1
+    WHERE id = $2
+    RETURNING id, username, full_name, role, created_at
+  `;
+  const { rows } = await pool.query(updateQuery, [passwordHash, userId]);
+
+  if (!rows.length) {
+    return res.status(404).json({ message: "Usuário não encontrado." });
+  }
+
+  return res.json({ user: rows[0], message: "Senha atualizada com sucesso." });
+});
+
 export default router;

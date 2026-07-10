@@ -1,36 +1,80 @@
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
   body {
-    font-family: "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    @apply bg-slate-950 text-slate-100 antialiased;
-    background-image: radial-gradient(circle at 10% 0%, rgba(14, 165, 233, 0.16), transparent 42%),
-      radial-gradient(circle at 85% 15%, rgba(99, 102, 241, 0.14), transparent 40%);
+    font-family: "Plus Jakarta Sans", "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    @apply bg-ink-50 text-ink-900 antialiased;
+  }
+
+  ::selection {
+    @apply bg-brand-200 text-brand-900;
   }
 }
 
 @layer components {
   .surface-card {
-    @apply rounded-2xl border border-slate-200/70 bg-white/95 shadow-card backdrop-blur;
+    @apply rounded-2xl border border-slate-200/80 bg-white shadow-card;
     animation: card-enter 420ms ease-out both;
   }
 
   .input-modern {
-    @apply w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition duration-200 focus:border-brand-500 focus:ring-4 focus:ring-brand-50;
+    @apply w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-ink-900 outline-none transition duration-200 placeholder:text-slate-400 focus:border-brand-500 focus:ring-4 focus:ring-brand-100;
   }
 
   .btn-primary {
-    @apply inline-flex items-center justify-center rounded-xl bg-brand-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-brand-600/20 transition duration-200 hover:-translate-y-[1px] hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0;
+    @apply inline-flex items-center justify-center rounded-xl bg-brand-600 px-5 py-3 text-sm font-semibold text-white shadow-md shadow-brand-600/20 transition duration-200 hover:-translate-y-px hover:bg-brand-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0;
   }
 
   .btn-secondary {
-    @apply inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition duration-200 hover:bg-slate-100;
+    @apply inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-ink-700 transition duration-200 hover:border-slate-400 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500;
+  }
+
+  .btn-cta {
+    @apply inline-flex items-center justify-center rounded-xl bg-accent-500 px-6 py-3.5 text-sm font-bold text-white shadow-cta transition duration-200 hover:-translate-y-0.5 hover:bg-accent-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-500 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0;
+  }
+
+  .badge-status {
+    @apply inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold uppercase tracking-wide;
+  }
+
+  .badge-status-success {
+    @apply bg-emerald-700 text-white;
+  }
+
+  .badge-status-denied {
+    @apply bg-amber-800 text-white;
+  }
+
+  .badge-status-error {
+    @apply bg-red-700 text-white;
+  }
+
+  .badge-status-pending {
+    @apply bg-slate-700 text-white;
+  }
+
+  .plan-card {
+    @apply relative flex flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-card transition duration-300 hover:-translate-y-1 hover:shadow-card-hover;
+  }
+
+  .plan-card-featured {
+    @apply border-brand-400 ring-2 ring-brand-100;
+  }
+
+  .section-label {
+    @apply text-xs font-bold uppercase tracking-widest text-brand-600;
   }
 
   .muted {
-    @apply text-sm text-slate-700;
+    @apply text-sm text-ink-600;
   }
 }
 
@@ -46,7 +90,13 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .surface-card {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .surface-card,
+  .plan-card {
     animation: none;
+    transition: none;
   }
 }

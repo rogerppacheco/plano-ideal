@@ -26,6 +26,23 @@ function statusLabel(status) {
   return status;
 }
 
+function ResultBadge({ item }) {
+  if (item.status === "queued" || item.status === "processing") {
+    return (
+      <span className="badge-status badge-status-pending">
+        {statusLabel(item.status)}
+      </span>
+    );
+  }
+  if (item.status === "failed") {
+    return <span className="badge-status badge-status-error">Erro</span>;
+  }
+  if (item.approved) {
+    return <span className="badge-status badge-status-success">Aprovado</span>;
+  }
+  return <span className="badge-status badge-status-denied">Negado</span>;
+}
+
 function maskDocumentInput(value) {
   const digits = String(value || "").replace(/\D/g, "").slice(0, 14);
   if (digits.length <= 11) {
@@ -260,13 +277,7 @@ export function CreditConsultTab({ token }) {
                     <td className="py-2 pr-3 text-slate-600">{formatDate(item.createdAt)}</td>
                     <td className="py-2 pr-3 font-medium text-slate-800">{item.documentMasked}</td>
                     <td className="py-2 pr-3">
-                      {item.status === "queued" || item.status === "processing"
-                        ? statusLabel(item.status)
-                        : item.approved
-                          ? "Aprovado"
-                          : item.status === "failed"
-                            ? "Erro"
-                            : "Negado"}
+                      <ResultBadge item={item} />
                     </td>
                     <td className="py-2 pr-3">
                       {item.hasScreenshot ? (

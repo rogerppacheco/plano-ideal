@@ -112,6 +112,17 @@ export function createInternalUser({ username, fullName, role, password, token }
   });
 }
 
+export function updateInternalUserPassword({ userId, password, token }) {
+  return request(`/users/${userId}/password`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ password }),
+  });
+}
+
 export function startCreditConsultation({ token, document, cpfRepresentative }) {
   return request("/credit/consult", {
     method: "POST",
