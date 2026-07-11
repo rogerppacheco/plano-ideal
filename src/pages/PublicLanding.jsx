@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import mascotHero from "../assets/mascot-hero-transparent.png";
+import mascotCloud from "../assets/mascot-cloud-hero.png";
 import { getPublicViabilityStatus } from "../services/api";
 import { maskCep } from "../utils/coverage";
 
@@ -74,29 +74,53 @@ function buildWhatsappLink({ name, cep, facade, statusCode, planLabel }) {
   return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
 }
 
+function SparkleIcon({ className = "" }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden="true">
+      <path d="M12 0 14.09 8.26 22 10l-7.91 1.74L12 20l-2.09-8.26L2 10l7.91-1.74L12 0z" />
+    </svg>
+  );
+}
+
 function HeroMascot() {
   return (
-    <div className="relative flex w-full max-w-md items-center justify-center p-4 lg:max-w-lg lg:justify-end">
+    <div className="relative mx-auto flex w-full max-w-xl items-center justify-center lg:mx-0 lg:max-w-2xl">
       <div
-        className="pointer-events-none absolute -right-4 top-2 h-28 w-28 rounded-full bg-neon-green/25 blur-2xl"
+        className="pointer-events-none absolute left-1/2 top-1/2 h-[130%] w-[130%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(57,255,20,0.12)_0%,transparent_70%)]"
+        aria-hidden="true"
+      />
+
+      <div
+        className="pointer-events-none absolute right-[16%] top-[12%] h-2 w-2 animate-pulse-neon rounded-full bg-neon-green/45 blur-[1px]"
         aria-hidden="true"
       />
       <div
-        className="pointer-events-none absolute -bottom-8 -left-6 h-36 w-36 rounded-full bg-teal-400/15 blur-3xl"
+        className="pointer-events-none absolute right-[30%] top-[26%] h-1.5 w-1.5 rounded-full bg-white/30 blur-[0.5px]"
         aria-hidden="true"
       />
-      <GlowingBlobs className="!absolute inset-0 scale-90 opacity-70" />
+      <div
+        className="pointer-events-none absolute left-[18%] top-[20%] h-1 w-1 rounded-full bg-teal-300/35"
+        aria-hidden="true"
+      />
+
+      <div
+        className="pointer-events-none absolute bottom-[5%] left-1/2 z-0 h-10 w-[58%] -translate-x-1/2 rounded-[100%] bg-black/50 blur-2xl"
+        aria-hidden="true"
+      />
+
       <div className="animate-float relative z-10 w-full">
         <img
-          src={mascotHero}
-          alt="Mascote Plano Ideal — consultor de internet fibra"
-          className="mx-auto h-auto w-full max-w-sm object-contain drop-shadow-[0_20px_50px_rgba(57,255,20,0.35)] sm:max-w-md lg:max-w-lg"
-          width={512}
-          height={512}
+          src={mascotCloud}
+          alt="Mascote Plano Ideal — consultor de internet fibra sobre nuvem"
+          className="mx-auto h-auto w-full max-w-md object-contain drop-shadow-[0_12px_40px_rgba(0,0,0,0.5)] sm:max-w-lg lg:max-w-xl"
+          width={640}
+          height={640}
           loading="eager"
           decoding="async"
         />
       </div>
+
+      <SparkleIcon className="pointer-events-none absolute bottom-[20%] right-[6%] h-5 w-5 animate-pulse-neon text-white/25" />
     </div>
   );
 }
@@ -303,10 +327,10 @@ export default function PublicLanding() {
 
       <main>
         {/* Hero */}
-        <section className="relative overflow-hidden border-b border-white/5 bg-pi-dark">
+        <section className="hero-mesh relative overflow-hidden border-b border-white/5">
           <GlowingBlobs />
           <div className="relative z-10 mx-auto max-w-6xl px-4 py-16 md:px-8 md:py-24">
-            <div className="grid items-center gap-8 lg:grid-cols-[1fr_auto] lg:gap-4">
+            <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-12">
               <div className="mx-auto max-w-2xl text-center lg:mx-0 lg:text-left">
                 <span className="inline-block rounded-full border border-neon-green/25 bg-neon-green/10 px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-neon-green">
                   Nossa Fibra · ultra rápida
