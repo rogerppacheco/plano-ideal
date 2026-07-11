@@ -23,7 +23,7 @@ export function ScreenshotModal({ open, title, screenshotBase64, onClose }) {
 
   const modal = (
     <div
-      className="fixed inset-0 z-[100] flex min-h-screen items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
       role="presentation"
       onClick={onClose}
     >
@@ -48,7 +48,7 @@ export function ScreenshotModal({ open, title, screenshotBase64, onClose }) {
             <img
               src={`data:image/png;base64,${screenshotBase64}`}
               alt="Comprovante da análise de crédito PAP"
-              className="max-h-[90vh] max-w-[90vw] rounded-lg border border-slate-200 bg-white object-contain"
+              className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain object-center shadow-2xl"
             />
           ) : (
             <p className="text-sm text-slate-600">Comprovante indisponível.</p>

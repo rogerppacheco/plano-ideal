@@ -1273,7 +1273,7 @@ function FacadeChipGroup({
       >
         <span className="tabular-nums">{group.base}</span>
         {badgeCount > 0 ? <span className="coverage-chip-badge">+{badgeCount}</span> : null}
-        <span className="text-[10px] text-gray-700" aria-hidden>
+        <span className="coverage-chip-caret text-[10px]" aria-hidden>
           {expanded ? "▴" : "▾"}
         </span>
       </button>

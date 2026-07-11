@@ -109,9 +109,9 @@ function SparkleIcon({ className = "" }) {
 
 function HeroMascot() {
   return (
-    <div className="relative mx-auto mb-8 flex w-full max-w-md items-center justify-center lg:mx-0 lg:mb-0 lg:max-w-lg">
+    <div className="relative z-0 mx-auto mb-8 flex w-full max-w-md shrink-0 items-center justify-center lg:mx-0 lg:mb-0 lg:max-w-lg">
       <div
-        className="pointer-events-none absolute left-1/2 top-1/2 h-[120%] w-[120%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(57,255,20,0.12)_0%,transparent_70%)]"
+        className="pointer-events-none absolute left-1/2 top-1/2 h-full w-full max-h-[28rem] max-w-[28rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(57,255,20,0.12)_0%,transparent_70%)]"
         aria-hidden="true"
       />
 
@@ -133,11 +133,11 @@ function HeroMascot() {
         aria-hidden="true"
       />
 
-      <div className="animate-float relative z-10 w-full max-w-xs bg-transparent sm:max-w-sm lg:max-w-md">
+      <div className="animate-float relative z-0 w-full max-w-xs shrink-0 bg-transparent sm:max-w-sm lg:max-w-md">
         <img
           src={mascotCloud}
           alt="Mascote Plano Ideal — consultor de internet fibra sobre nuvem"
-          className="mx-auto h-auto w-full object-contain drop-shadow-[0_12px_40px_rgba(0,0,0,0.5)]"
+          className="mx-auto h-auto max-h-[min(55vh,28rem)] w-full object-contain object-center drop-shadow-[0_12px_40px_rgba(0,0,0,0.5)]"
           width={512}
           height={512}
           loading="eager"
@@ -340,7 +340,7 @@ export default function PublicLanding() {
   };
 
   return (
-    <div className="min-h-screen bg-pi-dark text-white">
+    <div className="min-h-[100dvh] bg-pi-dark text-white">
       <header className="sticky top-0 z-30 border-b border-white/10 bg-pi-dark/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 md:px-8">
           <div className="flex items-center gap-3">
@@ -366,11 +366,11 @@ export default function PublicLanding() {
 
       <main>
         {/* Hero */}
-        <section className="hero-mesh relative overflow-hidden border-b border-white/5">
+        <section className="hero-mesh relative flex min-h-[100dvh] flex-col overflow-hidden border-b border-white/5">
           <GlowingBlobs />
-          <div className="relative z-10 mx-auto max-w-6xl px-4 py-16 md:px-8 md:py-24">
+          <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center px-4 py-16 md:px-8 md:py-24">
             <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-12">
-              <div className="order-1 mx-auto max-w-2xl text-center lg:order-none lg:mx-0 lg:text-left">
+              <div className="relative z-10 order-1 mx-auto max-w-2xl text-center lg:order-none lg:mx-0 lg:text-left">
                 <span className="inline-block rounded-full border border-neon-green/25 bg-neon-green/10 px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-neon-green">
                   Nossa Fibra · ultra rápida
                 </span>
@@ -414,7 +414,7 @@ export default function PublicLanding() {
                 </div>
               </div>
 
-              <div className="order-2 lg:order-none">
+              <div className="relative z-0 order-2 shrink-0 lg:order-none">
                 <HeroMascot />
               </div>
             </div>
