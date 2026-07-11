@@ -21,6 +21,15 @@ export interface ApiPartnersAdminTabProps {
   token: string;
 }
 
+const SCOPE_LABELS: Record<string, string> = {
+  coverage: "Viabilidade (CEP)",
+  credit: "Crédito (CPF)",
+};
+
+function scopeLabel(scope: string): string {
+  return SCOPE_LABELS[scope] ?? scope;
+}
+
 function formatDateTime(value?: string | null): string {
   if (!value) return "—";
   return new Date(value).toLocaleString("pt-BR", {
@@ -456,7 +465,7 @@ export function ApiPartnersAdminTab({ token }: ApiPartnersAdminTabProps) {
                           checked={newKeyScopes.includes(scope)}
                           onChange={() => toggleScope(scope)}
                         />
-                        {scope}
+                        {scopeLabel(scope)}
                       </label>
                     ))}
                   </div>
@@ -499,7 +508,9 @@ export function ApiPartnersAdminTab({ token }: ApiPartnersAdminTabProps) {
                           <td className="px-4 py-3 font-mono text-xs text-gray-300">
                             {apiKey.displayPrefix}••••
                           </td>
-                          <td className="px-4 py-3 text-gray-100">{apiKey.scopes.join(", ")}</td>
+                          <td className="px-4 py-3 text-gray-100">
+                            {apiKey.scopes.map(scopeLabel).join(", ")}
+                          </td>
                           <td className="px-4 py-3 text-gray-100">
                             {formatDateTime(apiKey.lastUsedAt)}
                           </td>
