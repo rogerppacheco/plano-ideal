@@ -1,11 +1,28 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ChangeEvent, type FormEvent } from "react";
 import mascotCloud from "../assets/mascot-cloud-hero.png";
 import { getPublicViabilityStatus } from "../services/api";
+import type { PublicViabilityCode } from "../types/coverage";
+import { isPublicViabilityCode } from "../types/coverage";
 import { maskCep } from "../utils/coverage";
 
 const WHATSAPP_NUMBER = "5511999999999";
 
-const INTERNET_PLANS = [
+interface InternetPlan {
+  id: string;
+  name: string;
+  speedLabel: string;
+  benefits: string[];
+  priceStandard: number;
+  priceCard: number;
+  cardDiscount: number;
+  featured: boolean;
+  badge: string | null;
+}
+
+type ViabilitySubmitState =
+  { status: "idle" } | { status: "submitting" } | { status: "error"; message: string };
+
+const INTERNET_PLANS: InternetPlan[] = [
   {
     id: "essencial-600",
     name: "Essencial",
@@ -58,11 +75,23 @@ const HERO_FEATURES = [
   { emoji: "📱", title: "Nosso App", desc: "Gerencie sua conta e suporte pelo aplicativo." },
 ];
 
-function formatPrice(value) {
+function formatPrice(value: number): string {
   return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
-function buildWhatsappLink({ name, cep, facade, statusCode, planLabel }) {
+function buildWhatsappLink({
+  name,
+  cep,
+  facade,
+  statusCode,
+  planLabel,
+}: {
+  name: string;
+  cep: string;
+  facade: string;
+  statusCode: PublicViabilityCode;
+  planLabel: string | null;
+}): string {
   const reference = statusCode === "V-OK" ? "[Ref: V-OK]" : "[Ref: V-NOK]";
   const facadeInfo = facade?.trim() ? `Fachada: ${facade.trim()}. ` : "";
   const planInfo = planLabel ? `Plano de interesse: ${planLabel}. ` : "";
@@ -157,7 +186,13 @@ function CheckIcon() {
   );
 }
 
-function PlanCard({ plan, onSelect }) {
+function PlanCard({
+  plan,
+  onSelect,
+}: {
+  plan: InternetPlan;
+  onSelect: (plan: InternetPlan) => void;
+}) {
   const isFeatured = plan.featured;
   const speedNumber = plan.speedLabel.split(" ")[0];
   const speedUnit = plan.speedLabel.includes("Giga") ? "Giga" : "Mega";
@@ -246,29 +281,30 @@ export default function PublicLanding() {
   const [name, setName] = useState("");
   const [cep, setCep] = useState("");
   const [facade, setFacade] = useState("");
-  const [selectedPlan, setSelectedPlan] = useState(null);
+  const [selectedPlan, setSelectedPlan] = useState<InternetPlan | null>(null);
   const [cepError, setCepError] = useState("");
-  const [submitError, setSubmitError] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitState, setSubmitState] = useState<ViabilitySubmitState>({ status: "idle" });
 
   const canSubmit = useMemo(() => name.trim() && cep.length === 9, [name, cep]);
+  const isSubmitting = submitState.status === "submitting";
+  const submitError = submitState.status === "error" ? submitState.message : "";
 
-  const handleCepChange = (event) => {
+  const handleCepChange = (event: ChangeEvent<HTMLInputElement>) => {
     const formattedCep = maskCep(event.target.value);
     setCep(formattedCep);
     if (formattedCep.length === 9) setCepError("");
-    setSubmitError("");
+    setSubmitState({ status: "idle" });
   };
 
-  const handlePlanSelect = (plan) => {
+  const handlePlanSelect = (plan: InternetPlan) => {
     setSelectedPlan(plan);
-    setSubmitError("");
+    setSubmitState({ status: "idle" });
     document.getElementById("consulta-cobertura")?.scrollIntoView({ behavior: "smooth" });
   };
 
-  const handleSubmit = async (event) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setSubmitError("");
+    setSubmitState({ status: "idle" });
 
     if (cep.length !== 9) {
       setCepError("Informe um CEP válido no formato 00000-000.");
@@ -276,8 +312,11 @@ export default function PublicLanding() {
     }
 
     try {
-      setIsSubmitting(true);
+      setSubmitState({ status: "submitting" });
       const viability = await getPublicViabilityStatus(cep);
+      const statusCode: PublicViabilityCode = isPublicViabilityCode(viability.statusCode)
+        ? viability.statusCode
+        : "V-NOK";
       const planLabel = selectedPlan
         ? `${selectedPlan.name} ${selectedPlan.speedLabel} — ${formatPrice(selectedPlan.priceCard)}/mês no cartão`
         : null;
@@ -285,14 +324,18 @@ export default function PublicLanding() {
         name: name.trim(),
         cep,
         facade,
-        statusCode: viability.statusCode,
+        statusCode,
         planLabel,
       });
       window.open(whatsappLink, "_blank", "noopener,noreferrer");
-    } catch (error) {
-      setSubmitError(error.message || "Falha ao consultar cobertura. Tente novamente.");
-    } finally {
-      setIsSubmitting(false);
+      setSubmitState({ status: "idle" });
+    } catch (error: unknown) {
+      setSubmitState({
+        status: "error",
+        message:
+          (error instanceof Error ? error.message : null) ||
+          "Falha ao consultar cobertura. Tente novamente.",
+      });
     }
   };
 

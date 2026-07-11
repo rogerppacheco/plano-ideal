@@ -87,8 +87,24 @@ export interface CoverageByCepResponse {
   records: CoverageRecordInput[];
 }
 
+/** Código de viabilidade retornado pela API pública */
+export type PublicViabilityCode = "V-OK" | "V-NOK";
+
 export interface PublicViabilityResponse {
-  statusCode: "V-OK" | "V-NOK" | string;
+  statusCode: PublicViabilityCode | string;
+}
+
+/** Operadoras expostas na consulta pública de viabilidade */
+export type PublicCoverageOperator = CoverageOperator;
+
+/** Subconjunto tipado para ambientes públicos (sem registros genéricos) */
+export type PublicCoverageRecord = Extract<
+  CoverageRecord,
+  { operator: "Vivo" } | { operator: "Nio" } | { operator: "Vero" }
+>;
+
+export function isPublicViabilityCode(code: string): code is PublicViabilityCode {
+  return code === "V-OK" || code === "V-NOK";
 }
 
 export interface OperatorCoverageConfig {
