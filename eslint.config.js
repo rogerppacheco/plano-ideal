@@ -10,6 +10,8 @@ export default [
       "**/node_modules/**",
       "**/dist/**",
       "**/coverage/**",
+      "**/*.test.{js,jsx}",
+      "src/test/**",
       "**/uploads/**",
       "pap-worker/**",
       "backend/scripts/compare-user-tables.mjs",
