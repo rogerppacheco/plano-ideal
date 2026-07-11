@@ -20,6 +20,12 @@ import vivoLogo from "../assets/operators/vivo.png";
 import { buildFacadeLabel, buildStreetLabel, countRecordsByOperator, groupFacadeNumbers, maskCep } from "../utils/coverage";
 import { CreditConsultTab } from "../components/CreditConsultTab";
 import { PapAdminTab } from "../components/PapAdminTab";
+import { DataTable, DataTableCell, DataTableRow } from "../components/ui/DataTable";
+import { EmptyState } from "../components/ui/EmptyState";
+import { FormField } from "../components/ui/FormField";
+import { DashboardTabs, MetricCard, PanelCard } from "../components/ui/PanelCard";
+import { SkeletonCards, SkeletonTable, SkeletonUserList } from "../components/ui/Skeleton";
+import { useToast } from "../components/ui/Toast";
 import {
   getHeartbeatAgeMs,
   getImportProgressLabel,
@@ -59,6 +65,31 @@ const OPERATOR_COVERAGE_CONFIG = {
 
 const ACTIVE_IMPORT_STORAGE_KEY = "planoideal_active_import_job_id";
 
+const IMPORT_HISTORY_COLUMNS = [
+  { key: "id", label: "#" },
+  { key: "date", label: "Data" },
+  { key: "operator", label: "Operadora" },
+  { key: "files", label: "Arquivo(s)" },
+  { key: "status", label: "Status" },
+  { key: "lines", label: "Linhas" },
+  { key: "actions", label: "Ações" },
+];
+
+function buildDashboardTabs(isAdmin) {
+  const tabs = [
+    { id: "consulta", label: "Consulta", icon: "📍" },
+    { id: "credito", label: "Consulta Crédito", icon: "💳" },
+  ];
+  if (isAdmin) {
+    tabs.push(
+      { id: "pap", label: "PAP", icon: "⚙️" },
+      { id: "importacoes", label: "Importações", icon: "📥" },
+      { id: "usuarios", label: "Usuários", icon: "👥" }
+    );
+  }
+  return tabs;
+}
+
 function buildTemplateCsv(operator) {
   const headers = [
     "CEP",
@@ -91,6 +122,7 @@ function buildTemplateCsv(operator) {
 
 export default function InternalDashboard() {
   const navigate = useNavigate();
+  const toast = useToast();
   const sessionUser = useMemo(() => getSessionUser(), []);
   const token = useMemo(() => getSessionToken(), []);
   const isAdmin = sessionUser?.role === "admin";
@@ -98,6 +130,7 @@ export default function InternalDashboard() {
   const [cep, setCep] = useState("");
   const [result, setResult] = useState(null);
   const [consultError, setConsultError] = useState("");
+  const [isConsulting, setIsConsulting] = useState(false);
   const [activeTab, setActiveTab] = useState("consulta");
 
   const [operator, setOperator] = useState("Vivo");
@@ -117,6 +150,9 @@ export default function InternalDashboard() {
   const [revertingJobId, setRevertingJobId] = useState(null);
   const [completingJobId, setCompletingJobId] = useState(null);
   const [users, setUsers] = useState([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const [isLoadingImportHistory, setIsLoadingImportHistory] = useState(false);
+  const [isLoadingSummary, setIsLoadingSummary] = useState(false);
   const [usersError, setUsersError] = useState("");
   const [usersFeedback, setUsersFeedback] = useState("");
   const [isCreatingUser, setIsCreatingUser] = useState(false);
@@ -151,6 +187,7 @@ export default function InternalDashboard() {
   }, [sessionUser, token, isAdmin, navigate]);
 
   const loadSummary = async () => {
+    setIsLoadingSummary(true);
     try {
       const data = await getImportSummary(token);
       setSummary(data);
@@ -162,25 +199,32 @@ export default function InternalDashboard() {
         byOperator: {},
         fieldsByOperator: {},
       });
-      setSummaryError(
+      const message =
         error?.message ||
-          "Não foi possível carregar o resumo. Tente Atualizar ou aguarde alguns segundos."
-      );
+        "Não foi possível carregar o resumo. Tente Atualizar ou aguarde alguns segundos.";
+      setSummaryError(message);
+      toast.error(message);
       return null;
+    } finally {
+      setIsLoadingSummary(false);
     }
   };
 
   const loadImportHistory = async () => {
+    setIsLoadingImportHistory(true);
     try {
       const data = await getImportJobsHistory(token);
       setImportHistory(data.jobs || []);
       setImportHistoryError("");
     } catch (error) {
       setImportHistory([]);
-      setImportHistoryError(
+      const message =
         error.message ||
-          "Não foi possível carregar o histórico. Confira se a API no Railway foi atualizada (serviço plano-ideal-api)."
-      );
+        "Não foi possível carregar o histórico. Confira se a API no Railway foi atualizada.";
+      setImportHistoryError(message);
+      toast.error(message);
+    } finally {
+      setIsLoadingImportHistory(false);
     }
   };
 
@@ -191,12 +235,15 @@ export default function InternalDashboard() {
       const result = await completeStuckImportJob(job.id, token);
       setImportFeedback(result.message || "Importação marcada como concluída.");
       setImportError("");
+      toast.success(result.message || "Importação marcada como concluída.");
       setJobProgress(null);
       sessionStorage.removeItem(ACTIVE_IMPORT_STORAGE_KEY);
       await loadSummary();
       await loadImportHistory();
     } catch (error) {
-      setImportError(error.message || "Não foi possível concluir a importação.");
+      const message = error.message || "Não foi possível concluir a importação.";
+      setImportError(message);
+      toast.error(message);
     } finally {
       setCompletingJobId(null);
     }
@@ -215,10 +262,13 @@ export default function InternalDashboard() {
       const result = await revertImportJob(job.id, token);
       setImportFeedback(result.message || "Importação removida.");
       setImportError("");
+      toast.success(result.message || "Importação removida.");
       await loadSummary();
       await loadImportHistory();
     } catch (error) {
-      setImportError(error.message || "Não foi possível remover a importação.");
+      const message = error.message || "Não foi possível remover a importação.";
+      setImportError(message);
+      toast.error(message);
     } finally {
       setRevertingJobId(null);
     }
@@ -226,13 +276,18 @@ export default function InternalDashboard() {
 
   const loadUsers = async () => {
     if (!isAdmin) return;
+    setIsLoadingUsers(true);
     try {
       const data = await getInternalUsers(token);
       setUsers(data.users || []);
       setUsersError("");
     } catch (error) {
       setUsers([]);
-      setUsersError(error.message || "Não foi possível carregar usuários.");
+      const message = error.message || "Não foi possível carregar usuários.";
+      setUsersError(message);
+      toast.error(message);
+    } finally {
+      setIsLoadingUsers(false);
     }
   };
 
@@ -256,11 +311,22 @@ export default function InternalDashboard() {
     }
 
     try {
+      setIsConsulting(true);
+      setConsultError("");
       const data = await getCoverageByCep(cep, token);
       setResult({ cep, operators: data.operators, records: data.records });
+      if (data.operators?.length > 0) {
+        toast.success(`${data.operators.length} operadora(s) encontrada(s).`);
+      } else {
+        toast.warning("Nenhuma operadora disponível para este CEP.");
+      }
     } catch (apiError) {
-      setConsultError(apiError.message || "Não foi possível consultar o CEP.");
+      const message = apiError.message || "Não foi possível consultar o CEP.";
+      setConsultError(message);
       setResult(null);
+      toast.error(message);
+    } finally {
+      setIsConsulting(false);
     }
   };
 
@@ -288,11 +354,14 @@ export default function InternalDashboard() {
         password: newUser.password,
         token,
       });
-      setUsersFeedback("Usuário criado com sucesso.");
+      toast.success("Usuário criado com sucesso.");
+      setUsersFeedback("");
       setNewUser({ username: "", fullName: "", role: "vendedor", password: "" });
       await loadUsers();
     } catch (error) {
-      setUsersError(error.message || "Não foi possível criar usuário.");
+      const message = error.message || "Não foi possível criar usuário.";
+      setUsersError(message);
+      toast.error(message);
     } finally {
       setIsCreatingUser(false);
     }
@@ -325,11 +394,14 @@ export default function InternalDashboard() {
         password: passwordDraft,
         token,
       });
-      setUsersFeedback(result.message || `Senha de ${user.full_name} atualizada.`);
+      toast.success(result.message || `Senha de ${user.full_name} atualizada.`);
+      setUsersFeedback("");
       setPasswordEditUserId(null);
       setPasswordDraft("");
     } catch (error) {
-      setUsersError(error.message || "Não foi possível alterar a senha.");
+      const message = error.message || "Não foi possível alterar a senha.";
+      setUsersError(message);
+      toast.error(message);
     } finally {
       setIsUpdatingPassword(false);
     }
@@ -424,7 +496,9 @@ export default function InternalDashboard() {
     setImportError("");
 
     if (!files.length) {
-      setImportError("Selecione ao menos um arquivo para importar.");
+      const message = "Selecione ao menos um arquivo para importar.";
+      setImportError(message);
+      toast.error(message);
       return;
     }
 
@@ -442,7 +516,9 @@ export default function InternalDashboard() {
         event.target.reset();
       }
     } catch (apiError) {
-      setImportError(apiError.message || "Não foi possível importar os arquivos.");
+      const message = apiError.message || "Não foi possível importar os arquivos.";
+      setImportError(message);
+      toast.error(message);
       sessionStorage.removeItem(ACTIVE_IMPORT_STORAGE_KEY);
     } finally {
       setIsImporting(false);
@@ -452,9 +528,11 @@ export default function InternalDashboard() {
   const importInProgress =
     jobProgress && (jobProgress.status === "queued" || jobProgress.status === "processing");
 
+  const dashboardTabs = useMemo(() => buildDashboardTabs(isAdmin), [isAdmin]);
+
   return (
-    <div className="min-h-screen px-4 py-10">
-      <div className="mx-auto max-w-5xl space-y-6">
+    <div className="dashboard-shell">
+      <div className="dashboard-container">
         {isAdmin && importInProgress ? (
           <div className="rounded-xl border-2 border-brand-400 bg-brand-50 p-4 shadow-sm">
             <p className="font-bold text-brand-900">
@@ -483,98 +561,64 @@ export default function InternalDashboard() {
           </div>
         ) : null}
 
-        <div className="surface-card p-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h1 className="text-2xl font-extrabold text-slate-900">Área interna</h1>
-              <p className="text-sm text-slate-600">
-                Logado como {sessionUser.name} ({sessionUser.role}).
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="btn-secondary"
-            >
+        <PanelCard
+          title="Área interna"
+          description={`Logado como ${sessionUser.name} (${sessionUser.role})`}
+          action={
+            <button type="button" onClick={handleLogout} className="btn-secondary">
               Sair
             </button>
-          </div>
-        </div>
+          }
+        />
 
-        <div className="surface-card p-3">
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => setActiveTab("consulta")}
-              className={tabButtonClass(activeTab === "consulta")}
-            >
-              Consulta
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab("credito")}
-              className={tabButtonClass(activeTab === "credito")}
-            >
-              Consulta Crédito
-            </button>
-            {isAdmin ? (
-              <button
-                type="button"
-                onClick={() => setActiveTab("pap")}
-                className={tabButtonClass(activeTab === "pap")}
-              >
-                PAP
-              </button>
-            ) : null}
-            {isAdmin ? (
-              <button
-                type="button"
-                onClick={() => setActiveTab("importacoes")}
-                className={tabButtonClass(activeTab === "importacoes")}
-              >
-                Importações
-              </button>
-            ) : null}
-            {isAdmin ? (
-              <button
-                type="button"
-                onClick={() => setActiveTab("usuarios")}
-                className={tabButtonClass(activeTab === "usuarios")}
-              >
-                Usuários
-              </button>
-            ) : null}
-          </div>
+        <div className="panel-card !p-3">
+          <DashboardTabs tabs={dashboardTabs} activeTab={activeTab} onChange={setActiveTab} />
         </div>
 
         {activeTab === "consulta" ? (
-          <section className="surface-card p-6">
-          <h2 className="text-xl font-bold text-slate-900">Consulta por CEP</h2>
-          <p className="mt-1 text-sm text-slate-600">
-            Consulta disponível para admin e vendedor.
-          </p>
-
-          <form className="mt-4 flex flex-col gap-3 sm:flex-row" onSubmit={handleConsultSubmit}>
-            <input
-              type="text"
-              inputMode="numeric"
-              value={cep}
-              onChange={handleCepChange}
-              placeholder="00000-000"
-              className="input-modern"
+          <PanelCard
+            id="panel-consulta"
+            title="Consulta por CEP"
+            description="Consulta disponível para admin e vendedor."
+          >
+          <form className="flex flex-col gap-3 sm:flex-row sm:items-end" onSubmit={handleConsultSubmit}>
+            <FormField
+              id="dashboard-cep"
+              label="CEP"
+              hint="Informe o CEP com hífen. Ex: 30130-010"
+              error={consultError}
+              className="flex-1"
               required
-            />
+            >
+              {({ id, describedBy, "aria-invalid": ariaInvalid }) => (
+                <input
+                  id={id}
+                  type="text"
+                  inputMode="numeric"
+                  value={cep}
+                  onChange={handleCepChange}
+                  placeholder="00000-000"
+                  className="input-modern"
+                  aria-describedby={describedBy}
+                  aria-invalid={ariaInvalid}
+                  required
+                />
+              )}
+            </FormField>
             <button
               type="submit"
-              className="btn-primary"
+              className="btn-primary shrink-0"
+              disabled={isConsulting}
             >
-              Consultar
+              {isConsulting ? "Consultando…" : "Consultar"}
             </button>
           </form>
 
-          {consultError ? <p className="mt-2 text-sm text-red-600">{consultError}</p> : null}
-
-          {result ? (
+          {isConsulting ? (
+            <div className="mt-5">
+              <SkeletonCards count={3} />
+            </div>
+          ) : result ? (
             <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
               <p className="text-sm font-semibold text-slate-700">
                 CEP consultado: {result.cep}
@@ -619,14 +663,15 @@ export default function InternalDashboard() {
               ) : null}
             </div>
           ) : (
-            <div className="mt-4 rounded-xl border border-dashed border-slate-300 bg-slate-50/80 p-4">
-              <p className="text-sm font-semibold text-slate-700">Nenhum CEP consultado ainda</p>
-              <p className="mt-1 text-xs text-slate-600">
-                Digite um CEP valido e clique em consultar para ver operadoras e detalhes.
-              </p>
+            <div className="mt-5">
+              <EmptyState
+                icon="search"
+                title="Nenhum CEP consultado ainda"
+                description="Digite um CEP válido e clique em consultar para ver operadoras e detalhes de cobertura."
+              />
             </div>
           )}
-          </section>
+          </PanelCard>
         ) : null}
 
         {activeTab === "credito" ? <CreditConsultTab token={token} /> : null}
@@ -634,12 +679,11 @@ export default function InternalDashboard() {
         {isAdmin && activeTab === "pap" ? <PapAdminTab token={token} /> : null}
 
         {isAdmin && activeTab === "importacoes" ? (
-          <section className="surface-card p-6">
-            <h2 className="text-xl font-bold text-slate-900">Importar bases para o banco interno</h2>
-            <p className="mt-1 text-sm text-slate-600">
-              Modelo: coluna com nome contendo "CEP" é obrigatória. Todos os outros campos da
-              planilha são preservados integralmente.
-            </p>
+          <PanelCard
+            id="panel-importacoes"
+            title="Importar bases para o banco interno"
+            description='Coluna com nome contendo "CEP" é obrigatória. Todos os outros campos da planilha são preservados integralmente.'
+          >
 
             <div className="mt-4 flex flex-wrap gap-2">
               <button
@@ -706,7 +750,7 @@ export default function InternalDashboard() {
                 />
               </div>
 
-              {importError ? <p className="text-sm text-red-600">{importError}</p> : null}
+              {importError ? <p className="text-sm text-red-600" role="alert">{importError}</p> : null}
               {importFeedback ? <p className="text-sm text-emerald-700">{importFeedback}</p> : null}
 
               {jobProgress ? (
@@ -783,110 +827,95 @@ export default function InternalDashboard() {
               </button>
             </form>
 
-            <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="mt-6">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <h3 className="text-sm font-bold text-slate-900">Histórico de importações</h3>
                 <button
                   type="button"
                   onClick={loadImportHistory}
                   className="btn-secondary px-3 py-1.5 text-xs"
+                  disabled={isLoadingImportHistory}
                 >
-                  Atualizar
+                  {isLoadingImportHistory ? "Atualizando…" : "Atualizar"}
                 </button>
               </div>
               {importHistoryError ? (
-                <p className="mt-2 text-sm text-amber-800">{importHistoryError}</p>
+                <p className="mb-3 text-sm text-amber-800" role="alert">{importHistoryError}</p>
               ) : null}
-              {importHistory.length === 0 && !importHistoryError ? (
-                <p className="mt-2 text-sm text-slate-600">
-                  Nenhuma importação registrada ainda. Se você acabou de enviar um arquivo, aguarde o
-                  upload terminar antes de atualizar a página.
-                </p>
-              ) : importHistory.length > 0 ? (
-                <div className="mt-3 overflow-x-auto">
-                  <table className="min-w-full text-left text-sm text-slate-800">
-                    <thead>
-                      <tr className="border-b border-slate-200 text-xs uppercase text-slate-500">
-                        <th className="px-2 py-2">#</th>
-                        <th className="px-2 py-2">Data</th>
-                        <th className="px-2 py-2">Operadora</th>
-                        <th className="px-2 py-2">Arquivo(s)</th>
-                        <th className="px-2 py-2">Status</th>
-                        <th className="px-2 py-2">Linhas</th>
-                        <th className="px-2 py-2" />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {importHistory.map((job) => (
-                        <tr key={job.id} className="border-b border-slate-100 align-top">
-                          <td className="px-2 py-2 font-mono text-xs">{job.id}</td>
-                          <td className="px-2 py-2 whitespace-nowrap text-xs">
-                            {formatJobDate(job.finished_at || job.created_at)}
-                          </td>
-                          <td className="px-2 py-2">
-                            <span className="font-semibold">{job.operator}</span>
-                            {job.operator_mismatch ? (
-                              <p className="mt-0.5 text-xs text-amber-700">
-                                Arquivo parece {job.detected_operator}
-                              </p>
-                            ) : job.detected_operator ? (
-                              <p className="mt-0.5 text-xs text-slate-500">
-                                Detectado: {job.detected_operator}
-                              </p>
-                            ) : null}
-                          </td>
-                          <td className="px-2 py-2 text-xs">
-                            {(job.files || []).map((f) => (
-                              <div key={f.file_name} className="mb-1">
-                                <span className="font-medium">{f.file_name}</span>
-                                {f.file_size_bytes ? (
-                                  <span className="text-slate-500">
-                                    {" "}
-                                    ({formatBytes(f.file_size_bytes)})
-                                  </span>
-                                ) : null}
-                              </div>
-                            ))}
-                          </td>
-                          <td className="px-2 py-2 text-xs">
-                            {job.reverted_at ? (
-                              <span className="font-semibold text-slate-600">Removida</span>
-                            ) : (
-                              translateJobStatus(job.status)
-                            )}
-                            {job.reverted_at && job.records_deleted != null ? (
-                              <p className="text-slate-500">{job.records_deleted} apagadas</p>
-                            ) : null}
-                          </td>
-                          <td className="px-2 py-2 text-xs">
-                            {job.imported_rows != null
-                              ? `${Number(job.imported_rows).toLocaleString("pt-BR")} válidas`
-                              : "—"}
-                            {job.ignored_rows > 0 ? (
-                              <p className="text-slate-500">
-                                {Number(job.ignored_rows).toLocaleString("pt-BR")} ignoradas
-                              </p>
-                            ) : null}
-                          </td>
-                          <td className="px-2 py-2">
-                            {!job.reverted_at &&
-                            (job.status === "completed" || job.status === "failed") ? (
-                              <button
-                                type="button"
-                                disabled={revertingJobId === job.id}
-                                onClick={() => handleRevertImport(job)}
-                                className="rounded-lg border border-red-200 bg-red-50 px-2 py-1 text-xs font-semibold text-red-700 hover:bg-red-100 disabled:opacity-50"
-                              >
-                                {revertingJobId === job.id ? "Removendo…" : "Limpar importação"}
-                              </button>
-                            ) : null}
-                          </td>
-                        </tr>
+              <DataTable
+                columns={IMPORT_HISTORY_COLUMNS}
+                caption="Histórico de importações"
+                isEmpty={!isLoadingImportHistory && importHistory.length === 0 && !importHistoryError}
+                loading={isLoadingImportHistory}
+                loadingComponent={<SkeletonTable rows={5} cols={7} />}
+                emptyIcon="table"
+                emptyTitle="Nenhuma importação registrada"
+                emptyDescription="Após enviar um arquivo, aguarde o upload terminar. O histórico aparecerá aqui automaticamente."
+              >
+                {importHistory.map((job) => (
+                  <DataTableRow key={job.id}>
+                    <DataTableCell className="font-mono text-xs">{job.id}</DataTableCell>
+                    <DataTableCell className="whitespace-nowrap text-xs">
+                      {formatJobDate(job.finished_at || job.created_at)}
+                    </DataTableCell>
+                    <DataTableCell>
+                      <span className="font-semibold">{job.operator}</span>
+                      {job.operator_mismatch ? (
+                        <p className="mt-0.5 text-xs text-amber-700">
+                          Arquivo parece {job.detected_operator}
+                        </p>
+                      ) : job.detected_operator ? (
+                        <p className="mt-0.5 text-xs text-slate-500">
+                          Detectado: {job.detected_operator}
+                        </p>
+                      ) : null}
+                    </DataTableCell>
+                    <DataTableCell className="text-xs">
+                      {(job.files || []).map((f) => (
+                        <div key={f.file_name} className="mb-1">
+                          <span className="font-medium">{f.file_name}</span>
+                          {f.file_size_bytes ? (
+                            <span className="text-slate-500"> ({formatBytes(f.file_size_bytes)})</span>
+                          ) : null}
+                        </div>
                       ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : null}
+                    </DataTableCell>
+                    <DataTableCell className="text-xs">
+                      {job.reverted_at ? (
+                        <span className="font-semibold text-slate-600">Removida</span>
+                      ) : (
+                        translateJobStatus(job.status)
+                      )}
+                      {job.reverted_at && job.records_deleted != null ? (
+                        <p className="text-slate-500">{job.records_deleted} apagadas</p>
+                      ) : null}
+                    </DataTableCell>
+                    <DataTableCell className="text-xs">
+                      {job.imported_rows != null
+                        ? `${Number(job.imported_rows).toLocaleString("pt-BR")} válidas`
+                        : "—"}
+                      {job.ignored_rows > 0 ? (
+                        <p className="text-slate-500">
+                          {Number(job.ignored_rows).toLocaleString("pt-BR")} ignoradas
+                        </p>
+                      ) : null}
+                    </DataTableCell>
+                    <DataTableCell>
+                      {!job.reverted_at &&
+                      (job.status === "completed" || job.status === "failed") ? (
+                        <button
+                          type="button"
+                          disabled={revertingJobId === job.id}
+                          onClick={() => handleRevertImport(job)}
+                          className="btn-danger"
+                        >
+                          {revertingJobId === job.id ? "Removendo…" : "Limpar"}
+                        </button>
+                      ) : null}
+                    </DataTableCell>
+                  </DataTableRow>
+                ))}
+              </DataTable>
             </div>
 
             <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
@@ -894,38 +923,39 @@ export default function InternalDashboard() {
                 <h3 className="text-sm font-bold text-slate-900">Resumo das importações</h3>
                 <button
                   type="button"
-                  className="text-xs font-semibold text-brand-700 hover:text-brand-800"
+                  className="btn-ghost"
                   onClick={() => loadSummary()}
+                  disabled={isLoadingSummary}
                 >
-                  Atualizar resumo
+                  {isLoadingSummary ? "Atualizando…" : "Atualizar resumo"}
                 </button>
               </div>
               {summaryError ? (
-                <p className="mt-2 text-sm text-amber-800">{summaryError}</p>
+                <p className="mt-2 text-sm text-amber-800" role="alert">{summaryError}</p>
               ) : null}
               <p className="mt-1 text-xs text-slate-500">
                 Total = soma das linhas válidas nos jobs concluídos (histórico acima).
               </p>
+              {isLoadingSummary ? (
+                <div className="mt-3">
+                  <SkeletonCards count={3} />
+                </div>
+              ) : (
               <div className="mt-3 grid gap-3 md:grid-cols-3">
-                <div className="rounded-lg border border-slate-200 bg-white p-3">
-                  <p className="text-xs font-semibold uppercase text-slate-500">Total importado</p>
-                  <p className="mt-1 text-2xl font-black text-slate-900">
-                    {summary.totalImportedRows.toLocaleString("pt-BR")}
-                  </p>
-                </div>
-                <div className="rounded-lg border border-slate-200 bg-white p-3">
-                  <p className="text-xs font-semibold uppercase text-slate-500">Operadoras</p>
-                  <p className="mt-1 text-2xl font-black text-slate-900">
-                    {Object.keys(summary.byOperator).length}
-                  </p>
-                </div>
-                <div className="rounded-lg border border-slate-200 bg-white p-3">
-                  <p className="text-xs font-semibold uppercase text-slate-500">Campos mapeados</p>
-                  <p className="mt-1 text-2xl font-black text-slate-900">
-                    {Object.values(summary.fieldsByOperator).reduce((acc, fields) => acc + fields.length, 0)}
-                  </p>
-                </div>
+                <MetricCard
+                  label="Total importado"
+                  value={summary.totalImportedRows.toLocaleString("pt-BR")}
+                />
+                <MetricCard
+                  label="Operadoras"
+                  value={Object.keys(summary.byOperator).length}
+                />
+                <MetricCard
+                  label="Campos mapeados"
+                  value={Object.values(summary.fieldsByOperator).reduce((acc, fields) => acc + fields.length, 0)}
+                />
               </div>
+              )}
               <p className="mt-1 text-sm text-slate-700">
                 Total de linhas importadas: <span className="font-semibold">{summary.totalImportedRows}</span>
               </p>
@@ -945,12 +975,11 @@ export default function InternalDashboard() {
 
               <div className="mt-3 space-y-2">
                 {Object.entries(summary.fieldsByOperator).length === 0 ? (
-                  <div className="rounded-lg border border-dashed border-slate-300 bg-white p-3">
-                    <p className="text-sm font-semibold text-slate-700">Nenhum campo mapeado ainda</p>
-                    <p className="mt-1 text-xs text-slate-600">
-                      Os campos aparecerao aqui apos a primeira importacao concluida.
-                    </p>
-                  </div>
+                  <EmptyState
+                    icon="table"
+                    title="Nenhum campo mapeado ainda"
+                    description="Os campos aparecerão aqui após a primeira importação concluída."
+                  />
                 ) : (
                   Object.entries(summary.fieldsByOperator).map(([name, fields]) => (
                     <div key={name}>
@@ -961,93 +990,97 @@ export default function InternalDashboard() {
                 )}
               </div>
             </div>
-          </section>
+          </PanelCard>
         ) : null}
 
         {isAdmin && activeTab === "usuarios" ? (
-          <section className="surface-card p-6">
-            <h2 className="text-xl font-bold text-slate-900">Cadastro de usuários</h2>
-            <p className="mt-1 text-sm text-slate-600">
-              Apenas administradores podem criar usuários internos.
-            </p>
+          <PanelCard
+            id="panel-usuarios"
+            title="Cadastro de usuários"
+            description="Apenas administradores podem criar e gerenciar usuários internos."
+          >
 
-            <form className="mt-4 grid gap-3 md:grid-cols-2" onSubmit={handleCreateUserSubmit}>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="new-fullName">
-                  Nome completo
-                </label>
-                <input
-                  id="new-fullName"
-                  type="text"
-                  value={newUser.fullName}
-                  onChange={(event) => setNewUser((prev) => ({ ...prev, fullName: event.target.value }))}
-                  className="input-modern"
-                  required
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="new-username">
-                  Usuário
-                </label>
-                <input
-                  id="new-username"
-                  type="text"
-                  value={newUser.username}
-                  onChange={(event) => setNewUser((prev) => ({ ...prev, username: event.target.value }))}
-                  className="input-modern"
-                  required
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="new-role">
-                  Perfil
-                </label>
-                <select
-                  id="new-role"
-                  value={newUser.role}
-                  onChange={(event) => setNewUser((prev) => ({ ...prev, role: event.target.value }))}
-                  className="input-modern"
-                >
-                  <option value="vendedor">vendedor</option>
-                  <option value="admin">admin</option>
-                </select>
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="new-password">
-                  Senha
-                </label>
-                <input
-                  id="new-password"
-                  type="password"
-                  minLength={6}
-                  value={newUser.password}
-                  onChange={(event) => setNewUser((prev) => ({ ...prev, password: event.target.value }))}
-                  className="input-modern"
-                  required
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                {usersError ? <p className="text-sm text-red-600">{usersError}</p> : null}
-                {usersFeedback ? <p className="text-sm text-emerald-700">{usersFeedback}</p> : null}
-              </div>
+            <form className="grid gap-4 md:grid-cols-2" onSubmit={handleCreateUserSubmit}>
+              <FormField id="new-fullName" label="Nome completo" required>
+                {({ id }) => (
+                  <input
+                    id={id}
+                    type="text"
+                    value={newUser.fullName}
+                    onChange={(event) => setNewUser((prev) => ({ ...prev, fullName: event.target.value }))}
+                    className="input-modern"
+                    required
+                  />
+                )}
+              </FormField>
+              <FormField id="new-username" label="Usuário" hint="Login de acesso ao painel." required>
+                {({ id, describedBy }) => (
+                  <input
+                    id={id}
+                    type="text"
+                    value={newUser.username}
+                    onChange={(event) => setNewUser((prev) => ({ ...prev, username: event.target.value }))}
+                    className="input-modern"
+                    aria-describedby={describedBy}
+                    required
+                  />
+                )}
+              </FormField>
+              <FormField id="new-role" label="Perfil">
+                {({ id }) => (
+                  <select
+                    id={id}
+                    value={newUser.role}
+                    onChange={(event) => setNewUser((prev) => ({ ...prev, role: event.target.value }))}
+                    className="input-modern"
+                  >
+                    <option value="vendedor">vendedor</option>
+                    <option value="admin">admin</option>
+                  </select>
+                )}
+              </FormField>
+              <FormField id="new-password" label="Senha" hint="Mínimo de 6 caracteres." required>
+                {({ id, describedBy }) => (
+                  <input
+                    id={id}
+                    type="password"
+                    minLength={6}
+                    value={newUser.password}
+                    onChange={(event) => setNewUser((prev) => ({ ...prev, password: event.target.value }))}
+                    className="input-modern"
+                    aria-describedby={describedBy}
+                    required
+                  />
+                )}
+              </FormField>
 
               <div className="md:col-span-2">
                 <button type="submit" disabled={isCreatingUser} className="btn-primary">
-                  {isCreatingUser ? "Criando..." : "Criar usuário"}
+                  {isCreatingUser ? "Criando…" : "Criar usuário"}
                 </button>
               </div>
             </form>
 
-            <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
-              <div className="mb-2 flex items-center justify-between">
+            <div className="mt-6">
+              <div className="mb-3 flex items-center justify-between">
                 <h3 className="text-sm font-bold text-slate-900">Usuários cadastrados</h3>
-                <button type="button" className="btn-secondary text-xs" onClick={loadUsers}>
-                  Atualizar
+                <button
+                  type="button"
+                  className="btn-secondary text-xs"
+                  onClick={loadUsers}
+                  disabled={isLoadingUsers}
+                >
+                  {isLoadingUsers ? "Atualizando…" : "Atualizar"}
                 </button>
               </div>
-              {users.length === 0 ? (
-                <p className="text-xs text-slate-600">Nenhum usuário encontrado.</p>
+              {isLoadingUsers ? (
+                <SkeletonUserList count={5} />
+              ) : users.length === 0 ? (
+                <EmptyState
+                  icon="users"
+                  title="Nenhum usuário encontrado"
+                  description="Crie o primeiro usuário usando o formulário acima."
+                />
               ) : (
                 <div className="space-y-2">
                   {users.map((user) => (
@@ -1111,7 +1144,7 @@ export default function InternalDashboard() {
                 </div>
               )}
             </div>
-          </section>
+          </PanelCard>
         ) : null}
 
         {!isAdmin ? (
@@ -1628,10 +1661,4 @@ function toOperatorDisplayName(name) {
 function hasOperator(operators, operatorName) {
   const target = normalizeOperatorName(operatorName);
   return Array.isArray(operators) && operators.some((item) => normalizeOperatorName(item) === target);
-}
-
-function tabButtonClass(active) {
-  return active
-    ? "rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white"
-    : "rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700";
 }

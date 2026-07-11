@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { ToastProvider } from "./components/ui/Toast";
 import { isSessionAuthenticated } from "./lib/authSession";
 import InternalDashboard from "./pages/InternalDashboard";
 import InternalLogin from "./pages/InternalLogin";
@@ -28,7 +29,7 @@ function RequireInternalAuth({ children }) {
 
 export default function App() {
   return (
-    <>
+    <ToastProvider>
       <PageTitle />
       <Routes>
         <Route path="/" element={<PublicLanding />} />
@@ -44,6 +45,6 @@ export default function App() {
         <Route path="/interno/consulta" element={<Navigate to="/interno/painel" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-    </>
+    </ToastProvider>
   );
 }

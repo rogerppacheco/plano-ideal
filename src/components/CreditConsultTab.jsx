@@ -5,9 +5,22 @@ import {
   getCreditConsultationScreenshot,
   startCreditConsultation,
 } from "../services/api";
+import { DataTable, DataTableCell, DataTableRow } from "./ui/DataTable";
+import { EmptyState } from "./ui/EmptyState";
+import { FormField } from "./ui/FormField";
+import { PanelCard } from "./ui/PanelCard";
+import { SkeletonTable } from "./ui/Skeleton";
+import { useToast } from "./ui/Toast";
 import { ScreenshotModal } from "./ScreenshotModal";
 
 const PENDING_CONSULTATION_KEY = "planoideal_pending_credit_consultation_id";
+
+const HISTORY_COLUMNS = [
+  { key: "date", label: "Data" },
+  { key: "document", label: "Documento" },
+  { key: "result", label: "Resultado" },
+  { key: "actions", label: "Ações" },
+];
 
 function formatDate(iso) {
   if (!iso) return "—";
@@ -59,11 +72,12 @@ function maskDocumentInput(value) {
 }
 
 export function CreditConsultTab({ token }) {
+  const toast = useToast();
   const [document, setDocument] = useState("");
   const [cpfRepresentative, setCpfRepresentative] = useState("");
   const [activeConsultation, setActiveConsultation] = useState(null);
   const [history, setHistory] = useState([]);
-  const [error, setError] = useState("");
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalTitle, setModalTitle] = useState("");
@@ -75,9 +89,11 @@ export function CreditConsultTab({ token }) {
       const items = data.consultations || [];
       setHistory(items);
       return items;
-    } catch (err) {
+    } catch {
       setHistory([]);
       return [];
+    } finally {
+      setIsLoadingHistory(false);
     }
   }, [token]);
 
@@ -117,7 +133,7 @@ export function CreditConsultTab({ token }) {
             sessionStorage.removeItem(PENDING_CONSULTATION_KEY);
           }
         } catch (err) {
-          setError(err.message || "Falha ao acompanhar consulta.");
+          toast.error(err.message || "Falha ao acompanhar consulta.");
         }
       } else if (items.some((item) => item.status === "queued" || item.status === "processing")) {
         const pending = items.find((item) => item.status === "queued" || item.status === "processing");
@@ -129,11 +145,10 @@ export function CreditConsultTab({ token }) {
     }, 3000);
 
     return () => clearInterval(interval);
-  }, [activeConsultation?.id, activeConsultation?.status, token, loadHistory]);
+  }, [activeConsultation?.id, activeConsultation?.status, token, loadHistory, toast]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    setError("");
     setIsSubmitting(true);
     try {
       const data = await startCreditConsultation({
@@ -144,8 +159,9 @@ export function CreditConsultTab({ token }) {
       setActiveConsultation(data.consultation);
       sessionStorage.setItem(PENDING_CONSULTATION_KEY, String(data.consultation.id));
       await loadHistory();
+      toast.info("Consulta enviada. O resultado aparecerá em cerca de 30–60 segundos.");
     } catch (err) {
-      setError(err.message || "Não foi possível iniciar a consulta.");
+      toast.error(err.message || "Não foi possível iniciar a consulta.");
     } finally {
       setIsSubmitting(false);
     }
@@ -153,13 +169,12 @@ export function CreditConsultTab({ token }) {
 
   const openScreenshot = async (consultation) => {
     try {
-      setError("");
       const data = await getCreditConsultationScreenshot(consultation.id, token);
       setModalTitle(`Comprovante — ${consultation.documentMasked || consultation.document}`);
       setModalScreenshot(data.screenshotBase64);
       setModalOpen(true);
     } catch (err) {
-      setError(err.message || "Comprovante indisponível.");
+      toast.error(err.message || "Comprovante indisponível.");
     }
   };
 
@@ -167,74 +182,91 @@ export function CreditConsultTab({ token }) {
   const showRepresentative = documentDigits.length > 11;
 
   return (
-    <section className="surface-card p-6">
-      <h2 className="text-xl font-bold text-slate-900">Consulta de Crédito PAP Nio</h2>
-      <p className="mt-1 text-sm text-slate-600">
-        Disponível para admin e vendedor. A consulta leva cerca de 30–60 segundos. Você pode trocar
-        de aba — o processamento continua no servidor e o histórico atualiza automaticamente.
-      </p>
-
-      <form className="mt-4 grid gap-3 sm:grid-cols-2" onSubmit={handleSubmit}>
-        <div>
-          <label className="text-xs font-semibold text-slate-700">CPF ou CNPJ</label>
-          <input
-            type="text"
-            inputMode="numeric"
-            value={document}
-            onChange={(e) => setDocument(maskDocumentInput(e.target.value))}
-            placeholder="000.000.000-00"
-            className="input-modern mt-1"
-            required
-          />
-        </div>
-        {showRepresentative ? (
-          <div>
-            <label className="text-xs font-semibold text-slate-700">CPF do representante</label>
+    <PanelCard
+      id="panel-credito"
+      title="Consulta de Crédito PAP Nio"
+      description="Disponível para admin e vendedor. A consulta leva cerca de 30–60 segundos. Você pode trocar de aba — o processamento continua no servidor."
+    >
+      <form className="grid gap-4 sm:grid-cols-2" onSubmit={handleSubmit}>
+        <FormField
+          id="credit-document"
+          label="CPF ou CNPJ"
+          hint="Informe o documento do titular ou da empresa."
+          required
+        >
+          {({ id, describedBy }) => (
             <input
+              id={id}
               type="text"
               inputMode="numeric"
-              value={cpfRepresentative}
-              onChange={(e) => setCpfRepresentative(maskDocumentInput(e.target.value))}
+              value={document}
+              onChange={(e) => setDocument(maskDocumentInput(e.target.value))}
               placeholder="000.000.000-00"
-              className="input-modern mt-1"
+              className="input-modern"
+              aria-describedby={describedBy}
               required
             />
-          </div>
+          )}
+        </FormField>
+
+        {showRepresentative ? (
+          <FormField
+            id="credit-representative"
+            label="CPF do representante"
+            hint="Obrigatório para consultas de CNPJ."
+            required
+          >
+            {({ id, describedBy }) => (
+              <input
+                id={id}
+                type="text"
+                inputMode="numeric"
+                value={cpfRepresentative}
+                onChange={(e) => setCpfRepresentative(maskDocumentInput(e.target.value))}
+                placeholder="000.000.000-00"
+                className="input-modern"
+                aria-describedby={describedBy}
+                required
+              />
+            )}
+          </FormField>
         ) : null}
+
         <div className="sm:col-span-2">
           <button type="submit" className="btn-primary" disabled={isSubmitting}>
-            {isSubmitting ? "Enviando…" : "Consultar crédito"}
+            {isSubmitting ? "Enviando consulta…" : "Consultar crédito"}
           </button>
         </div>
       </form>
 
-      {error ? <p className="mt-2 text-sm text-red-600">{error}</p> : null}
-
       {activeConsultation ? (
-        <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
           <p className="text-sm font-semibold text-slate-800">
             Consulta #{activeConsultation.id} — {activeConsultation.documentMasked}
           </p>
-          <p className="mt-1 text-sm text-slate-600">Status: {statusLabel(activeConsultation.status)}</p>
+          <p className="mt-1 text-sm text-slate-600">
+            Status: <span className="font-medium">{statusLabel(activeConsultation.status)}</span>
+          </p>
 
           {activeConsultation.status === "processing" || activeConsultation.status === "queued" ? (
-            <p className="mt-2 text-sm text-amber-800">
-              Aguardando retorno do PAP… o histórico abaixo atualiza sozinho.
-            </p>
+            <div className="mt-3 space-y-2" role="status" aria-label="Consulta em andamento">
+              <div className="skeleton h-3 w-48" />
+              <p className="text-sm text-amber-800">
+                Aguardando retorno do PAP… o histórico abaixo atualiza automaticamente.
+              </p>
+            </div>
           ) : null}
 
           {activeConsultation.status === "success" ? (
             <div className="mt-3">
-              {activeConsultation.approved ? (
-                <p className="text-sm font-semibold text-emerald-700">Crédito APROVADO</p>
-              ) : (
-                <p className="text-sm font-semibold text-red-700">Crédito NEGADO</p>
-              )}
+              <ResultBadge item={activeConsultation} />
               {activeConsultation.resultDetail ? (
-                <p className="mt-1 text-sm text-slate-700">{activeConsultation.resultDetail}</p>
+                <p className="mt-2 text-sm text-slate-700">{activeConsultation.resultDetail}</p>
               ) : null}
               {activeConsultation.durationSeconds != null ? (
-                <p className="mt-1 text-xs text-slate-500">{activeConsultation.durationSeconds}s</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Tempo de resposta: {activeConsultation.durationSeconds}s
+                </p>
               ) : null}
               {activeConsultation.hasScreenshot ? (
                 <button
@@ -249,55 +281,54 @@ export function CreditConsultTab({ token }) {
           ) : null}
 
           {activeConsultation.status === "failed" ? (
-            <p className="mt-2 text-sm text-red-700">
+            <p className="mt-2 text-sm font-medium text-red-700">
               {activeConsultation.errorMessage || "Erro ao consultar crédito."}
             </p>
           ) : null}
         </div>
       ) : null}
 
-      <div className="mt-6">
+      <div className="mt-8">
         <h3 className="text-sm font-bold text-slate-900">Histórico recente</h3>
-        {history.length === 0 ? (
-          <p className="mt-2 text-sm text-slate-600">Nenhuma consulta realizada ainda.</p>
-        ) : (
-          <div className="mt-2 overflow-x-auto">
-            <table className="min-w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-slate-200 text-xs uppercase text-slate-500">
-                  <th className="py-2 pr-3">Data</th>
-                  <th className="py-2 pr-3">Documento</th>
-                  <th className="py-2 pr-3">Resultado</th>
-                  <th className="py-2 pr-3">Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {history.map((item) => (
-                  <tr key={item.id} className="border-b border-slate-100">
-                    <td className="py-2 pr-3 text-slate-600">{formatDate(item.createdAt)}</td>
-                    <td className="py-2 pr-3 font-medium text-slate-800">{item.documentMasked}</td>
-                    <td className="py-2 pr-3">
-                      <ResultBadge item={item} />
-                    </td>
-                    <td className="py-2 pr-3">
-                      {item.hasScreenshot ? (
-                        <button
-                          type="button"
-                          className="text-xs font-semibold text-indigo-700 hover:underline"
-                          onClick={() => openScreenshot(item)}
-                        >
-                          Ver comprovante
-                        </button>
-                      ) : (
-                        <span className="text-xs text-slate-400">—</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <div className="mt-3">
+          <DataTable
+            columns={HISTORY_COLUMNS}
+            caption="Histórico de consultas de crédito"
+            isEmpty={!isLoadingHistory && history.length === 0}
+            loading={isLoadingHistory}
+            loadingComponent={<SkeletonTable rows={5} cols={4} />}
+            emptyIcon="search"
+            emptyTitle="Nenhuma consulta realizada ainda"
+            emptyDescription="As consultas de crédito aparecerão aqui assim que forem enviadas."
+          >
+            {history.map((item) => (
+              <DataTableRow key={item.id}>
+                <DataTableCell className="whitespace-nowrap text-slate-600">
+                  {formatDate(item.createdAt)}
+                </DataTableCell>
+                <DataTableCell className="font-medium text-slate-800">
+                  {item.documentMasked}
+                </DataTableCell>
+                <DataTableCell>
+                  <ResultBadge item={item} />
+                </DataTableCell>
+                <DataTableCell>
+                  {item.hasScreenshot ? (
+                    <button
+                      type="button"
+                      className="btn-ghost"
+                      onClick={() => openScreenshot(item)}
+                    >
+                      Ver comprovante
+                    </button>
+                  ) : (
+                    <span className="text-xs text-slate-400">—</span>
+                  )}
+                </DataTableCell>
+              </DataTableRow>
+            ))}
+          </DataTable>
+        </div>
       </div>
 
       <ScreenshotModal
@@ -306,6 +337,6 @@ export function CreditConsultTab({ token }) {
         screenshotBase64={modalScreenshot}
         onClose={() => setModalOpen(false)}
       />
-    </section>
+    </PanelCard>
   );
 }
