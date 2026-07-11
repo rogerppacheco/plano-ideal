@@ -342,9 +342,9 @@ export function ApiPartnersAdminTab({ token }: ApiPartnersAdminTabProps) {
               description="Crie o primeiro tenant B2B."
             />
           ) : (
-            <div className="overflow-x-auto rounded-xl border border-slate-200">
+            <div className="overflow-x-auto rounded-xl border border-white/10">
               <table className="min-w-full text-sm">
-                <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                <thead className="bg-white/5 text-left text-xs uppercase tracking-wide text-gray-400">
                   <tr>
                     <th className="px-4 py-3">Parceiro</th>
                     <th className="px-4 py-3">Slug</th>
@@ -359,36 +359,44 @@ export function ApiPartnersAdminTab({ token }: ApiPartnersAdminTabProps) {
                     return (
                       <tr
                         key={partner.id}
-                        className={`border-t border-slate-100 ${isSelected ? "bg-sky-50" : "bg-white"}`}
+                        className={`border-t border-white/10 border-l-4 ${
+                          isSelected
+                            ? "border-l-emerald-500 bg-emerald-500/20"
+                            : "border-l-transparent bg-transparent hover:bg-white/5"
+                        }`}
                       >
-                        <td className="px-4 py-3 font-medium text-slate-900">{partner.name}</td>
-                        <td className="px-4 py-3 font-mono text-xs text-slate-600">
+                        <td className="px-4 py-3 font-medium text-gray-100">{partner.name}</td>
+                        <td className="px-4 py-3 font-mono text-xs text-gray-300">
                           {partner.slug}
                         </td>
-                        <td className="px-4 py-3">{partner.activeKeyCount ?? 0}</td>
+                        <td className="px-4 py-3 text-gray-100">{partner.activeKeyCount ?? 0}</td>
                         <td className="px-4 py-3">
                           <span
-                            className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                            className={`rounded-full px-2 py-1 text-xs font-semibold ${
                               partner.isActive
-                                ? "bg-emerald-100 text-emerald-800"
-                                : "bg-slate-200 text-slate-700"
+                                ? "border border-emerald-500/30 bg-emerald-500/20 text-emerald-400"
+                                : "border border-gray-500/30 bg-gray-500/20 text-gray-400"
                             }`}
                           >
                             {partner.isActive ? "Ativo" : "Inativo"}
                           </span>
                         </td>
                         <td className="px-4 py-3">
-                          <div className="flex flex-wrap gap-2">
+                          <div className="flex flex-wrap gap-3">
                             <button
                               type="button"
-                              className="btn-secondary px-2 py-1 text-xs"
+                              className="text-xs font-medium text-emerald-400 transition hover:text-emerald-300"
                               onClick={() => setSelectedPartnerId(partner.id)}
                             >
                               {isSelected ? "Selecionado" : "Gerenciar chaves"}
                             </button>
                             <button
                               type="button"
-                              className="btn-secondary px-2 py-1 text-xs"
+                              className={`text-xs font-medium transition ${
+                                partner.isActive
+                                  ? "text-red-400 hover:text-red-300"
+                                  : "text-gray-400 hover:text-gray-300"
+                              }`}
                               onClick={() => handleTogglePartnerStatus(partner)}
                             >
                               {partner.isActive ? "Inativar" : "Reativar"}
@@ -467,9 +475,9 @@ export function ApiPartnersAdminTab({ token }: ApiPartnersAdminTabProps) {
                   description="Gere a primeira chave para liberar acesso à API B2B."
                 />
               ) : (
-                <div className="overflow-x-auto rounded-xl border border-slate-200">
+                <div className="overflow-x-auto rounded-xl border border-white/10">
                   <table className="min-w-full text-sm">
-                    <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                    <thead className="bg-white/5 text-left text-xs uppercase tracking-wide text-gray-400">
                       <tr>
                         <th className="px-4 py-3">Nome</th>
                         <th className="px-4 py-3">Prefixo</th>
@@ -481,21 +489,28 @@ export function ApiPartnersAdminTab({ token }: ApiPartnersAdminTabProps) {
                     </thead>
                     <tbody>
                       {apiKeys.map((apiKey) => (
-                        <tr key={apiKey.id} className="border-t border-slate-100 bg-white">
-                          <td className="px-4 py-3 font-medium text-slate-900">{apiKey.name}</td>
-                          <td className="px-4 py-3 font-mono text-xs text-slate-600">
+                        <tr
+                          key={apiKey.id}
+                          className={`border-t border-white/10 bg-transparent hover:bg-white/5 ${
+                            apiKey.isRevoked ? "opacity-70" : ""
+                          }`}
+                        >
+                          <td className="px-4 py-3 font-medium text-gray-100">{apiKey.name}</td>
+                          <td className="px-4 py-3 font-mono text-xs text-gray-300">
                             {apiKey.displayPrefix}••••
                           </td>
-                          <td className="px-4 py-3">{apiKey.scopes.join(", ")}</td>
-                          <td className="px-4 py-3">{formatDateTime(apiKey.lastUsedAt)}</td>
+                          <td className="px-4 py-3 text-gray-100">{apiKey.scopes.join(", ")}</td>
+                          <td className="px-4 py-3 text-gray-100">
+                            {formatDateTime(apiKey.lastUsedAt)}
+                          </td>
                           <td className="px-4 py-3">
                             <span
-                              className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                              className={`rounded-full px-2 py-1 text-xs font-semibold ${
                                 apiKey.isRevoked
-                                  ? "bg-rose-100 text-rose-800"
+                                  ? "border border-red-500/30 bg-red-500/20 text-red-400"
                                   : apiKey.isActive
-                                    ? "bg-emerald-100 text-emerald-800"
-                                    : "bg-slate-200 text-slate-700"
+                                    ? "border border-emerald-500/30 bg-emerald-500/20 text-emerald-400"
+                                    : "border border-gray-500/30 bg-gray-500/20 text-gray-400"
                               }`}
                             >
                               {apiKey.isRevoked
@@ -509,13 +524,13 @@ export function ApiPartnersAdminTab({ token }: ApiPartnersAdminTabProps) {
                             {!apiKey.isRevoked ? (
                               <button
                                 type="button"
-                                className="btn-secondary px-2 py-1 text-xs text-rose-700"
+                                className="text-xs font-medium text-red-400 transition hover:text-red-300"
                                 onClick={() => setRevokeTarget(apiKey)}
                               >
                                 Revogar
                               </button>
                             ) : (
-                              "—"
+                              <span className="text-gray-500">—</span>
                             )}
                           </td>
                         </tr>
