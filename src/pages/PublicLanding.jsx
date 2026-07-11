@@ -108,11 +108,11 @@ function HeroMascot() {
         aria-hidden="true"
       />
 
-      <div className="animate-float relative z-10 w-full">
+      <div className="animate-float relative z-10 w-full bg-transparent">
         <img
           src={mascotCloud}
           alt="Mascote Plano Ideal — consultor de internet fibra sobre nuvem"
-          className="mx-auto h-auto w-full max-w-md object-contain drop-shadow-[0_12px_40px_rgba(0,0,0,0.5)] sm:max-w-lg lg:max-w-xl"
+          className="mx-auto h-auto w-full max-w-md bg-transparent object-contain drop-shadow-[0_12px_40px_rgba(0,0,0,0.5)] sm:max-w-lg lg:max-w-xl"
           width={640}
           height={640}
           loading="eager"

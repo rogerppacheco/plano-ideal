@@ -11,6 +11,69 @@ ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "src" / "assets"
 
 
+def remove_checkerboard_background(
+    input_path: Path,
+    output_path: Path,
+) -> None:
+    """Remove fundo xadrez (checkerboard) e neutros conectados à borda."""
+    img = Image.open(input_path).convert("RGBA")
+    arr = np.array(img)
+    h, w = arr.shape[:2]
+
+    r = arr[..., 0].astype(float)
+    g = arr[..., 1].astype(float)
+    b = arr[..., 2].astype(float)
+    max_c = np.maximum(np.maximum(r, g), b)
+    min_c = np.minimum(np.minimum(r, g), b)
+    saturation = max_c - min_c
+    luminance = (r + g + b) / 3.0
+
+    is_neutral = saturation < 35
+    is_bg_candidate = is_neutral & (
+        (luminance > 190) | (luminance < 115) | (luminance > 240)
+    )
+
+    to_remove = np.zeros((h, w), dtype=bool)
+    visited = np.zeros((h, w), dtype=bool)
+    queue: deque[tuple[int, int]] = deque()
+
+    for x in range(w):
+        for y in (0, h - 1):
+            if is_bg_candidate[y, x]:
+                queue.append((x, y))
+    for y in range(h):
+        for x in (0, w - 1):
+            if is_bg_candidate[y, x]:
+                queue.append((x, y))
+
+    while queue:
+        x, y = queue.popleft()
+        if x < 0 or x >= w or y < 0 or y >= h:
+            continue
+        if visited[y, x] or not is_bg_candidate[y, x]:
+            continue
+        visited[y, x] = True
+        to_remove[y, x] = True
+        queue.extend([(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)])
+
+    alpha = arr[..., 3].astype(float)
+    alpha[to_remove] = 0
+    arr[..., 3] = alpha.astype(np.uint8)
+    Image.fromarray(arr).save(output_path, "PNG", optimize=True)
+    print(f"OK (checkerboard): {output_path.name}")
+
+
+def remove_with_rembg(input_path: Path, output_path: Path) -> None:
+    """Remove fundo com modelo IA (recomendado para PNGs com xadrez embutido)."""
+    try:
+        from rembg import remove as rembg_remove
+    except ImportError as exc:
+        raise SystemExit("Instale rembg: pip install rembg onnxruntime") from exc
+
+    output_path.write_bytes(rembg_remove(input_path.read_bytes()))
+    print(f"OK (rembg): {output_path.name} ({output_path.stat().st_size // 1024} KB)")
+
+
 def remove_white_background(
     input_path: Path,
     output_path: Path,
