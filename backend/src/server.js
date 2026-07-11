@@ -10,6 +10,7 @@ import importRoutes from "./routes/importRoutes.js";
 import papCredentialRoutes from "./routes/papCredentialRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import externalRoutes from "./routes/external/index.js";
+import { mountSwaggerDocs } from "./docs/swagger.js";
 
 dotenv.config();
 
@@ -74,7 +75,7 @@ app.use(express.json({ limit: "10mb" }));
 app.get("/", (_req, res) => {
   res.json({
     service: "Plano Ideal API",
-    docs: "Rotas em /api/*",
+    docs: "/api/docs",
     health: "/api/health",
   });
 });
@@ -123,8 +124,11 @@ async function bootstrap() {
   try {
     await verifyDatabaseConnection();
     await ensureSchema();
+    await mountSwaggerDocs(app);
     // eslint-disable-next-line no-console
     console.log("[DB] Schema verificado e pronto.");
+    // eslint-disable-next-line no-console
+    console.log("[Docs] Swagger UI disponível em /api/docs");
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error("[DB] Falha ao conectar ou inicializar schema:", error);

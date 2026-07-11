@@ -1,0 +1,48 @@
+CoverageByCep:
+  get:
+    tags: [Coverage]
+    summary: Consulta viabilidade por CEP
+    description: |
+      Retorna cobertura de fibra sanitizada por operadora.
+      Dados internos (`row_data`, `source_file`, etc.) **não** são expostos.
+
+      **Rate limit:** 60 requisições/minuto por API Key.
+    operationId: getCoverageByCep
+    security:
+      - ApiKeyAuth: []
+      - BearerApiKey: []
+    parameters:
+      - name: cep
+        in: path
+        required: true
+        description: CEP com 8 dígitos (com ou sem hífen).
+        schema:
+          type: string
+          example: "30130-010"
+    responses:
+      "200":
+        description: Cobertura encontrada (pode estar vazia por operadora).
+        content:
+          application/json:
+            schema:
+              $ref: "./base.yaml#/components/schemas/CoverageResponse"
+            example:
+              cep: "30130010"
+              hasCoverage: true
+              operators:
+                - name: Nio
+                  mode: facades
+                  items: ["7", "15", "39 +2"]
+                - name: Vero
+                  mode: streets
+                  items: ["RUA EXEMPLO - CENTRO"]
+      "400":
+        $ref: "./base.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "./base.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "./base.yaml#/components/responses/Forbidden"
+      "429":
+        $ref: "./base.yaml#/components/responses/RateLimited"
+      "500":
+        $ref: "./base.yaml#/components/responses/InternalError"

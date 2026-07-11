@@ -1,0 +1,50 @@
+openapi: 3.0.3
+
+info:
+  title: Plano Ideal API B2B
+  version: 1.0.0
+  description: |
+    API pública para parceiros integrarem **Consulta por CEP** (viabilidade)
+    e **Consulta de Crédito** (assíncrona com polling).
+
+    ## Autenticação
+    Todas as rotas exigem API Key no formato `pk_live_<segredo>`.
+
+    Opções aceitas:
+    - Header `X-API-Key: pk_live_...`
+    - Header `Authorization: Bearer pk_live_...`
+
+    ## Scopes por chave
+    - `coverage` — consulta de viabilidade
+    - `credit` — consulta de crédito
+
+    ## Rate limits (MVP, por instância)
+    - Coverage: 60 req/min
+    - Credit: 10 req/min
+
+servers:
+  - url: https://plano-ideal-api-production.up.railway.app
+    description: Produção
+  - url: http://localhost:4000
+    description: Desenvolvimento local
+
+tags:
+  - name: Coverage
+    description: Viabilidade de fibra por CEP (DTO sanitizado).
+  - name: Credit
+    description: Consulta de crédito assíncrona (202 + polling).
+
+security:
+  - ApiKeyAuth: []
+  - BearerApiKey: []
+
+paths:
+  /api/v1/external/coverage/{cep}:
+    $ref: "./coverage.yaml#/CoverageByCep"
+  /api/v1/external/credit/consult:
+    $ref: "./credit.yaml#/CreditConsult"
+  /api/v1/external/credit/consultations/{id}:
+    $ref: "./credit.yaml#/CreditConsultById"
+
+components:
+  $ref: "./base.yaml#/components"

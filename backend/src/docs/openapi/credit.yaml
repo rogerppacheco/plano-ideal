@@ -1,0 +1,133 @@
+CreditConsult:
+  post:
+    tags: [Credit]
+    summary: Enfileira consulta de crédito
+    description: |
+      Cria uma consulta assíncrona na fila do worker PAP.
+      Retorna **202 Accepted** com o protocolo (`id` + `status: queued`).
+
+      Use `GET /credit/consultations/{id}` para polling até `isTerminal: true`.
+
+      **Rate limit:** 10 requisições/minuto por API Key.
+    operationId: createCreditConsultation
+    security:
+      - ApiKeyAuth: []
+      - BearerApiKey: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "./base.yaml#/components/schemas/CreditConsultRequest"
+          examples:
+            cpf:
+              summary: Consulta CPF
+              value:
+                document: "12345678901"
+                cpfRepresentative: null
+            cnpj:
+              summary: Consulta CNPJ
+              value:
+                document: "12345678000199"
+                cpfRepresentative: "98765432100"
+    responses:
+      "202":
+        description: Consulta enfileirada com sucesso.
+        content:
+          application/json:
+            schema:
+              $ref: "./base.yaml#/components/schemas/CreditConsultAccepted"
+            example:
+              consultation:
+                id: 105
+                status: queued
+                createdAt: "2026-07-11T22:00:00.000Z"
+      "400":
+        $ref: "./base.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "./base.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "./base.yaml#/components/responses/Forbidden"
+      "429":
+        $ref: "./base.yaml#/components/responses/RateLimited"
+      "503":
+        $ref: "./base.yaml#/components/responses/ServiceUnavailable"
+      "500":
+        $ref: "./base.yaml#/components/responses/InternalError"
+
+CreditConsultById:
+  get:
+    tags: [Credit]
+    summary: Polling do status da consulta
+    description: |
+      Retorna o status canônico do job (`queued`, `processing`, `success`, `failed`).
+      Consultas são isoladas por API Key — parceiros não acessam protocolos de terceiros.
+
+      Quando `isTerminal: true`, os campos `approved`, `resultDetail` e `finishedAt` estarão disponíveis.
+    operationId: getCreditConsultationById
+    security:
+      - ApiKeyAuth: []
+      - BearerApiKey: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+        example: 105
+    responses:
+      "200":
+        description: Status atual da consulta.
+        content:
+          application/json:
+            schema:
+              $ref: "./base.yaml#/components/schemas/CreditConsultPolling"
+            examples:
+              processing:
+                summary: Em processamento
+                value:
+                  consultation:
+                    id: 105
+                    documentMasked: "123.456.789-01"
+                    status: processing
+                    isTerminal: false
+                    createdAt: "2026-07-11T22:00:00.000Z"
+                    startedAt: "2026-07-11T22:00:05.000Z"
+              terminalDenied:
+                summary: Concluída (negada)
+                value:
+                  consultation:
+                    id: 105
+                    documentMasked: "123.456.789-01"
+                    status: success
+                    isTerminal: true
+                    approved: false
+                    resultDetail: Crédito negado
+                    createdAt: "2026-07-11T22:00:00.000Z"
+                    startedAt: "2026-07-11T22:00:05.000Z"
+                    finishedAt: "2026-07-11T22:01:00.000Z"
+                    durationSeconds: 55
+              terminalFailed:
+                summary: Falha técnica
+                value:
+                  consultation:
+                    id: 105
+                    documentMasked: "123.456.789-01"
+                    status: failed
+                    isTerminal: true
+                    errorMessage: Timeout ao acessar PAP
+                    createdAt: "2026-07-11T22:00:00.000Z"
+                    finishedAt: "2026-07-11T22:02:00.000Z"
+      "400":
+        $ref: "./base.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "./base.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "./base.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "./base.yaml#/components/responses/NotFound"
+      "429":
+        $ref: "./base.yaml#/components/responses/RateLimited"
+      "500":
+        $ref: "./base.yaml#/components/responses/InternalError"

@@ -1,0 +1,229 @@
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: |
+        Chave de API no formato `pk_live_<segredo>`.
+        Envie no header `X-API-Key`.
+    BearerApiKey:
+      type: http
+      scheme: bearer
+      bearerFormat: API Key
+      description: |
+        Alternativa: `Authorization: Bearer pk_live_<segredo>`.
+
+  schemas:
+    ExternalError:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          example: INVALID_CEP
+        message:
+          type: string
+          example: CEP inválido. Informe 8 dígitos.
+        retryAfterSec:
+          type: integer
+          description: Presente em respostas 429 (rate limit).
+          example: 42
+
+    CoverageOperator:
+      type: object
+      required: [name, mode, items]
+      properties:
+        name:
+          type: string
+          example: Nio
+        mode:
+          type: string
+          enum: [facades, streets]
+          example: facades
+        items:
+          type: array
+          items:
+            type: string
+          example: ["7", "15", "39 +2"]
+
+    CoverageResponse:
+      type: object
+      required: [cep, hasCoverage, operators]
+      properties:
+        cep:
+          type: string
+          pattern: "^\\d{8}$"
+          example: "30130010"
+        hasCoverage:
+          type: boolean
+          example: true
+        operators:
+          type: array
+          items:
+            $ref: "#/components/schemas/CoverageOperator"
+
+    CreditConsultRequest:
+      type: object
+      required: [document]
+      properties:
+        document:
+          type: string
+          description: CPF (11 dígitos) ou CNPJ (14 dígitos), com ou sem máscara.
+          example: "12345678901"
+        cpfRepresentative:
+          type: string
+          nullable: true
+          description: Obrigatório quando `document` for CNPJ.
+          example: null
+
+    CreditConsultAccepted:
+      type: object
+      required: [consultation]
+      properties:
+        consultation:
+          type: object
+          required: [id, status, createdAt]
+          properties:
+            id:
+              type: integer
+              example: 105
+            status:
+              type: string
+              enum: [queued]
+              example: queued
+            createdAt:
+              type: string
+              format: date-time
+              example: "2026-07-11T22:00:00.000Z"
+
+    CreditConsultPolling:
+      type: object
+      required: [consultation]
+      properties:
+        consultation:
+          type: object
+          required: [id, documentMasked, status, isTerminal, createdAt]
+          properties:
+            id:
+              type: integer
+              example: 105
+            documentMasked:
+              type: string
+              example: "123.456.789-01"
+            status:
+              type: string
+              enum: [queued, processing, success, failed]
+              example: success
+            isTerminal:
+              type: boolean
+              example: true
+            createdAt:
+              type: string
+              format: date-time
+            startedAt:
+              type: string
+              format: date-time
+            finishedAt:
+              type: string
+              format: date-time
+            approved:
+              type: boolean
+              example: false
+            resultDetail:
+              type: string
+              example: Crédito negado
+            errorMessage:
+              type: string
+              description: Presente quando `status` é `failed`.
+            durationSeconds:
+              type: number
+              format: float
+              example: 42.5
+
+  responses:
+    BadRequest:
+      description: Requisição inválida.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ExternalError"
+          examples:
+            invalidCep:
+              summary: CEP inválido
+              value:
+                code: INVALID_CEP
+                message: CEP inválido. Informe 8 dígitos.
+            invalidDocument:
+              summary: Documento inválido
+              value:
+                code: INVALID_DOCUMENT
+                message: CPF inválido.
+
+    Unauthorized:
+      description: API Key ausente ou inválida.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ExternalError"
+          example:
+            code: INVALID_API_KEY
+            message: API Key ausente ou inválida.
+
+    Forbidden:
+      description: API Key sem permissão para o recurso (scope).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ExternalError"
+          example:
+            code: SCOPE_FORBIDDEN
+            message: API Key sem permissão para este recurso.
+
+    NotFound:
+      description: Recurso não encontrado.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ExternalError"
+          example:
+            code: NOT_FOUND
+            message: Consulta não encontrada.
+
+    RateLimited:
+      description: Limite de requisições excedido.
+      headers:
+        Retry-After:
+          description: Segundos até nova tentativa.
+          schema:
+            type: integer
+            example: 42
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ExternalError"
+          example:
+            code: RATE_LIMITED
+            message: Limite de requisições excedido. Tente novamente em breve.
+            retryAfterSec: 42
+
+    ServiceUnavailable:
+      description: Serviço temporariamente indisponível.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ExternalError"
+          example:
+            code: SERVICE_UNAVAILABLE
+            message: Serviço de crédito temporariamente indisponível. Tente novamente em instantes.
+
+    InternalError:
+      description: Erro interno do servidor.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+                example: Erro interno do servidor.
