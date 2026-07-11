@@ -3,12 +3,39 @@ import { forceLogout } from "../lib/sessionExit";
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api";
 const SKIP_AUTH_REDIRECT_PATHS = new Set(["/auth/login"]);
 
+export function getApiBaseUrl() {
+  return API_BASE_URL;
+}
+
+function buildRequestUrl(path) {
+  return `${API_BASE_URL}${path}`;
+}
+
+function logRequestFailure(url, error, context = {}) {
+  // eslint-disable-next-line no-console
+  console.error("[API] Falha na requisição:", {
+    url,
+    apiBase: API_BASE_URL,
+    viteApiBase: import.meta.env.VITE_API_BASE_URL ?? "(não definida no build)",
+    message: error?.message,
+    ...context,
+  });
+}
+
+function getFriendlyNetworkMessage(url) {
+  if (import.meta.env.PROD && !import.meta.env.VITE_API_BASE_URL) {
+    return "Configuração da API ausente no build. Verifique VITE_API_BASE_URL no Railway.";
+  }
+  return "Erro de conexão com o servidor. Verifique a rede ou tente novamente em instantes.";
+}
+
 export class ApiError extends Error {
-  constructor(message, { status, code } = {}) {
+  constructor(message, { status, code, url } = {}) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.code = code;
+    this.url = url;
   }
 }
 
@@ -22,7 +49,20 @@ function handleUnauthorized(path, data) {
 
 async function request(path, options = {}) {
   const { skipAuthRedirect = false, ...fetchOptions } = options;
-  const response = await fetch(`${API_BASE_URL}${path}`, fetchOptions);
+  const url = buildRequestUrl(path);
+  let response;
+
+  try {
+    response = await fetch(url, fetchOptions);
+  } catch (error) {
+    logRequestFailure(url, error, { path, type: "network" });
+    throw new ApiError(getFriendlyNetworkMessage(url), {
+      status: 0,
+      code: "NETWORK_ERROR",
+      url,
+    });
+  }
+
   const data = await response.json().catch(() => ({}));
 
   if (response.status === 401 && !skipAuthRedirect && !SKIP_AUTH_REDIRECT_PATHS.has(path)) {
@@ -30,13 +70,21 @@ async function request(path, options = {}) {
     throw new ApiError(data.message || "Sessão inválida.", {
       status: 401,
       code: data.code,
+      url,
     });
   }
 
   if (!response.ok) {
+    logRequestFailure(url, new Error(data.message || response.statusText), {
+      path,
+      status: response.status,
+      code: data.code,
+      type: "http",
+    });
     throw new ApiError(data.message || "Falha na requisição.", {
       status: response.status,
       code: data.code,
+      url,
     });
   }
 

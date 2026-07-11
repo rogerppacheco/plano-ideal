@@ -170,6 +170,31 @@
     @apply text-red-400;
   }
 
+  .login-input {
+    @apply rounded-2xl border-white/20 bg-white/10 text-white placeholder:text-white/35 focus:border-neon-green/60 focus:ring-neon-green/25;
+  }
+
+  .login-submit {
+    @apply rounded-2xl py-3.5 text-base shadow-[0_12px_32px_rgba(57,255,20,0.25)] transition hover:translate-y-[-1px] hover:shadow-[0_16px_40px_rgba(57,255,20,0.35)];
+  }
+
+  .login-input + .form-error,
+  .dashboard-shell .login-input {
+    @apply rounded-2xl;
+  }
+
+  .hero-mesh .form-label {
+    @apply text-white/85;
+  }
+
+  .hero-mesh .form-hint {
+    @apply text-white/45;
+  }
+
+  .hero-mesh .form-error {
+    @apply text-red-300;
+  }
+
   .dashboard-shell .data-table-wrapper {
     @apply rounded-[1.5rem] border-white/10;
   }
