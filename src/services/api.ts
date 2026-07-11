@@ -19,6 +19,11 @@ import type {
   ImportSummaryResponse,
   RevertImportJobResponse,
 } from "../types/import";
+import type {
+  PapCredentialsResponse,
+  PapMutationResponse,
+  PapTtMatriculasResponse,
+} from "../types/pap";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api";
 const SKIP_AUTH_REDIRECT_PATHS = new Set(["/auth/login"]);
@@ -374,8 +379,8 @@ export function getCreditConsultationScreenshot(
   });
 }
 
-export function getPapCredentials(token: string): Promise<unknown> {
-  return request("/pap/credentials", {
+export function getPapCredentials(token: string): Promise<PapCredentialsResponse> {
+  return request<PapCredentialsResponse>("/pap/credentials", {
     headers: { Authorization: `Bearer ${token}` },
   });
 }
@@ -390,8 +395,8 @@ export function createPapCredential({
   label: string;
   matriculaPap: string;
   senhaPap: string;
-}): Promise<unknown> {
-  return request("/pap/credentials", {
+}): Promise<PapMutationResponse> {
+  return request<PapMutationResponse>("/pap/credentials", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -404,31 +409,34 @@ export function createPapCredential({
 export function updatePapCredential({
   token,
   id,
-  ...payload
+  enabled,
 }: {
   token: string;
   id: string | number;
-  [key: string]: unknown;
-}): Promise<unknown> {
-  return request(`/pap/credentials/${id}`, {
+  enabled: boolean;
+}): Promise<PapMutationResponse> {
+  return request<PapMutationResponse>(`/pap/credentials/${id}`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ enabled }),
   });
 }
 
-export function deletePapCredential(id: string | number, token: string): Promise<unknown> {
-  return request(`/pap/credentials/${id}`, {
+export function deletePapCredential(
+  id: string | number,
+  token: string
+): Promise<PapMutationResponse> {
+  return request<PapMutationResponse>(`/pap/credentials/${id}`, {
     method: "DELETE",
     headers: { Authorization: `Bearer ${token}` },
   });
 }
 
-export function getPapTtMatriculas(token: string): Promise<unknown> {
-  return request("/pap/tt-matriculas", {
+export function getPapTtMatriculas(token: string): Promise<PapTtMatriculasResponse> {
+  return request<PapTtMatriculasResponse>("/pap/tt-matriculas", {
     headers: { Authorization: `Bearer ${token}` },
   });
 }
@@ -439,8 +447,8 @@ export function createPapTtMatricula({
 }: {
   token: string;
   matricula: string;
-}): Promise<unknown> {
-  return request("/pap/tt-matriculas", {
+}): Promise<PapMutationResponse> {
+  return request<PapMutationResponse>("/pap/tt-matriculas", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -453,24 +461,27 @@ export function createPapTtMatricula({
 export function updatePapTtMatricula({
   token,
   id,
-  ...payload
+  enabled,
 }: {
   token: string;
   id: string | number;
-  [key: string]: unknown;
-}): Promise<unknown> {
-  return request(`/pap/tt-matriculas/${id}`, {
+  enabled: boolean;
+}): Promise<PapMutationResponse> {
+  return request<PapMutationResponse>(`/pap/tt-matriculas/${id}`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ enabled }),
   });
 }
 
-export function deletePapTtMatricula(id: string | number, token: string): Promise<unknown> {
-  return request(`/pap/tt-matriculas/${id}`, {
+export function deletePapTtMatricula(
+  id: string | number,
+  token: string
+): Promise<PapMutationResponse> {
+  return request<PapMutationResponse>(`/pap/tt-matriculas/${id}`, {
     method: "DELETE",
     headers: { Authorization: `Bearer ${token}` },
   });

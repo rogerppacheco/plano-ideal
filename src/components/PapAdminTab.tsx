@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import {
+  ApiError,
   createPapCredential,
   createPapTtMatricula,
   deletePapCredential,
@@ -9,11 +10,16 @@ import {
   updatePapCredential,
   updatePapTtMatricula,
 } from "../services/api";
+import type { PapCredential, PapCredentialForm, PapTtMatricula } from "../types/pap";
 import { DataTable, DataTableCell, DataTableRow } from "./ui/DataTable";
 import { FormField } from "./ui/FormField";
 import { PanelCard } from "./ui/PanelCard";
 import { SkeletonTable } from "./ui/Skeleton";
 import { useToast } from "./ui/Toast";
+
+export interface PapAdminTabProps {
+  token: string;
+}
 
 const CREDENTIAL_COLUMNS = [
   { key: "label", label: "Label" },
@@ -29,7 +35,13 @@ const MATRICULA_COLUMNS = [
   { key: "actions", label: "Ações" },
 ];
 
-function StatusPill({ active, inUse = false }) {
+const EMPTY_CREDENTIAL_FORM: PapCredentialForm = {
+  label: "",
+  matriculaPap: "",
+  senhaPap: "",
+};
+
+function StatusPill({ active, inUse = false }: { active: boolean; inUse?: boolean }) {
   if (inUse) {
     return <span className="badge-status badge-status-pending">Em uso</span>;
   }
@@ -42,12 +54,19 @@ function StatusPill({ active, inUse = false }) {
   );
 }
 
-export function PapAdminTab({ token }) {
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof ApiError || error instanceof Error) {
+    return error.message || fallback;
+  }
+  return fallback;
+}
+
+export function PapAdminTab({ token }: PapAdminTabProps) {
   const toast = useToast();
-  const [credentials, setCredentials] = useState([]);
-  const [matriculas, setMatriculas] = useState([]);
+  const [credentials, setCredentials] = useState<PapCredential[]>([]);
+  const [matriculas, setMatriculas] = useState<PapTtMatricula[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [newCredential, setNewCredential] = useState({ label: "", matriculaPap: "", senhaPap: "" });
+  const [newCredential, setNewCredential] = useState<PapCredentialForm>(EMPTY_CREDENTIAL_FORM);
   const [newMatricula, setNewMatricula] = useState("");
   const [isSavingCredential, setIsSavingCredential] = useState(false);
   const [isSavingMatricula, setIsSavingMatricula] = useState(false);
@@ -60,8 +79,8 @@ export function PapAdminTab({ token }) {
       ]);
       setCredentials(credData.credentials || []);
       setMatriculas(ttData.matriculas || []);
-    } catch (err) {
-      toast.error(err.message || "Falha ao carregar configurações PAP.");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Falha ao carregar configurações PAP."));
     } finally {
       setIsLoading(false);
     }
@@ -71,22 +90,22 @@ export function PapAdminTab({ token }) {
     loadAll();
   }, [loadAll]);
 
-  const handleCreateCredential = async (event) => {
+  const handleCreateCredential = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsSavingCredential(true);
     try {
       await createPapCredential({ token, ...newCredential });
-      setNewCredential({ label: "", matriculaPap: "", senhaPap: "" });
+      setNewCredential(EMPTY_CREDENTIAL_FORM);
       toast.success("Login BackOffice cadastrado.");
       await loadAll();
-    } catch (err) {
-      toast.error(err.message || "Não foi possível cadastrar login.");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Não foi possível cadastrar login."));
     } finally {
       setIsSavingCredential(false);
     }
   };
 
-  const handleToggleCredential = async (credential) => {
+  const handleToggleCredential = async (credential: PapCredential) => {
     try {
       await updatePapCredential({
         token,
@@ -95,24 +114,24 @@ export function PapAdminTab({ token }) {
       });
       toast.success(credential.enabled ? "Login desativado." : "Login ativado.");
       await loadAll();
-    } catch (err) {
-      toast.error(err.message || "Falha ao atualizar login.");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Falha ao atualizar login."));
     }
   };
 
-  const handleDeleteCredential = async (credential) => {
+  const handleDeleteCredential = async (credential: PapCredential) => {
     const ok = window.confirm(`Remover login "${credential.label}"?`);
     if (!ok) return;
     try {
       await deletePapCredential(credential.id, token);
       toast.success("Login removido.");
       await loadAll();
-    } catch (err) {
-      toast.error(err.message || "Não foi possível remover login.");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Não foi possível remover login."));
     }
   };
 
-  const handleCreateMatricula = async (event) => {
+  const handleCreateMatricula = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsSavingMatricula(true);
     try {
@@ -120,32 +139,32 @@ export function PapAdminTab({ token }) {
       setNewMatricula("");
       toast.success("Matrícula TT cadastrada.");
       await loadAll();
-    } catch (err) {
-      toast.error(err.message || "Não foi possível cadastrar matrícula TT.");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Não foi possível cadastrar matrícula TT."));
     } finally {
       setIsSavingMatricula(false);
     }
   };
 
-  const handleToggleMatricula = async (row) => {
+  const handleToggleMatricula = async (row: PapTtMatricula) => {
     try {
       await updatePapTtMatricula({ token, id: row.id, enabled: !row.enabled });
       toast.success(row.enabled ? "Matrícula desativada." : "Matrícula ativada.");
       await loadAll();
-    } catch (err) {
-      toast.error(err.message || "Falha ao atualizar matrícula TT.");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Falha ao atualizar matrícula TT."));
     }
   };
 
-  const handleDeleteMatricula = async (row) => {
+  const handleDeleteMatricula = async (row: PapTtMatricula) => {
     const ok = window.confirm(`Remover matrícula TT "${row.matricula}"?`);
     if (!ok) return;
     try {
       await deletePapTtMatricula(row.id, token);
       toast.success("Matrícula TT removida.");
       await loadAll();
-    } catch (err) {
-      toast.error(err.message || "Não foi possível remover matrícula TT.");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Não foi possível remover matrícula TT."));
     }
   };
 
@@ -166,7 +185,9 @@ export function PapAdminTab({ token }) {
                   type="text"
                   placeholder="Ex: BO Principal"
                   value={newCredential.label}
-                  onChange={(e) => setNewCredential((s) => ({ ...s, label: e.target.value }))}
+                  onChange={(event) =>
+                    setNewCredential((state) => ({ ...state, label: event.target.value }))
+                  }
                   className="input-modern"
                   aria-describedby={describedBy}
                   required
@@ -180,8 +201,8 @@ export function PapAdminTab({ token }) {
                   type="text"
                   placeholder="Matrícula PAP"
                   value={newCredential.matriculaPap}
-                  onChange={(e) =>
-                    setNewCredential((s) => ({ ...s, matriculaPap: e.target.value }))
+                  onChange={(event) =>
+                    setNewCredential((state) => ({ ...state, matriculaPap: event.target.value }))
                   }
                   className="input-modern"
                   required
@@ -195,7 +216,9 @@ export function PapAdminTab({ token }) {
                   type="password"
                   placeholder="Senha PAP"
                   value={newCredential.senhaPap}
-                  onChange={(e) => setNewCredential((s) => ({ ...s, senhaPap: e.target.value }))}
+                  onChange={(event) =>
+                    setNewCredential((state) => ({ ...state, senhaPap: event.target.value }))
+                  }
                   className="input-modern"
                   required
                 />
@@ -271,7 +294,7 @@ export function PapAdminTab({ token }) {
                   type="text"
                   placeholder="TT703413"
                   value={newMatricula}
-                  onChange={(e) => setNewMatricula(e.target.value)}
+                  onChange={(event) => setNewMatricula(event.target.value)}
                   className="input-modern"
                   aria-describedby={describedBy}
                   required

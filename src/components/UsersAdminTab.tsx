@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import {
   ApiError,
   createInternalUser,
@@ -8,6 +8,9 @@ import {
   updateInternalUserStatus,
 } from "../services/api";
 import { ROLE_LABELS, ROLES } from "../lib/rbac";
+import type { Role } from "../types/auth";
+import type { AdminUserView, CreateUserForm, PendingUserAction } from "../types/auth";
+import { toAdminUserView } from "../types/auth";
 import { ConfirmDialog } from "./ui/ConfirmDialog";
 import { EmptyState } from "./ui/EmptyState";
 import { FormField } from "./ui/FormField";
@@ -15,7 +18,12 @@ import { PanelCard } from "./ui/PanelCard";
 import { SkeletonUserList } from "./ui/Skeleton";
 import { useToast } from "./ui/Toast";
 
-function formatLastLogin(value) {
+export interface UsersAdminTabProps {
+  token: string;
+  currentUserId: number;
+}
+
+function formatLastLogin(value?: string | null): string {
   if (!value) return "Nunca";
   return new Date(value).toLocaleString("pt-BR", {
     day: "2-digit",
@@ -26,19 +34,7 @@ function formatLastLogin(value) {
   });
 }
 
-function normalizeUser(user) {
-  const isActive = user.is_active ?? user.isActive ?? true;
-  return {
-    id: user.id,
-    username: user.username,
-    fullName: user.full_name ?? user.fullName ?? user.name,
-    role: user.role,
-    isActive,
-    lastLoginAt: user.last_login_at ?? user.lastLoginAt,
-  };
-}
-
-function getActionErrorMessage(error) {
+function getActionErrorMessage(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.code === "CREDIT_HISTORY_BLOCKED") {
       return "Este usuário possui consultas de crédito registradas. Use Inativar em vez de Excluir.";
@@ -46,34 +42,45 @@ function getActionErrorMessage(error) {
     if (error.code === "REQUEST_TIMEOUT") {
       return "A operação demorou demais. O servidor pode estar sobrecarregado — tente Inativar.";
     }
+    return error.message;
   }
-  return error.message || "Não foi possível concluir a ação.";
+  if (error instanceof Error) return error.message;
+  return "Não foi possível concluir a ação.";
 }
 
-export function UsersAdminTab({ token, currentUserId }) {
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof ApiError || error instanceof Error) {
+    return error.message || fallback;
+  }
+  return fallback;
+}
+
+const EMPTY_CREATE_FORM: CreateUserForm = {
+  username: "",
+  fullName: "",
+  role: ROLES.OPERATOR,
+  password: "",
+};
+
+export function UsersAdminTab({ token, currentUserId }: UsersAdminTabProps) {
   const toast = useToast();
-  const [users, setUsers] = useState([]);
+  const [users, setUsers] = useState<AdminUserView[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
-  const [passwordEditUserId, setPasswordEditUserId] = useState(null);
+  const [passwordEditUserId, setPasswordEditUserId] = useState<number | null>(null);
   const [passwordDraft, setPasswordDraft] = useState("");
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
-  const [pendingAction, setPendingAction] = useState(null);
+  const [pendingAction, setPendingAction] = useState<PendingUserAction | null>(null);
   const [isActionLoading, setIsActionLoading] = useState(false);
-  const [newUser, setNewUser] = useState({
-    username: "",
-    fullName: "",
-    role: ROLES.OPERATOR,
-    password: "",
-  });
+  const [newUser, setNewUser] = useState<CreateUserForm>(EMPTY_CREATE_FORM);
 
   const loadUsers = useCallback(async () => {
     setIsLoading(true);
     try {
       const data = await getInternalUsers(token);
-      setUsers((data.users || []).map(normalizeUser));
-    } catch (error) {
-      toast.error(error.message || "Falha ao carregar usuários.");
+      setUsers((data.users || []).map(toAdminUserView));
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Falha ao carregar usuários."));
     } finally {
       setIsLoading(false);
     }
@@ -83,22 +90,22 @@ export function UsersAdminTab({ token, currentUserId }) {
     loadUsers();
   }, [loadUsers]);
 
-  const handleCreateUser = async (event) => {
+  const handleCreateUser = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     try {
       setIsCreating(true);
       await createInternalUser({ token, ...newUser });
       toast.success("Usuário criado com sucesso.");
-      setNewUser({ username: "", fullName: "", role: ROLES.OPERATOR, password: "" });
+      setNewUser(EMPTY_CREATE_FORM);
       await loadUsers();
-    } catch (error) {
-      toast.error(error.message || "Não foi possível criar usuário.");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Não foi possível criar usuário."));
     } finally {
       setIsCreating(false);
     }
   };
 
-  const handlePasswordSubmit = async (event, user) => {
+  const handlePasswordSubmit = async (event: FormEvent<HTMLFormElement>, user: AdminUserView) => {
     event.preventDefault();
     if (passwordDraft.length < 6) {
       toast.error("A nova senha deve ter ao menos 6 caracteres.");
@@ -114,8 +121,8 @@ export function UsersAdminTab({ token, currentUserId }) {
       toast.success(result.message || `Senha de ${user.fullName} atualizada.`);
       setPasswordEditUserId(null);
       setPasswordDraft("");
-    } catch (error) {
-      toast.error(error.message || "Não foi possível alterar a senha.");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Não foi possível alterar a senha."));
     } finally {
       setIsUpdatingPassword(false);
     }
@@ -139,13 +146,36 @@ export function UsersAdminTab({ token, currentUserId }) {
       }
       setPendingAction(null);
       await loadUsers();
-    } catch (error) {
+    } catch (error: unknown) {
       toast.error(getActionErrorMessage(error));
       setPendingAction(null);
     } finally {
       setIsActionLoading(false);
     }
   };
+
+  const dialogTitle =
+    pendingAction?.type === "delete"
+      ? "Excluir usuário permanentemente?"
+      : pendingAction?.type === "status" && pendingAction.nextActive
+        ? "Reativar usuário?"
+        : "Inativar usuário?";
+
+  const dialogDescription =
+    pendingAction?.type === "delete"
+      ? `O usuário "${pendingAction.user.fullName}" será removido do banco. Esta ação não pode ser desfeita. Usuários com histórico de crédito não podem ser excluídos.`
+      : pendingAction?.type === "status" && pendingAction.nextActive
+        ? `O usuário "${pendingAction.user.fullName}" voltará a acessar o painel após novo login.`
+        : pendingAction?.type === "status"
+          ? `O usuário "${pendingAction.user.fullName}" perderá o acesso imediatamente. A sessão ativa será encerrada no próximo request.`
+          : "";
+
+  const dialogConfirmLabel =
+    pendingAction?.type === "delete"
+      ? "Excluir permanentemente"
+      : pendingAction?.type === "status" && pendingAction.nextActive
+        ? "Reativar"
+        : "Inativar";
 
   return (
     <PanelCard
@@ -188,7 +218,9 @@ export function UsersAdminTab({ token, currentUserId }) {
             <select
               id={id}
               value={newUser.role}
-              onChange={(event) => setNewUser((prev) => ({ ...prev, role: event.target.value }))}
+              onChange={(event) =>
+                setNewUser((prev) => ({ ...prev, role: event.target.value as Role }))
+              }
               className="input-modern"
             >
               <option value={ROLES.OPERATOR}>Operador</option>
@@ -289,7 +321,7 @@ export function UsersAdminTab({ token, currentUserId }) {
                   <button
                     type="button"
                     className="btn-secondary px-3 py-1 text-xs"
-                    disabled={Number(currentUserId) === Number(user.id)}
+                    disabled={currentUserId === user.id}
                     onClick={() =>
                       setPendingAction({
                         type: "status",
@@ -303,7 +335,7 @@ export function UsersAdminTab({ token, currentUserId }) {
                   <button
                     type="button"
                     className="btn-danger px-3 py-1 text-xs"
-                    disabled={Number(currentUserId) === Number(user.id)}
+                    disabled={currentUserId === user.id}
                     onClick={() => setPendingAction({ type: "delete", user })}
                   >
                     Excluir
@@ -351,27 +383,9 @@ export function UsersAdminTab({ token, currentUserId }) {
 
       <ConfirmDialog
         open={Boolean(pendingAction)}
-        title={
-          pendingAction?.type === "delete"
-            ? "Excluir usuário permanentemente?"
-            : pendingAction?.nextActive
-              ? "Reativar usuário?"
-              : "Inativar usuário?"
-        }
-        description={
-          pendingAction?.type === "delete"
-            ? `O usuário "${pendingAction?.user?.fullName}" será removido do banco. Esta ação não pode ser desfeita. Usuários com histórico de crédito não podem ser excluídos.`
-            : pendingAction?.nextActive
-              ? `O usuário "${pendingAction?.user?.fullName}" voltará a acessar o painel após novo login.`
-              : `O usuário "${pendingAction?.user?.fullName}" perderá o acesso imediatamente. A sessão ativa será encerrada no próximo request.`
-        }
-        confirmLabel={
-          pendingAction?.type === "delete"
-            ? "Excluir permanentemente"
-            : pendingAction?.nextActive
-              ? "Reativar"
-              : "Inativar"
-        }
+        title={dialogTitle}
+        description={dialogDescription}
+        confirmLabel={dialogConfirmLabel}
         variant={pendingAction?.type === "delete" ? "danger" : "warning"}
         isLoading={isActionLoading}
         onConfirm={runPendingAction}

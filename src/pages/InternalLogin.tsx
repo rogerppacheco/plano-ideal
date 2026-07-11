@@ -1,11 +1,18 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import mascotHero from "../assets/mascot-cloud-hero.png";
 import { FormField } from "../components/ui/FormField";
 import { useToast } from "../components/ui/Toast";
 import { saveSession } from "../lib/authSession";
 import { consumeSessionExitNotice } from "../lib/sessionExit";
-import { getApiBaseUrl, loginInternalUser } from "../services/api";
+import { ApiError, getApiBaseUrl, loginInternalUser } from "../services/api";
+
+type LoginSubmitState =
+  { status: "idle" } | { status: "submitting" } | { status: "error"; message: string };
+
+interface LoginLocationState {
+  sessionExit?: string;
+}
 
 function LoginBackground() {
   return (
@@ -29,12 +36,15 @@ export default function InternalLogin() {
   const toast = useToast();
   const [user, setUser] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [submitState, setSubmitState] = useState<LoginSubmitState>({ status: "idle" });
   const [sessionExitMessage, setSessionExitMessage] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const error = submitState.status === "error" ? submitState.message : "";
+  const isSubmitting = submitState.status === "submitting";
 
   useEffect(() => {
-    const fromNavigation = location.state?.sessionExit;
+    const state = location.state as LoginLocationState | null;
+    const fromNavigation = state?.sessionExit;
     const fromStorage = consumeSessionExitNotice();
     const message = fromNavigation || fromStorage;
     if (message) {
@@ -43,40 +53,41 @@ export default function InternalLogin() {
     }
   }, [location.state, navigate]);
 
-  const handleSubmit = async (event) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setError("");
+    setSubmitState({ status: "idle" });
 
     const loginUrl = `${getApiBaseUrl()}/auth/login`;
 
     try {
-      setIsSubmitting(true);
+      setSubmitState({ status: "submitting" });
       const payload = await loginInternalUser({ username: user, password });
       saveSession({
         user: payload.user,
         token: payload.token,
       });
-      toast.success(`Bem-vindo, ${payload.user.name || user}!`);
+      toast.success(`Bem-vindo, ${payload.user.name ?? payload.user.fullName ?? user}!`);
       navigate("/interno/painel");
-    } catch (apiError) {
+    } catch (error: unknown) {
+      const apiError = error instanceof ApiError ? error : null;
       // eslint-disable-next-line no-console
       console.error("[Login] Falha no login:", {
-        url: apiError.url || loginUrl,
-        code: apiError.code,
-        status: apiError.status,
-        message: apiError.message,
+        url: apiError?.url || loginUrl,
+        code: apiError?.code,
+        status: apiError?.status,
+        message: apiError?.message ?? (error instanceof Error ? error.message : String(error)),
         viteApiBase: import.meta.env.VITE_API_BASE_URL ?? "(não definida no build)",
       });
 
       const message =
-        apiError.code === "NETWORK_ERROR"
+        apiError?.code === "NETWORK_ERROR"
           ? apiError.message
-          : apiError.message || "Usuário ou senha inválidos.";
+          : apiError?.message ||
+            (error instanceof Error ? error.message : null) ||
+            "Usuário ou senha inválidos.";
 
-      setError(message);
+      setSubmitState({ status: "error", message });
       toast.error(message);
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
