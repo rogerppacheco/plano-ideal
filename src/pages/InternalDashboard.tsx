@@ -1122,13 +1122,13 @@ function StreetChips({
         {visible.map((street) => (
           <span
             key={street}
-            className="inline-flex max-w-full items-center rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-xs font-medium text-white"
+            className="inline-flex max-w-full items-center rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-gray-900"
           >
             {street}
           </span>
         ))}
         {hidden > 0 ? (
-          <span className="inline-flex rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white/80">
+          <span className="inline-flex rounded-full border border-gray-300 bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-900">
             +{hidden} logradouros
           </span>
         ) : null}
@@ -1213,12 +1213,12 @@ function FacadeNumberChips({
           />
         ))}
         {hiddenMobile > 0 ? (
-          <span className="inline-flex rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white/80 sm:hidden">
+          <span className="inline-flex rounded-full border border-gray-300 bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-900 sm:hidden">
             +{hiddenMobile} no mobile
           </span>
         ) : null}
         {hiddenTotal > 0 ? (
-          <span className="hidden rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white/80 sm:inline-flex">
+          <span className="hidden rounded-full border border-gray-300 bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-900 sm:inline-flex">
             +{hiddenTotal} ocultos
           </span>
         ) : null}
@@ -1246,7 +1246,7 @@ function FacadeChipGroup({
     const label = group.variants[0]?.full ?? group.base;
     return (
       <span
-        className={`items-center rounded-full border border-white/25 bg-white/15 px-2.5 py-1 text-xs font-semibold text-white ${className}`}
+        className={`items-center rounded-full border border-gray-300 bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-900 ${className}`}
       >
         {label}
       </span>
@@ -1269,17 +1269,17 @@ function FacadeChipGroup({
         }}
         className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold transition ${
           expanded
-            ? "border-amber-300/70 bg-amber-500/25 text-white ring-2 ring-amber-300/40"
-            : "border-white/25 bg-white/10 text-white hover:bg-white/15"
+            ? "border-amber-400 bg-amber-100 text-gray-900 ring-2 ring-amber-300"
+            : "border-amber-300 bg-amber-50 text-gray-900 hover:bg-amber-100"
         }`}
       >
-        <span className="tabular-nums text-white">{group.base}</span>
+        <span className="tabular-nums font-semibold text-gray-900">{group.base}</span>
         {badgeCount > 0 ? (
-          <span className="rounded-full bg-white/20 px-1.5 py-0.5 text-[10px] font-bold text-white">
+          <span className="rounded-full bg-amber-200 px-1.5 py-0.5 text-[10px] font-bold text-gray-900">
             +{badgeCount}
           </span>
         ) : null}
-        <span className="text-[10px] text-white/70" aria-hidden>
+        <span className="text-[10px] text-gray-700" aria-hidden>
           {expanded ? "▴" : "▾"}
         </span>
       </button>
@@ -1297,17 +1297,17 @@ function FacadeChipGroup({
                 key={variant.full}
                 className={`rounded-md px-2 py-1 text-xs ${
                   variant.isPlain
-                    ? "font-semibold text-slate-800 bg-slate-50"
-                    : "text-amber-950 bg-amber-50"
+                    ? "bg-gray-50 font-semibold text-gray-900"
+                    : "bg-amber-50 text-gray-900"
                 }`}
               >
                 {variant.isPlain ? (
                   variant.full
                 ) : (
                   <>
-                    <span className="tabular-nums font-semibold text-slate-900">{group.base}</span>
+                    <span className="tabular-nums font-semibold text-gray-900">{group.base}</span>
                     {variant.suffix ? (
-                      <span className="ml-1 font-medium text-amber-800">{variant.suffix}</span>
+                      <span className="ml-1 font-medium text-gray-800">{variant.suffix}</span>
                     ) : null}
                   </>
                 )}

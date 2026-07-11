@@ -95,26 +95,26 @@ export default function InternalLogin() {
     <div className="hero-mesh relative flex min-h-screen items-center justify-center overflow-x-hidden px-4 py-10 sm:px-6">
       <LoginBackground />
 
-      <div className="relative z-10 w-full max-w-md overflow-visible">
-        <div className="relative mt-16 overflow-visible rounded-[2rem] border border-white/20 bg-white/10 p-6 shadow-[0_24px_80px_rgba(0,0,0,0.45)] backdrop-blur-md sm:p-8">
-          <div
-            className="pointer-events-none absolute -top-24 left-1/2 z-20 w-[min(100%,18rem)] -translate-x-1/2 overflow-visible sm:-top-28 sm:w-[20rem]"
-            aria-hidden="true"
-          >
-            <div className="animate-float relative">
-              <div className="absolute bottom-2 left-1/2 h-8 w-[70%] -translate-x-1/2 rounded-[100%] bg-black/45 blur-xl" />
-              <img
-                src={mascotHero}
-                alt=""
-                className="relative z-10 mx-auto h-auto w-full object-contain drop-shadow-[0_18px_40px_rgba(0,0,0,0.55)]"
-                width={320}
-                height={320}
-                decoding="async"
-              />
-            </div>
+      <div className="relative z-10 w-full max-w-md pt-28 sm:pt-32">
+        <div
+          className="pointer-events-none absolute -top-32 left-1/2 z-20 w-64 -translate-x-1/2 sm:-top-36 sm:w-72"
+          aria-hidden="true"
+        >
+          <div className="animate-float relative">
+            <div className="absolute bottom-1 left-1/2 h-7 w-[72%] -translate-x-1/2 rounded-[100%] bg-black/50 blur-xl" />
+            <img
+              src={mascotHero}
+              alt=""
+              className="relative z-10 mx-auto h-auto w-full object-contain drop-shadow-[0_20px_45px_rgba(0,0,0,0.55)]"
+              width={288}
+              height={288}
+              decoding="async"
+            />
           </div>
+        </div>
 
-          <div className="relative z-10 pt-20 text-center sm:pt-24">
+        <div className="relative overflow-visible rounded-[2rem] border border-white/20 bg-white/10 p-6 shadow-[0_24px_80px_rgba(0,0,0,0.45)] backdrop-blur-md sm:p-8">
+          <div className="text-center">
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-neon-green">
               Plano Ideal
             </p>
@@ -126,7 +126,7 @@ export default function InternalLogin() {
 
           {sessionExitMessage ? (
             <div
-              className="relative z-10 mt-5 rounded-2xl border border-amber-400/35 bg-amber-500/10 p-4 text-left"
+              className="mt-5 rounded-2xl border border-amber-400/35 bg-amber-500/10 p-4 text-left"
               role="alert"
             >
               <p className="text-sm font-semibold text-amber-100">Sessão encerrada</p>
@@ -134,7 +134,7 @@ export default function InternalLogin() {
             </div>
           ) : null}
 
-          <form className="relative z-10 mt-6 space-y-4" onSubmit={handleSubmit}>
+          <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
             <FormField id="login-user" label="Usuário" required>
               {({ id }) => (
                 <input
@@ -174,7 +174,7 @@ export default function InternalLogin() {
             </button>
           </form>
 
-          <p className="relative z-10 mt-5 text-center text-xs text-white/45">
+          <p className="mt-5 text-center text-xs text-white/45">
             Credenciais cadastradas no painel administrativo.
           </p>
         </div>

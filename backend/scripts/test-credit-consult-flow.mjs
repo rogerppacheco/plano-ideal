@@ -27,7 +27,9 @@ const validation = validateDocument(document);
 console.log("validation:", validation);
 
 try {
-  const admin = await pool.query(`SELECT id, username FROM internal_users WHERE username = 'admin'`);
+  const admin = await pool.query(
+    `SELECT id, username FROM internal_users WHERE username = 'admin'`
+  );
   const userId = admin.rows[0]?.id;
   console.log("admin:", admin.rows[0]);
 

@@ -109,9 +109,9 @@ function SparkleIcon({ className = "" }) {
 
 function HeroMascot() {
   return (
-    <div className="relative mx-auto flex w-full max-w-xl items-center justify-center lg:mx-0 lg:max-w-2xl">
+    <div className="relative mx-auto mb-8 flex w-full max-w-md items-center justify-center lg:mx-0 lg:mb-0 lg:max-w-lg">
       <div
-        className="pointer-events-none absolute left-1/2 top-1/2 h-[130%] w-[130%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(57,255,20,0.12)_0%,transparent_70%)]"
+        className="pointer-events-none absolute left-1/2 top-1/2 h-[120%] w-[120%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(57,255,20,0.12)_0%,transparent_70%)]"
         aria-hidden="true"
       />
 
@@ -129,17 +129,17 @@ function HeroMascot() {
       />
 
       <div
-        className="pointer-events-none absolute bottom-[5%] left-1/2 z-0 h-10 w-[58%] -translate-x-1/2 rounded-[100%] bg-black/50 blur-2xl"
+        className="pointer-events-none absolute bottom-[5%] left-1/2 z-0 h-8 w-[58%] -translate-x-1/2 rounded-[100%] bg-black/50 blur-2xl"
         aria-hidden="true"
       />
 
-      <div className="animate-float relative z-10 w-full bg-transparent">
+      <div className="animate-float relative z-10 w-full max-w-xs bg-transparent sm:max-w-sm lg:max-w-md">
         <img
           src={mascotCloud}
           alt="Mascote Plano Ideal — consultor de internet fibra sobre nuvem"
-          className="mx-auto h-auto w-full max-w-md bg-transparent object-contain drop-shadow-[0_12px_40px_rgba(0,0,0,0.5)] sm:max-w-lg lg:max-w-xl"
-          width={640}
-          height={640}
+          className="mx-auto h-auto w-full object-contain drop-shadow-[0_12px_40px_rgba(0,0,0,0.5)]"
+          width={512}
+          height={512}
           loading="eager"
           decoding="async"
         />
@@ -370,7 +370,7 @@ export default function PublicLanding() {
           <GlowingBlobs />
           <div className="relative z-10 mx-auto max-w-6xl px-4 py-16 md:px-8 md:py-24">
             <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-12">
-              <div className="mx-auto max-w-2xl text-center lg:mx-0 lg:text-left">
+              <div className="order-1 mx-auto max-w-2xl text-center lg:order-none lg:mx-0 lg:text-left">
                 <span className="inline-block rounded-full border border-neon-green/25 bg-neon-green/10 px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-neon-green">
                   Nossa Fibra · ultra rápida
                 </span>
@@ -414,7 +414,9 @@ export default function PublicLanding() {
                 </div>
               </div>
 
-              <HeroMascot />
+              <div className="order-2 lg:order-none">
+                <HeroMascot />
+              </div>
             </div>
 
             <div className="mt-14 grid gap-4 sm:grid-cols-3">
