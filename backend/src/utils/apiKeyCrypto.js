@@ -7,8 +7,7 @@ const KEY_PREFIX_LENGTH = 8;
 const BCRYPT_ROUNDS = 12;
 
 /** Hash bcrypt pré-computado para comparação dummy em falhas (mitiga timing attacks). */
-export const DUMMY_API_KEY_HASH =
-  "$2a$12$/9K0vIPCNR/c9Yoytin6B.90cJ8RgEtNw5.kgtLzL4SWzqRDWtnsC";
+export const DUMMY_API_KEY_HASH = "$2a$12$/9K0vIPCNR/c9Yoytin6B.90cJ8RgEtNw5.kgtLzL4SWzqRDWtnsC";
 
 /**
  * Gera material de API Key com alta entropia (crypto.randomBytes).

@@ -122,15 +122,7 @@ export async function createApiKey({
       VALUES ($1, $2, $3, $4, $5::text[], $6, $7)
       RETURNING id, partner_id, key_prefix, name, scopes, created_at, expires_at
     `,
-    [
-      partnerId,
-      material.keyPrefix,
-      keyHash,
-      name,
-      normalizedScopes,
-      createdBy,
-      expiresAt,
-    ]
+    [partnerId, material.keyPrefix, keyHash, name, normalizedScopes, createdBy, expiresAt]
   );
 
   return {

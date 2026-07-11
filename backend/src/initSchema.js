@@ -548,7 +548,9 @@ async function ensureAuditLogActionConstraint(clientPool) {
   if (!rows[0]?.ok) return;
 
   const auditActionList = AUDIT_ACTIONS.map((action) => `'${action}'`).join(", ");
-  await clientPool.query(`ALTER TABLE audit_logs DROP CONSTRAINT IF EXISTS audit_logs_action_check`);
+  await clientPool.query(
+    `ALTER TABLE audit_logs DROP CONSTRAINT IF EXISTS audit_logs_action_check`
+  );
   await clientPool.query(`
     ALTER TABLE audit_logs
       ADD CONSTRAINT audit_logs_action_check
