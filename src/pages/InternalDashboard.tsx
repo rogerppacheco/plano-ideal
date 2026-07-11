@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+  type MouseEvent,
+} from "react";
 import { useNavigate } from "react-router-dom";
 import { clearSession, getSessionToken, getSessionUser } from "../lib/authSession";
 import {
@@ -12,7 +19,6 @@ import {
   completeStuckImportJob,
   createImportJob,
   getActiveImportJob,
-  getCoverageByCep,
   getImportJobStatus,
   getImportJobsHistory,
   getImportSummary,
@@ -25,9 +31,13 @@ import {
   buildFacadeLabel,
   buildStreetLabel,
   countRecordsByOperator,
+  getOperatorCoverageConfig,
   groupFacadeNumbers,
-  maskCep,
+  normalizeOperatorName,
+  recordsMatchOperator,
+  toOperatorDisplayName,
 } from "../utils/coverage";
+import { useCoverageConsult } from "../hooks/useCoverageConsult";
 import { CreditConsultTab } from "../components/CreditConsultTab";
 import { PapAdminTab } from "../components/PapAdminTab";
 import { UsersAdminTab } from "../components/UsersAdminTab";
@@ -39,7 +49,10 @@ import { FormField } from "../components/ui/FormField";
 import { DashboardTabs, MetricCard, PanelCard } from "../components/ui/PanelCard";
 import { SkeletonCards, SkeletonTable } from "../components/ui/Skeleton";
 import { useToast } from "../components/ui/Toast";
-
+import type { FacadeGroup } from "../types/coverage";
+import type { CoverageRecord, OperatorCoverageConfig } from "../types/coverage";
+import type { ImportJob } from "../types/import";
+import type { ImportSummaryResponse } from "../types/import";
 import {
   getHeartbeatAgeMs,
   getImportProgressLabel,
@@ -50,31 +63,10 @@ import {
   translateProgressPhase,
 } from "../utils/importProgress";
 
-const OPERATOR_LOGOS = {
+const OPERATOR_LOGOS: Record<string, string> = {
   vivo: vivoLogo,
   nio: nioLogo,
   vero: veroLogo,
-};
-
-const OPERATOR_COVERAGE_CONFIG = {
-  Vivo: {
-    title: "Números de fachada",
-    hint: "Coluna NUM",
-    mode: "numbers",
-    keys: ["NUM", "Numero", "NUMERO", "numero"],
-  },
-  Nio: {
-    title: "Números de fachada",
-    hint: "Coluna NUM_FACHADA + complemento",
-    mode: "numbers",
-    keys: ["NUM_FACHADA", "Num_Fachada", "num_fachada"],
-  },
-  Vero: {
-    title: "Logradouros cobertos",
-    hint: "Endereço por logradouro (sem número de fachada)",
-    mode: "streets",
-    keys: [],
-  },
 };
 
 const ACTIVE_IMPORT_STORAGE_KEY = "planoideal_active_import_job_id";
@@ -89,7 +81,7 @@ const IMPORT_HISTORY_COLUMNS = [
   { key: "actions", label: "Ações" },
 ];
 
-function buildTemplateCsv(operator) {
+function buildTemplateCsv(operator: string): string {
   const headers = [
     "CEP",
     "UF",
@@ -129,31 +121,36 @@ export default function InternalDashboard() {
   const showPap = canManagePap(userRole);
   const showUsers = canManageUsers(userRole);
 
-  const [cep, setCep] = useState("");
-  const [result, setResult] = useState(null);
-  const [consultError, setConsultError] = useState("");
-  const [isConsulting, setIsConsulting] = useState(false);
+  const {
+    cep,
+    consultResult,
+    consultError,
+    isConsulting,
+    consultedAddress,
+    handleCepChange,
+    submitConsult,
+  } = useCoverageConsult(token);
+
   const [activeTab, setActiveTab] = useState("consulta");
 
   const [operator, setOperator] = useState("Vivo");
-  const [files, setFiles] = useState([]);
+  const [files, setFiles] = useState<File[]>([]);
   const [importFeedback, setImportFeedback] = useState("");
   const [importError, setImportError] = useState("");
   const [isImporting, setIsImporting] = useState(false);
-  const [jobProgress, setJobProgress] = useState(null);
-  const [summary, setSummary] = useState({
-    totalImportedRows: 0,
+  const [jobProgress, setJobProgress] = useState<ImportJob | null>(null);
+  const [summary, setSummary] = useState<ImportSummaryResponse>({
     byOperator: {},
     fieldsByOperator: {},
+    activeJob: null,
   });
-  const [importHistory, setImportHistory] = useState([]);
+  const [importHistory, setImportHistory] = useState<ImportJob[]>([]);
   const [importHistoryError, setImportHistoryError] = useState("");
   const [summaryError, setSummaryError] = useState("");
-  const [revertingJobId, setRevertingJobId] = useState(null);
-  const [completingJobId, setCompletingJobId] = useState(null);
+  const [revertingJobId, setRevertingJobId] = useState<number | null>(null);
+  const [completingJobId, setCompletingJobId] = useState<number | null>(null);
   const [isLoadingImportHistory, setIsLoadingImportHistory] = useState(false);
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
-  const consultedAddress = useMemo(() => formatAddressFromRecords(result?.records), [result]);
 
   useEffect(() => {
     if (!sessionUser || !token) {
@@ -176,14 +173,14 @@ export default function InternalDashboard() {
       setSummary(data);
       setSummaryError("");
       return data;
-    } catch (error) {
+    } catch (error: unknown) {
       setSummary({
-        totalImportedRows: 0,
         byOperator: {},
         fieldsByOperator: {},
+        activeJob: null,
       });
       const message =
-        error?.message ||
+        (error instanceof Error ? error.message : null) ||
         "Não foi possível carregar o resumo. Tente Atualizar ou aguarde alguns segundos.";
       setSummaryError(message);
       toast.error(message);
@@ -199,10 +196,10 @@ export default function InternalDashboard() {
       const data = await getImportJobsHistory(token);
       setImportHistory(data.jobs || []);
       setImportHistoryError("");
-    } catch (error) {
+    } catch (error: unknown) {
       setImportHistory([]);
       const message =
-        error.message ||
+        (error instanceof Error ? error.message : null) ||
         "Não foi possível carregar o histórico. Confira se a API no Railway foi atualizada.";
       setImportHistoryError(message);
       toast.error(message);
@@ -211,7 +208,7 @@ export default function InternalDashboard() {
     }
   };
 
-  const handleCompleteStuckImport = async (job) => {
+  const handleCompleteStuckImport = async (job: ImportJob) => {
     if (!job?.id) return;
     try {
       setCompletingJobId(job.id);
@@ -223,8 +220,10 @@ export default function InternalDashboard() {
       sessionStorage.removeItem(ACTIVE_IMPORT_STORAGE_KEY);
       await loadSummary();
       await loadImportHistory();
-    } catch (error) {
-      const message = error.message || "Não foi possível concluir a importação.";
+    } catch (error: unknown) {
+      const message =
+        (error instanceof Error ? error.message : null) ||
+        "Não foi possível concluir a importação.";
       setImportError(message);
       toast.error(message);
     } finally {
@@ -232,7 +231,7 @@ export default function InternalDashboard() {
     }
   };
 
-  const handleRevertImport = async (job) => {
+  const handleRevertImport = async (job: ImportJob) => {
     if (job.reverted_at) return;
     const label = job.files?.map((f) => f.file_name).join(", ") || `#${job.id}`;
     const ok = window.confirm(
@@ -248,8 +247,9 @@ export default function InternalDashboard() {
       toast.success(result.message || "Importação removida.");
       await loadSummary();
       await loadImportHistory();
-    } catch (error) {
-      const message = error.message || "Não foi possível remover a importação.";
+    } catch (error: unknown) {
+      const message =
+        (error instanceof Error ? error.message : null) || "Não foi possível remover a importação.";
       setImportError(message);
       toast.error(message);
     } finally {
@@ -262,41 +262,15 @@ export default function InternalDashboard() {
     navigate("/");
   };
 
-  const handleCepChange = (event) => {
-    setCep(maskCep(event.target.value));
-    setConsultError("");
-  };
+  const handleConsultSubmit = (event: FormEvent<HTMLFormElement>) =>
+    submitConsult(
+      event,
+      (count) => toast.success(`${count} operadora(s) encontrada(s).`),
+      () => toast.warning("Nenhuma operadora disponível para este CEP."),
+      (message) => toast.error(message)
+    );
 
-  const handleConsultSubmit = async (event) => {
-    event.preventDefault();
-
-    if (cep.length !== 9) {
-      setConsultError("Informe um CEP válido no formato 00000-000.");
-      setResult(null);
-      return;
-    }
-
-    try {
-      setIsConsulting(true);
-      setConsultError("");
-      const data = await getCoverageByCep(cep, token);
-      setResult({ cep, operators: data.operators, records: data.records });
-      if (data.operators?.length > 0) {
-        toast.success(`${data.operators.length} operadora(s) encontrada(s).`);
-      } else {
-        toast.warning("Nenhuma operadora disponível para este CEP.");
-      }
-    } catch (apiError) {
-      const message = apiError.message || "Não foi possível consultar o CEP.";
-      setConsultError(message);
-      setResult(null);
-      toast.error(message);
-    } finally {
-      setIsConsulting(false);
-    }
-  };
-
-  const handleTemplateDownload = (templateOperator) => {
+  const handleTemplateDownload = (templateOperator: string) => {
     const csvContent = buildTemplateCsv(templateOperator);
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -307,7 +281,7 @@ export default function InternalDashboard() {
     URL.revokeObjectURL(url);
   };
 
-  const finishImportJob = async (job) => {
+  const finishImportJob = async (job: ImportJob) => {
     sessionStorage.removeItem(ACTIVE_IMPORT_STORAGE_KEY);
     if (job.status === "completed") {
       setImportFeedback(
@@ -325,7 +299,7 @@ export default function InternalDashboard() {
     }
   };
 
-  const pollImportJob = async (jobId) => {
+  const pollImportJob = async (jobId: number): Promise<ImportJob> => {
     while (true) {
       const job = await getImportJobStatus(jobId, token);
       setJobProgress(job);
@@ -390,7 +364,7 @@ export default function InternalDashboard() {
     }
   };
 
-  const handleImportSubmit = async (event) => {
+  const handleImportSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setImportFeedback("");
     setImportError("");
@@ -413,10 +387,11 @@ export default function InternalDashboard() {
       await finishImportJob(started);
       if (started.status === "completed") {
         setFiles([]);
-        event.target.reset();
+        (event.currentTarget as HTMLFormElement).reset();
       }
-    } catch (apiError) {
-      const message = apiError.message || "Não foi possível importar os arquivos.";
+    } catch (error: unknown) {
+      const message =
+        (error instanceof Error ? error.message : null) || "Não foi possível importar os arquivos.";
       setImportError(message);
       toast.error(message);
       sessionStorage.removeItem(ACTIVE_IMPORT_STORAGE_KEY);
@@ -466,7 +441,7 @@ export default function InternalDashboard() {
 
         <PanelCard
           title="Área interna"
-          description={`Logado como ${sessionUser.name} (${ROLE_LABELS[userRole] ?? userRole})`}
+          description={`Logado como ${sessionUser.name ?? sessionUser.fullName} (${ROLE_LABELS[userRole ?? ""] ?? userRole})`}
           action={
             <div className="flex items-center gap-3">
               <BalloonMascot size="sm" animate={false} className="hidden sm:flex" />
@@ -523,29 +498,29 @@ export default function InternalDashboard() {
               <div className="mt-5">
                 <SkeletonCards count={3} />
               </div>
-            ) : result ? (
+            ) : consultResult ? (
               <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
                 <p className="text-sm font-semibold text-slate-700">
-                  CEP consultado: {result.cep}
+                  CEP consultado: {consultResult.cep}
                   {consultedAddress ? `, ${consultedAddress}` : ""}
                 </p>
-                {result.operators.length > 0 ? (
+                {consultResult.operators.length > 0 ? (
                   <>
                     <p className="mt-3 text-sm font-semibold text-slate-800">
                       Resumo por operadora
                     </p>
                     <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                      {result.operators.map((operatorName) => (
+                      {consultResult.operators.map((operatorName) => (
                         <OperatorSummaryCard
                           key={operatorName}
                           operatorName={operatorName}
-                          count={countRecordsByOperator(result.records)[operatorName] || 0}
+                          count={countRecordsByOperator(consultResult.records)[operatorName] || 0}
                           config={getOperatorCoverageConfig(operatorName)}
                         />
                       ))}
                     </div>
                     <p className="mt-2 text-xs text-slate-500">
-                      Total no CEP: {result.records?.length || 0} registro(s)
+                      Total no CEP: {consultResult.records.length} registro(s)
                     </p>
                   </>
                 ) : null}
@@ -554,16 +529,16 @@ export default function InternalDashboard() {
                     Ver detalhes por operadora
                   </summary>
                   <div className="mt-3 space-y-4">
-                    {result.operators.map((operatorName) => (
+                    {consultResult.operators.map((operatorName) => (
                       <OperatorCoveragePanel
                         key={operatorName}
                         operatorName={operatorName}
-                        records={result.records}
+                        records={consultResult.records}
                       />
                     ))}
                   </div>
                 </details>
-                {result.operators.length === 0 ? (
+                {consultResult.operators.length === 0 ? (
                   <p className="mt-2 text-sm font-semibold text-slate-800">
                     Nenhuma operadora disponível para este CEP.
                   </p>
@@ -651,7 +626,9 @@ export default function InternalDashboard() {
                   type="file"
                   accept=".xlsx,.csv"
                   multiple
-                  onChange={(event) => setFiles([...event.target.files])}
+                  onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                    setFiles([...(event.target.files ?? [])])
+                  }
                   className="input-modern block p-2"
                 />
               </div>
@@ -812,10 +789,10 @@ export default function InternalDashboard() {
                       ) : null}
                     </DataTableCell>
                     <DataTableCell className="text-xs">
-                      {job.imported_rows != null
+                      {job.ignored_rows != null
                         ? `${Number(job.imported_rows).toLocaleString("pt-BR")} válidas`
                         : "—"}
-                      {job.ignored_rows > 0 ? (
+                      {(job.ignored_rows ?? 0) > 0 ? (
                         <p className="text-slate-500">
                           {Number(job.ignored_rows).toLocaleString("pt-BR")} ignoradas
                         </p>
@@ -867,7 +844,7 @@ export default function InternalDashboard() {
                 <div className="mt-3 grid gap-3 md:grid-cols-3">
                   <MetricCard
                     label="Total importado"
-                    value={summary.totalImportedRows.toLocaleString("pt-BR")}
+                    value={(summary.totalImportedRows ?? 0).toLocaleString("pt-BR")}
                   />
                   <MetricCard label="Operadoras" value={Object.keys(summary.byOperator).length} />
                   <MetricCard
@@ -881,7 +858,7 @@ export default function InternalDashboard() {
               )}
               <p className="mt-1 text-sm text-slate-700">
                 Total de linhas importadas:{" "}
-                <span className="font-semibold">{summary.totalImportedRows}</span>
+                <span className="font-semibold">{summary.totalImportedRows ?? 0}</span>
               </p>
               <div className="mt-2 text-sm text-slate-700">
                 Operadoras:
@@ -927,7 +904,17 @@ export default function InternalDashboard() {
   );
 }
 
-function ImportProgressDetails({ job, compact = false, onCompleteStuck, completing = false }) {
+function ImportProgressDetails({
+  job,
+  compact = false,
+  onCompleteStuck,
+  completing = false,
+}: {
+  job: ImportJob | null;
+  compact?: boolean;
+  onCompleteStuck?: (job: ImportJob) => void;
+  completing?: boolean;
+}) {
   if (!job) return null;
   const phase = inferProgressPhase(job);
   const stalled = isImportStalled(job);
@@ -993,7 +980,7 @@ function ImportProgressDetails({ job, compact = false, onCompleteStuck, completi
   );
 }
 
-function formatJobDate(iso) {
+function formatJobDate(iso: string | null | undefined): string {
   if (!iso) return "—";
   try {
     return new Date(iso).toLocaleString("pt-BR");
@@ -1002,7 +989,8 @@ function formatJobDate(iso) {
   }
 }
 
-function translateJobStatus(status) {
+function translateJobStatus(status: string | null | undefined): string {
+  if (!status) return "—";
   if (status === "queued") return "Na fila";
   if (status === "processing") return "Processando";
   if (status === "completed") return "Concluído";
@@ -1010,7 +998,7 @@ function translateJobStatus(status) {
   return status;
 }
 
-function formatBytes(value) {
+function formatBytes(value: number | string | null | undefined): string {
   const n = Number(value);
   if (!Number.isFinite(n) || n <= 0) return "—";
   if (n < 1024) return `${n} B`;
@@ -1018,65 +1006,20 @@ function formatBytes(value) {
   return `${(n / 1024 / 1024).toFixed(2)} MB`;
 }
 
-function formatAddressFromRecords(records) {
-  if (!Array.isArray(records) || records.length === 0) return "";
-  const row = records[0]?.row_data || {};
-  const logradouro = pickField(row, [
-    "LOGRADOURO",
-    "logradouro",
-    "ENDERECO",
-    "ENDEREÇO",
-    "endereco",
-  ]);
-  const numero = pickField(row, [
-    "NUM",
-    "Numero",
-    "NUMERO",
-    "numero",
-    "NUM_FACHADA",
-    "num_fachada",
-  ]);
-  const bairro = pickField(row, ["BAIRRO", "bairro"]);
-  const cidade = pickField(row, ["CIDADE", "Cidade", "MUNICIPIO", "municipio", "MUNICÍPIO"]);
-  const uf = pickField(row, ["UF", "uf"]);
-
-  const ruaNumero = [logradouro, numero].filter(Boolean).join(", ");
-  const cidadeUf = [cidade, uf].filter(Boolean).join("/");
-  return [ruaNumero, bairro, cidadeUf].filter(Boolean).join(" - ");
-}
-
-function pickField(source, keys) {
-  for (const key of keys) {
-    const value = source?.[key];
-    if (value == null) continue;
-    const text = String(value).trim();
-    if (text) return text;
-  }
-  return "";
-}
-
-function getOperatorCoverageConfig(operatorName) {
-  const displayName = toOperatorDisplayName(operatorName);
-  return (
-    OPERATOR_COVERAGE_CONFIG[displayName] || {
-      title: "Registros",
-      hint: "Dados importados desta operadora",
-      mode: "numbers",
-      keys: ["NUM", "Numero", "NUMERO", "numero", "NUM_FACHADA", "Num_Fachada", "num_fachada"],
-    }
-  );
-}
-
-function recordsMatchOperator(record, operatorName) {
-  return normalizeOperatorName(record?.operator) === normalizeOperatorName(operatorName);
-}
-
-function getRecordsForOperator(records, operatorName) {
+function getRecordsForOperator(records: CoverageRecord[], operatorName: string): CoverageRecord[] {
   if (!Array.isArray(records)) return [];
   return records.filter((record) => recordsMatchOperator(record, operatorName));
 }
 
-function OperatorSummaryCard({ operatorName, count, config }) {
+function OperatorSummaryCard({
+  operatorName,
+  count,
+  config,
+}: {
+  operatorName: string;
+  count: number;
+  config: OperatorCoverageConfig;
+}) {
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-3">
       <div className="flex items-center gap-2">
@@ -1094,7 +1037,13 @@ function OperatorSummaryCard({ operatorName, count, config }) {
   );
 }
 
-function OperatorCoveragePanel({ operatorName, records }) {
+function OperatorCoveragePanel({
+  operatorName,
+  records,
+}: {
+  operatorName: string;
+  records: CoverageRecord[];
+}) {
   const config = getOperatorCoverageConfig(operatorName);
   const opRecords = getRecordsForOperator(records, operatorName);
   const uniqueCount =
@@ -1133,9 +1082,9 @@ function OperatorCoveragePanel({ operatorName, records }) {
   );
 }
 
-function getOperatorStreetList(records, operatorName) {
+function getOperatorStreetList(records: CoverageRecord[], operatorName: string): string[] {
   if (!Array.isArray(records) || records.length === 0) return [];
-  const values = new Set();
+  const values = new Set<string>();
   for (const record of records) {
     if (!recordsMatchOperator(record, operatorName)) continue;
     const label = buildStreetLabel(record?.row_data || {});
@@ -1144,7 +1093,13 @@ function getOperatorStreetList(records, operatorName) {
   return Array.from(values).sort((a, b) => a.localeCompare(b, "pt-BR"));
 }
 
-function StreetChips({ records, operatorName }) {
+function StreetChips({
+  records,
+  operatorName,
+}: {
+  records: CoverageRecord[];
+  operatorName: string;
+}) {
   const streets = useMemo(
     () => getOperatorStreetList(records, operatorName),
     [records, operatorName]
@@ -1182,9 +1137,13 @@ function StreetChips({ records, operatorName }) {
   );
 }
 
-function getOperatorNumberList(records, operatorName, keys) {
+function getOperatorNumberList(
+  records: CoverageRecord[],
+  operatorName: string,
+  keys: string[]
+): string[] {
   if (!Array.isArray(records) || records.length === 0) return [];
-  const values = new Set();
+  const values = new Set<string>();
   for (const record of records) {
     if (!recordsMatchOperator(record, operatorName)) continue;
     const label = buildFacadeLabel(record?.row_data || {}, keys);
@@ -1193,12 +1152,20 @@ function getOperatorNumberList(records, operatorName, keys) {
   return Array.from(values);
 }
 
-function FacadeNumberChips({ records, operatorName, keys }) {
+function FacadeNumberChips({
+  records,
+  operatorName,
+  keys,
+}: {
+  records: CoverageRecord[];
+  operatorName: string;
+  keys: string[];
+}) {
   const groups = useMemo(
     () => groupFacadeNumbers(getOperatorNumberList(records, operatorName, keys)),
     [records, operatorName, keys]
   );
-  const [expandedBase, setExpandedBase] = useState(null);
+  const [expandedBase, setExpandedBase] = useState<string | null>(null);
 
   useEffect(() => {
     if (!expandedBase) return undefined;
@@ -1217,7 +1184,7 @@ function FacadeNumberChips({ records, operatorName, keys }) {
   const hiddenMobile = Math.max(0, groups.length - mobileLimit);
   const hiddenTotal = Math.max(0, groups.length - fullLimit);
 
-  const toggleBase = (base) => {
+  const toggleBase = (base: string) => {
     setExpandedBase((prev) => (prev === base ? null : base));
   };
 
@@ -1260,7 +1227,19 @@ function FacadeNumberChips({ records, operatorName, keys }) {
   );
 }
 
-function FacadeChipGroup({ group, operatorName, expanded, onToggle, className }) {
+function FacadeChipGroup({
+  group,
+  operatorName,
+  expanded,
+  onToggle,
+  className,
+}: {
+  group: FacadeGroup;
+  operatorName: string;
+  expanded: boolean;
+  onToggle: () => void;
+  className: string;
+}) {
   const chipId = `${operatorName}-facade-${group.base}`;
 
   if (!group.isExpandable) {
@@ -1284,7 +1263,7 @@ function FacadeChipGroup({ group, operatorName, expanded, onToggle, className })
         id={chipId}
         aria-expanded={expanded}
         aria-controls={`${chipId}-panel`}
-        onClick={(event) => {
+        onClick={(event: MouseEvent<HTMLButtonElement>) => {
           event.stopPropagation();
           onToggle();
         }}
@@ -1310,7 +1289,7 @@ function FacadeChipGroup({ group, operatorName, expanded, onToggle, className })
           role="region"
           aria-labelledby={chipId}
           className="absolute left-0 top-full z-20 mt-1 min-w-[11rem] max-w-[16rem] rounded-lg border border-amber-200 bg-white p-2 shadow-lg"
-          onClick={(event) => event.stopPropagation()}
+          onClick={(event: MouseEvent<HTMLDivElement>) => event.stopPropagation()}
         >
           <ul className="space-y-1">
             {group.variants.map((variant) => (
@@ -1341,7 +1320,7 @@ function FacadeChipGroup({ group, operatorName, expanded, onToggle, className })
   );
 }
 
-function buildJobStages(job) {
+function buildJobStages(job: ImportJob | null) {
   const status = job?.status;
   const isQueued = status === "queued";
   const isProcessing = status === "processing";
@@ -1351,7 +1330,7 @@ function buildJobStages(job) {
   const phaseOrder = ["queued", "reading", "parsing", "inserting", "finalizing"];
   const phaseIndex = phaseOrder.indexOf(phase);
 
-  function stageState(stepIndex) {
+  function stageState(stepIndex: number): "done" | "active" | "pending" {
     if (isCompleted) return "done";
     if (isFailed && stepIndex === 4) return "active";
     if (isFailed) return stepIndex < phaseIndex ? "done" : "pending";
@@ -1392,8 +1371,8 @@ function buildJobStages(job) {
       label: "4. Inserção",
       state: stageState(3),
       text:
-        phase === "inserting" && job?.total_rows > 0
-          ? `${Number(job.processed_rows || 0).toLocaleString("pt-BR")} / ${Number(job.total_rows).toLocaleString("pt-BR")} linhas`
+        phase === "inserting" && (job?.total_rows ?? 0) > 0
+          ? `${Number(job?.processed_rows || 0).toLocaleString("pt-BR")} / ${Number(job?.total_rows).toLocaleString("pt-BR")} linhas`
           : stageState(3) === "done"
             ? "Concluída"
             : "—",
@@ -1412,7 +1391,7 @@ function buildJobStages(job) {
   ];
 }
 
-function OperatorLogo({ operatorName }) {
+function OperatorLogo({ operatorName }: { operatorName: string }) {
   const [logoFailed, setLogoFailed] = useState(false);
   const normalized = normalizeOperatorName(operatorName);
   const logoSrc = OPERATOR_LOGOS[normalized];
@@ -1436,18 +1415,4 @@ function OperatorLogo({ operatorName }) {
       onError={() => setLogoFailed(true)}
     />
   );
-}
-
-function normalizeOperatorName(name) {
-  return String(name || "")
-    .trim()
-    .toLowerCase();
-}
-
-function toOperatorDisplayName(name) {
-  const n = normalizeOperatorName(name);
-  if (n === "vivo") return "Vivo";
-  if (n === "nio") return "Nio";
-  if (n === "vero") return "Vero";
-  return String(name || "");
 }
