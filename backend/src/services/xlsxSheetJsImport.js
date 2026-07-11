@@ -24,7 +24,8 @@ function getHeaderScoreFromTokens(tokens) {
   const set = new Set(tokens);
   let score = 0;
   if (set.has("cep")) score += 5;
-  if ([...set].some((t) => t.endsWith("_cep") || t.startsWith("cep_") || t.includes("cep"))) score += 3;
+  if ([...set].some((t) => t.endsWith("_cep") || t.startsWith("cep_") || t.includes("cep")))
+    score += 3;
   if (set.has("logradouro")) score += 2;
   if (set.has("cidade") || set.has("municipio")) score += 2;
   if (set.has("bairro")) score += 1;
@@ -71,10 +72,7 @@ function detectHeaderRowIndex(ws, range) {
     if (!nonEmptyValues.length) continue;
     const tokens = nonEmptyValues.map(normalizeHeaderToken).filter(Boolean);
     const score = getHeaderScoreFromTokens(tokens);
-    if (
-      score > best.score ||
-      (score === best.score && nonEmptyValues.length > best.nonEmpty)
-    ) {
+    if (score > best.score || (score === best.score && nonEmptyValues.length > best.nonEmpty)) {
       best = { rowIndex, score, nonEmpty: nonEmptyValues.length };
     }
     if (score >= 5) break;
@@ -179,7 +177,10 @@ export async function importXlsxFileSheetJs({
       throw new Error(`Planilha "${sheetName}" sem cabeçalho reconhecível em ${originalName}.`);
     }
 
-    logJob(jobId, `Aba "${sheetName}": ${(range.e.r - range.s.r).toLocaleString("pt-BR")} linhas de dados (aprox.).`);
+    logJob(
+      jobId,
+      `Aba "${sheetName}": ${(range.e.r - range.s.r).toLocaleString("pt-BR")} linhas de dados (aprox.).`
+    );
 
     await setProgressPhase(
       pool,
@@ -217,7 +218,9 @@ export async function importXlsxFileSheetJs({
   }
 
   if (scannedLines === 0) {
-    throw new Error(`Nenhuma linha lida em ${originalName}. Verifique se o arquivo tem dados e coluna CEP.`);
+    throw new Error(
+      `Nenhuma linha lida em ${originalName}. Verifique se o arquivo tem dados e coluna CEP.`
+    );
   }
 
   await updateImportJobFileStats(pool, jobId, originalName, { importedRows, ignoredRows });

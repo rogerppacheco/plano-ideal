@@ -6,7 +6,6 @@ import {
   startCreditConsultation,
 } from "../services/api";
 import { DataTable, DataTableCell, DataTableRow } from "./ui/DataTable";
-import { EmptyState } from "./ui/EmptyState";
 import { FormField } from "./ui/FormField";
 import { PanelCard } from "./ui/PanelCard";
 import { SkeletonTable } from "./ui/Skeleton";
@@ -41,11 +40,7 @@ function statusLabel(status) {
 
 function ResultBadge({ item }) {
   if (item.status === "queued" || item.status === "processing") {
-    return (
-      <span className="badge-status badge-status-pending">
-        {statusLabel(item.status)}
-      </span>
-    );
+    return <span className="badge-status badge-status-pending">{statusLabel(item.status)}</span>;
   }
   if (item.status === "failed") {
     return <span className="badge-status badge-status-error">Erro</span>;
@@ -57,7 +52,9 @@ function ResultBadge({ item }) {
 }
 
 function maskDocumentInput(value) {
-  const digits = String(value || "").replace(/\D/g, "").slice(0, 14);
+  const digits = String(value || "")
+    .replace(/\D/g, "")
+    .slice(0, 14);
   if (digits.length <= 11) {
     return digits
       .replace(/^(\d{3})(\d)/, "$1.$2")
@@ -136,7 +133,9 @@ export function CreditConsultTab({ token }) {
           toast.error(err.message || "Falha ao acompanhar consulta.");
         }
       } else if (items.some((item) => item.status === "queued" || item.status === "processing")) {
-        const pending = items.find((item) => item.status === "queued" || item.status === "processing");
+        const pending = items.find(
+          (item) => item.status === "queued" || item.status === "processing"
+        );
         if (pending) {
           setActiveConsultation(pending);
           sessionStorage.setItem(PENDING_CONSULTATION_KEY, String(pending.id));

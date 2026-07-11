@@ -1,10 +1,6 @@
 import { parentPort, workerData } from "node:worker_threads";
 import { createPool } from "../db.js";
-import {
-  createJobLogger,
-  markJobFailed,
-  runImportJobFiles,
-} from "../services/importJobRunner.js";
+import { createJobLogger, markJobFailed, runImportJobFiles } from "../services/importJobRunner.js";
 
 async function run() {
   const { jobId, operator, userId, files, databaseUrl } = workerData;

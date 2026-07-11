@@ -2,11 +2,7 @@ import bcrypt from "bcryptjs";
 import express from "express";
 import jwt from "jsonwebtoken";
 import { pool } from "../db.js";
-import {
-  getUserById,
-  recordSuccessfulLogin,
-  UserServiceError,
-} from "../services/userService.js";
+import { getUserById, recordSuccessfulLogin, UserServiceError } from "../services/userService.js";
 
 const router = express.Router();
 

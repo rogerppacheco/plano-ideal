@@ -1,7 +1,7 @@
 import dotenv from "dotenv";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createPool, getDbSchema } from "../src/db.js";
+import { createPool } from "../src/db.js";
 import { ensureSchema } from "../src/initSchema.js";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -17,9 +17,7 @@ const totals = await pool.query(`
   WHERE status = 'completed' AND reverted_at IS NULL
   GROUP BY operator
 `);
-const byOperator = Object.fromEntries(
-  totals.rows.map((r) => [r.operator, Number(r.total) || 0])
-);
+const byOperator = Object.fromEntries(totals.rows.map((r) => [r.operator, Number(r.total) || 0]));
 const total = Object.values(byOperator).reduce((a, n) => a + n, 0);
 console.log(`Totais (${Date.now() - t0} ms):`, byOperator, "total", total);
 

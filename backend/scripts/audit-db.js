@@ -78,8 +78,7 @@ async function run() {
     );
 
     const hostIsLocal =
-      /localhost|127\.0\.0\.1/i.test(connectionString) &&
-      !process.env.FORCE_REMOTE_AUDIT;
+      /localhost|127\.0\.0\.1/i.test(connectionString) && !process.env.FORCE_REMOTE_AUDIT;
 
     console.log("\n=== Auditoria PostgreSQL — Plano Ideal ===\n");
     console.log("Conexão:", maskUrl(connectionString));
@@ -103,7 +102,8 @@ async function run() {
       (t) => piNames.has(t.table_name) && t.table_schema === "public"
     );
     const otherTables = tables.filter(
-      (t) => !piNames.has(t.table_name) || (piNames.has(t.table_name) && t.table_schema !== targetSchema)
+      (t) =>
+        !piNames.has(t.table_name) || (piNames.has(t.table_name) && t.table_schema !== targetSchema)
     );
 
     console.log(`\n--- Tabelas do Plano Ideal em ${targetSchema} ---`);
@@ -123,7 +123,9 @@ async function run() {
     }
 
     console.log("\n--- Outras tabelas (ex.: Record em public) ---");
-    const othersOnly = otherTables.filter((t) => !(piNames.has(t.table_name) && t.table_schema === targetSchema));
+    const othersOnly = otherTables.filter(
+      (t) => !(piNames.has(t.table_name) && t.table_schema === targetSchema)
+    );
     if (othersOnly.length === 0) {
       console.log("  Nenhuma listada além do schema do Plano Ideal.");
     } else {
@@ -142,11 +144,17 @@ async function run() {
 
     console.log("\n--- Recomendação ---");
     if (piNamedInPublic.length > 0) {
-      console.log("  RISCO: tabelas do Plano Ideal em public colidem com o CRM. Use só o schema dedicado.");
+      console.log(
+        "  RISCO: tabelas do Plano Ideal em public colidem com o CRM. Use só o schema dedicado."
+      );
     } else if (piNamedTables.length >= PI_TABLES.length) {
-      console.log(`  Pronto: Plano Ideal isolado em ${targetSchema}. Pode subir a API com DB_SCHEMA=${targetSchema}.`);
+      console.log(
+        `  Pronto: Plano Ideal isolado em ${targetSchema}. Pode subir a API com DB_SCHEMA=${targetSchema}.`
+      );
     } else if (othersOnly.length > 0 && piNamedTables.length === 0) {
-      console.log(`  BOM: CRM em public, Plano Ideal ainda não em ${targetSchema}. Rode setup-schema.js.`);
+      console.log(
+        `  BOM: CRM em public, Plano Ideal ainda não em ${targetSchema}. Rode setup-schema.js.`
+      );
     } else {
       console.log("  Revise a lista acima antes do deploy.");
     }

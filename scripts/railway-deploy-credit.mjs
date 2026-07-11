@@ -48,9 +48,7 @@ function loadEnvRailway() {
 }
 
 function loadConfig() {
-  return JSON.parse(
-    fs.readFileSync(path.join(__dirname, "railway-setup.config.json"), "utf8")
-  );
+  return JSON.parse(fs.readFileSync(path.join(__dirname, "railway-setup.config.json"), "utf8"));
 }
 
 async function gql(token, query, variables = {}) {
@@ -152,15 +150,19 @@ async function updateServiceInstance(token, serviceId, environmentId, input) {
 }
 
 async function upsertVariables(token, projectId, environmentId, serviceId, variables) {
-  await gql(token, `mutation ($input: VariableCollectionUpsertInput!) { variableCollectionUpsert(input: $input) }`, {
-    input: {
-      projectId,
-      environmentId,
-      serviceId,
-      variables,
-      replace: false,
-    },
-  });
+  await gql(
+    token,
+    `mutation ($input: VariableCollectionUpsertInput!) { variableCollectionUpsert(input: $input) }`,
+    {
+      input: {
+        projectId,
+        environmentId,
+        serviceId,
+        variables,
+        replace: false,
+      },
+    }
+  );
 }
 
 async function deployService(token, serviceId, environmentId, serviceName) {
@@ -251,6 +253,7 @@ await upsertVariables(token, project.id, env.id, pap.id, {
   PAP_CREDITO_MAX_CONSULTAS_POR_TT_DIA: "6",
   PAP_WORKER_POLL_SECONDS: "2",
   PAP_BO_LOCK_TIMEOUT_MINUTES: "30",
+  CREDITO_EMAIL_MAILINATOR: "true",
 });
 
 console.log("\nDisparando deploy…");

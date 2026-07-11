@@ -10,10 +10,7 @@ export async function importXlsxFile(ctx) {
     return excelResult;
   }
 
-  ctx.logJob(
-    ctx.jobId,
-    "ExcelJS não leu linhas (formato FTTH?) — alternando para SheetJS…"
-  );
+  ctx.logJob(ctx.jobId, "ExcelJS não leu linhas (formato FTTH?) — alternando para SheetJS…");
   return importXlsxFileSheetJs(ctx);
 }
 

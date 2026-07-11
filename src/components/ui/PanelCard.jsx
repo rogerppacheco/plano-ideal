@@ -1,7 +1,7 @@
 export function PanelCard({ title, description, action, children, className = "", id }) {
   return (
     <section id={id} className={`panel-card ${className}`}>
-      {(title || description || action) ? (
+      {title || description || action ? (
         <header className="panel-card-header">
           <div>
             {title ? <h2 className="panel-card-title">{title}</h2> : null}
@@ -41,7 +41,11 @@ export function DashboardTabs({ tabs, activeTab, onChange }) {
             onClick={() => onChange(tab.id)}
             className={isActive ? "dashboard-tab dashboard-tab-active" : "dashboard-tab"}
           >
-            {tab.icon ? <span className="dashboard-tab-icon" aria-hidden="true">{tab.icon}</span> : null}
+            {tab.icon ? (
+              <span className="dashboard-tab-icon" aria-hidden="true">
+                {tab.icon}
+              </span>
+            ) : null}
             {tab.label}
           </button>
         );

@@ -1,12 +1,4 @@
-export function FormField({
-  id,
-  label,
-  hint,
-  error,
-  required = false,
-  children,
-  className = "",
-}) {
+export function FormField({ id, label, hint, error, required = false, children, className = "" }) {
   const hintId = hint ? `${id}-hint` : undefined;
   const errorId = error ? `${id}-error` : undefined;
   const describedBy = [hintId, errorId].filter(Boolean).join(" ") || undefined;

@@ -22,7 +22,7 @@ function logRequestFailure(url, error, context = {}) {
   });
 }
 
-function getFriendlyNetworkMessage(url) {
+function getFriendlyNetworkMessage(_url) {
   if (import.meta.env.PROD && !import.meta.env.VITE_API_BASE_URL) {
     return "Configuração da API ausente no build. Verifique VITE_API_BASE_URL no Railway.";
   }
@@ -51,10 +51,7 @@ async function request(path, options = {}) {
   const { skipAuthRedirect = false, timeoutMs = 0, ...fetchOptions } = options;
   const url = buildRequestUrl(path);
   const controller = timeoutMs > 0 ? new AbortController() : null;
-  const timer =
-    controller != null
-      ? setTimeout(() => controller.abort(), timeoutMs)
-      : null;
+  const timer = controller != null ? setTimeout(() => controller.abort(), timeoutMs) : null;
   let response;
 
   try {

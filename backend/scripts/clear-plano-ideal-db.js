@@ -41,9 +41,7 @@ async function tableExists(schema, name) {
 }
 
 async function countTable(schema, name) {
-  const { rows } = await pool.query(
-    `SELECT COUNT(*)::INT AS n FROM ${schema}.${name}`
-  );
+  const { rows } = await pool.query(`SELECT COUNT(*)::INT AS n FROM ${schema}.${name}`);
   return rows[0].n;
 }
 

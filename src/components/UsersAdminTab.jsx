@@ -160,7 +160,9 @@ export function UsersAdminTab({ token, currentUserId }) {
               id={id}
               type="text"
               value={newUser.fullName}
-              onChange={(event) => setNewUser((prev) => ({ ...prev, fullName: event.target.value }))}
+              onChange={(event) =>
+                setNewUser((prev) => ({ ...prev, fullName: event.target.value }))
+              }
               className="input-modern"
               required
             />
@@ -172,7 +174,9 @@ export function UsersAdminTab({ token, currentUserId }) {
               id={id}
               type="text"
               value={newUser.username}
-              onChange={(event) => setNewUser((prev) => ({ ...prev, username: event.target.value }))}
+              onChange={(event) =>
+                setNewUser((prev) => ({ ...prev, username: event.target.value }))
+              }
               className="input-modern"
               aria-describedby={describedBy}
               required
@@ -200,7 +204,9 @@ export function UsersAdminTab({ token, currentUserId }) {
               type="password"
               minLength={6}
               value={newUser.password}
-              onChange={(event) => setNewUser((prev) => ({ ...prev, password: event.target.value }))}
+              onChange={(event) =>
+                setNewUser((prev) => ({ ...prev, password: event.target.value }))
+              }
               className="input-modern"
               aria-describedby={describedBy}
               required
@@ -217,7 +223,12 @@ export function UsersAdminTab({ token, currentUserId }) {
       <div className="mt-6">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-sm font-bold text-slate-900">Usuários cadastrados</h3>
-          <button type="button" className="btn-secondary text-xs" onClick={loadUsers} disabled={isLoading}>
+          <button
+            type="button"
+            className="btn-secondary text-xs"
+            onClick={loadUsers}
+            disabled={isLoading}
+          >
             {isLoading ? "Atualizando…" : "Atualizar"}
           </button>
         </div>
@@ -236,14 +247,15 @@ export function UsersAdminTab({ token, currentUserId }) {
               <div
                 key={user.id}
                 className={`rounded-lg border px-3 py-2 ${
-                  user.isActive ? "border-slate-200 bg-white" : "border-white/10 bg-white/5 opacity-80"
+                  user.isActive
+                    ? "border-slate-200 bg-white"
+                    : "border-white/10 bg-white/5 opacity-80"
                 }`}
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p className="text-sm font-semibold text-slate-800">
-                      {user.fullName}{" "}
-                      <span className="text-slate-500">(@{user.username})</span>
+                      {user.fullName} <span className="text-slate-500">(@{user.username})</span>
                     </p>
                     <p className="mt-1 text-xs text-slate-500">
                       Último acesso: {formatLastLogin(user.lastLoginAt)}

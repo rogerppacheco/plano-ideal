@@ -1,7 +1,7 @@
 import express from "express";
 import { canViewAllCreditHistory } from "../constants/roles.js";
 import { pool } from "../db.js";
-import { requireAuth, requireRole } from "../middleware/auth.js";
+import { requireAuth } from "../middleware/auth.js";
 import { checkCreditRateLimit, hasAvailableBoCredential } from "../services/creditRateLimit.js";
 import { validateDocument, maskDocument } from "../utils/documentValidation.js";
 

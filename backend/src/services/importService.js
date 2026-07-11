@@ -171,7 +171,8 @@ function scoreCepColumn(headerNormalized) {
   if (k === "nu_cep" || k === "nr_cep" || k === "num_cep" || k === "numero_cep") return 96;
   if (k === "cd_cep" || k === "cod_cep" || k === "codigo_cep") return 95;
   if (k.endsWith("_cep") || k.startsWith("cep_")) return 92;
-  if (k.includes("codigo_postal") || k.includes("cod_postal") || k.includes("codigopostal")) return 88;
+  if (k.includes("codigo_postal") || k.includes("cod_postal") || k.includes("codigopostal"))
+    return 88;
   if (k.includes("cep")) return 85;
   if (k.includes("zip") || k.includes("postal")) return 75;
   return 0;

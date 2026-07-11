@@ -30,7 +30,11 @@ export function ScreenshotModal({ open, title, screenshotBase64, onClose }) {
           )}
         </div>
         <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3">
-          <button type="button" onClick={handleDownload} className="btn-secondary px-3 py-2 text-xs">
+          <button
+            type="button"
+            onClick={handleDownload}
+            className="btn-secondary px-3 py-2 text-xs"
+          >
             Baixar imagem
           </button>
           <button type="button" onClick={onClose} className="btn-primary px-3 py-2 text-xs">

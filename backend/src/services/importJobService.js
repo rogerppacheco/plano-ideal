@@ -80,10 +80,9 @@ export async function revertImportJob(pool, jobId) {
     return { ok: false, status: 409, message: "Esta importação já foi removida do banco." };
   }
 
-  const linkedDelete = await pool.query(
-    `DELETE FROM coverage_records WHERE import_job_id = $1`,
-    [jobId]
-  );
+  const linkedDelete = await pool.query(`DELETE FROM coverage_records WHERE import_job_id = $1`, [
+    jobId,
+  ]);
   let deleted = linkedDelete.rowCount ?? 0;
 
   if (deleted === 0) {

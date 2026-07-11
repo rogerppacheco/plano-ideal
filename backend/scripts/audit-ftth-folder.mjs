@@ -80,7 +80,7 @@ async function readHeaders(filePath) {
   return [];
 }
 
-async function estimateRows(filePath) {
+async function _estimateRows(filePath) {
   let n = 0;
   const workbook = new ExcelJS.stream.xlsx.WorkbookReader(filePath, {
     entries: "emit",
@@ -137,7 +137,9 @@ for (const name of files) {
 }
 
 console.log(`\n=== Auditoria FTTH ===\nPasta: ${folder}`);
-console.log(`Arquivos: ${files.length} | Total: ${(totalBytes / 1024 / 1024 / 1024).toFixed(2)} GB\n`);
+console.log(
+  `Arquivos: ${files.length} | Total: ${(totalBytes / 1024 / 1024 / 1024).toFixed(2)} GB\n`
+);
 
 const sample = summary.slice(0, 8);
 const sampleBig = [...summary].sort((a, b) => Number(b.mb) - Number(a.mb)).slice(0, 5);
@@ -169,4 +171,6 @@ if (issues.length) {
   }
 }
 
-console.log("\n(Dica: para estimar linhas de 1 arquivo, demora — rode com IMPORT_AUDIT_SAMPLE=1)\n");
+console.log(
+  "\n(Dica: para estimar linhas de 1 arquivo, demora — rode com IMPORT_AUDIT_SAMPLE=1)\n"
+);

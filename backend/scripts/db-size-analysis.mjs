@@ -10,12 +10,15 @@ dotenv.config({ path: path.join(root, ".env.railway"), override: true });
 const pool = createPool();
 const schema = getDbSchema();
 
-const size = await pool.query(`
+const size = await pool.query(
+  `
   SELECT
     pg_database_size(current_database()) AS db_bytes,
     pg_total_relation_size($1::regclass) AS coverage_bytes,
     pg_indexes_size($1::regclass) AS index_bytes
-`, [`${schema}.coverage_records`]);
+`,
+  [`${schema}.coverage_records`]
+);
 
 const counts = await pool.query(`
   SELECT
@@ -36,15 +39,21 @@ const ftth = await pool.query(`
 const row = { ...size.rows[0], ...counts.rows[0], ...ftth.rows[0] };
 const gb = (n) => (Number(n) / 1024 ** 3).toFixed(2);
 
-console.log(JSON.stringify({
-  db_gb: gb(row.db_bytes),
-  coverage_table_gb: gb(row.coverage_bytes),
-  indexes_gb: gb(row.index_bytes),
-  coverage_rows: Number(row.coverage_rows),
-  jobs_completed: Number(row.jobs_completed),
-  jobs_failed: Number(row.jobs_failed),
-  ftth_xlsx_completed: Number(row.ftth_files_done),
-  bytes_per_row: Math.round(Number(row.coverage_bytes) / Number(row.coverage_rows)),
-}, null, 2));
+console.log(
+  JSON.stringify(
+    {
+      db_gb: gb(row.db_bytes),
+      coverage_table_gb: gb(row.coverage_bytes),
+      indexes_gb: gb(row.index_bytes),
+      coverage_rows: Number(row.coverage_rows),
+      jobs_completed: Number(row.jobs_completed),
+      jobs_failed: Number(row.jobs_failed),
+      ftth_xlsx_completed: Number(row.ftth_files_done),
+      bytes_per_row: Math.round(Number(row.coverage_bytes) / Number(row.coverage_rows)),
+    },
+    null,
+    2
+  )
+);
 
 await pool.end();

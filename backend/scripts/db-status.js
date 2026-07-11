@@ -16,7 +16,11 @@ function describeDatabaseUrl(url = process.env.DATABASE_URL || "") {
     const u = new URL(url.replace(/^postgresql:/, "postgres:"));
     const host = u.hostname || "?";
     const isLocal = /localhost|127\.0\.0\.1/i.test(host);
-    return { label: isLocal ? "LOCAL" : "REMOTO (Railway)", database: u.pathname.replace(/^\//, "") || "?", host };
+    return {
+      label: isLocal ? "LOCAL" : "REMOTO (Railway)",
+      database: u.pathname.replace(/^\//, "") || "?",
+      host,
+    };
   } catch {
     return { label: "?", database: "?", host: "?" };
   }
@@ -50,13 +54,19 @@ async function run() {
   console.log("\nBanco conectado:", meta.rows[0].db);
   console.log("Versão:", meta.rows[0].version.split("\n")[0]);
 
-  const tables = await pool.query(`
+  const tables = await pool.query(
+    `
     SELECT table_schema, table_name
     FROM information_schema.tables
     WHERE table_schema = $1 AND table_type = 'BASE TABLE'
     ORDER BY table_name
-  `, [schema]);
-  console.log(`\nTabelas em ${schema}:`, tables.rows.map((r) => r.table_name).join(", ") || "(nenhuma)");
+  `,
+    [schema]
+  );
+  console.log(
+    `\nTabelas em ${schema}:`,
+    tables.rows.map((r) => r.table_name).join(", ") || "(nenhuma)"
+  );
 
   if (tables.rows.length === 0) {
     const inPublic = await pool.query(`
@@ -97,12 +107,15 @@ async function run() {
   }
   console.log(`  TOTAL: ${covTotal.toLocaleString("pt-BR")}`);
 
-  const hasJobCol = await pool.query(`
+  const hasJobCol = await pool.query(
+    `
     SELECT EXISTS (
       SELECT 1 FROM information_schema.columns
       WHERE table_schema = $1 AND table_name = 'coverage_records' AND column_name = 'import_job_id'
     ) AS ok
-  `, [schema]);
+  `,
+    [schema]
+  );
 
   if (hasJobCol.rows[0].ok) {
     const byJob = await pool.query(`
@@ -138,17 +151,23 @@ async function run() {
     console.log(`  ${r.operator} | ${r.source_file} | ${r.total.toLocaleString("pt-BR")}`);
   }
 
-  const hasJobFiles = await pool.query(`
+  const hasJobFiles = await pool.query(
+    `
     SELECT EXISTS (
       SELECT 1 FROM information_schema.tables
       WHERE table_schema = $1 AND table_name = 'import_job_files'
     ) AS ok
-  `, [schema]);
+  `,
+    [schema]
+  );
 
-  const jobCols = await pool.query(`
+  const jobCols = await pool.query(
+    `
     SELECT column_name FROM information_schema.columns
     WHERE table_schema = $1 AND table_name = 'import_jobs'
-  `, [schema]);
+  `,
+    [schema]
+  );
   const jobColSet = new Set(jobCols.rows.map((r) => r.column_name));
   const extra = ["detected_operator", "reverted_at", "records_deleted"]
     .filter((c) => jobColSet.has(c))
@@ -191,7 +210,9 @@ async function run() {
 
 run().catch(async (e) => {
   console.error("Erro:", e.message);
-  console.error("\nDica: crie comparador-leads/.env.railway com DATABASE_URL (veja .env.railway.example)\n");
+  console.error(
+    "\nDica: crie comparador-leads/.env.railway com DATABASE_URL (veja .env.railway.example)\n"
+  );
   await pool.end();
   process.exit(1);
 });

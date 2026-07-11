@@ -38,7 +38,10 @@ async function run() {
 
   console.log("2) Operator acessa recurso protegido (antes da inativação)…");
   const before = await authedGet("/coverage/30130-010", operatorSession.token);
-  assert(before.response.ok, `Consulta do operator falhou antes da inativação: ${before.data.message}`);
+  assert(
+    before.response.ok,
+    `Consulta do operator falhou antes da inativação: ${before.data.message}`
+  );
 
   console.log("3) Admin localiza o operator na lista…");
   const usersRes = await authedGet("/users", adminSession.token);
@@ -90,8 +93,14 @@ async function run() {
   assert(pwdChange.response.ok, `Troca de senha falhou: ${pwdChange.data.message}`);
 
   const revoked = await authedGet("/coverage/30130-010", operatorSession2.token);
-  assert(revoked.response.status === 401, `Esperado 401 após troca de senha, recebido ${revoked.response.status}`);
-  assert(revoked.data.code === "TOKEN_REVOKED", `Esperado TOKEN_REVOKED, recebido ${revoked.data.code}`);
+  assert(
+    revoked.response.status === 401,
+    `Esperado 401 após troca de senha, recebido ${revoked.response.status}`
+  );
+  assert(
+    revoked.data.code === "TOKEN_REVOKED",
+    `Esperado TOKEN_REVOKED, recebido ${revoked.data.code}`
+  );
   console.log("   ✓ Backend retornou 401 TOKEN_REVOKED");
 
   console.log("\n✅ Validação API concluída. Próximo passo manual no navegador:");

@@ -34,7 +34,9 @@ function StatusPill({ active, inUse = false }) {
     return <span className="badge-status badge-status-pending">Em uso</span>;
   }
   return (
-    <span className={active ? "badge-status badge-status-success" : "badge-status badge-status-denied"}>
+    <span
+      className={active ? "badge-status badge-status-success" : "badge-status badge-status-denied"}
+    >
       {active ? "Ativo" : "Desativado"}
     </span>
   );
@@ -178,7 +180,9 @@ export function PapAdminTab({ token }) {
                   type="text"
                   placeholder="Matrícula PAP"
                   value={newCredential.matriculaPap}
-                  onChange={(e) => setNewCredential((s) => ({ ...s, matriculaPap: e.target.value }))}
+                  onChange={(e) =>
+                    setNewCredential((s) => ({ ...s, matriculaPap: e.target.value }))
+                  }
                   className="input-modern"
                   required
                 />
@@ -248,8 +252,13 @@ export function PapAdminTab({ token }) {
         </section>
 
         <section className="border-t border-slate-100 pt-8">
-          <h3 className="text-sm font-bold text-slate-900">Matrículas TT (distribuição de carga)</h3>
-          <form className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end" onSubmit={handleCreateMatricula}>
+          <h3 className="text-sm font-bold text-slate-900">
+            Matrículas TT (distribuição de carga)
+          </h3>
+          <form
+            className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end"
+            onSubmit={handleCreateMatricula}
+          >
             <FormField
               id="pap-tt"
               label="Matrícula TT"
@@ -287,7 +296,9 @@ export function PapAdminTab({ token }) {
             >
               {matriculas.map((item) => (
                 <DataTableRow key={item.id}>
-                  <DataTableCell className="font-mono text-xs font-medium">{item.matricula}</DataTableCell>
+                  <DataTableCell className="font-mono text-xs font-medium">
+                    {item.matricula}
+                  </DataTableCell>
                   <DataTableCell>{item.consultas_hoje ?? 0}</DataTableCell>
                   <DataTableCell>
                     <StatusPill active={item.enabled} />

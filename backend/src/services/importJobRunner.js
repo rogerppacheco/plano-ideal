@@ -49,7 +49,12 @@ export async function markJobCompleted({
   ignoredRows,
   logJob,
 }) {
-  await setProgressPhase(pool, jobId, PHASE.FINALIZING, "Salvando status final no banco (quase pronto)…");
+  await setProgressPhase(
+    pool,
+    jobId,
+    PHASE.FINALIZING,
+    "Salvando status final no banco (quase pronto)…"
+  );
 
   const sql = `
     UPDATE import_jobs

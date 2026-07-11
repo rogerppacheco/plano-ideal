@@ -104,7 +104,9 @@ export default function InternalLogin() {
           </div>
 
           <div className="relative z-10 pt-20 text-center sm:pt-24">
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-neon-green">Plano Ideal</p>
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-neon-green">
+              Plano Ideal
+            </p>
             <h1 className="mt-2 text-2xl font-extrabold text-white sm:text-3xl">Área interna</h1>
             <p className="mx-auto mt-2 max-w-xs text-sm leading-relaxed text-white/65">
               Consulta de CEP, crédito e importações conforme o seu perfil de acesso.

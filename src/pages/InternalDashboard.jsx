@@ -21,7 +21,13 @@ import {
 import nioLogo from "../assets/operators/nio.png";
 import veroLogo from "../assets/operators/Vero.jpg";
 import vivoLogo from "../assets/operators/vivo.png";
-import { buildFacadeLabel, buildStreetLabel, countRecordsByOperator, groupFacadeNumbers, maskCep } from "../utils/coverage";
+import {
+  buildFacadeLabel,
+  buildStreetLabel,
+  countRecordsByOperator,
+  groupFacadeNumbers,
+  maskCep,
+} from "../utils/coverage";
 import { CreditConsultTab } from "../components/CreditConsultTab";
 import { PapAdminTab } from "../components/PapAdminTab";
 import { UsersAdminTab } from "../components/UsersAdminTab";
@@ -148,10 +154,6 @@ export default function InternalDashboard() {
   const [isLoadingImportHistory, setIsLoadingImportHistory] = useState(false);
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
   const consultedAddress = useMemo(() => formatAddressFromRecords(result?.records), [result]);
-
-  if (!sessionUser || !token) {
-    return null;
-  }
 
   useEffect(() => {
     if (!sessionUser || !token) {
@@ -428,6 +430,10 @@ export default function InternalDashboard() {
 
   const dashboardTabs = useMemo(() => buildDashboardTabs(userRole), [userRole]);
 
+  if (!sessionUser || !token) {
+    return null;
+  }
+
   return (
     <div className="dashboard-shell">
       <FloatingBubbles variant="dark" />
@@ -441,9 +447,7 @@ export default function InternalDashboard() {
               {jobProgress.current_step ||
                 "Processando… Você pode atualizar a página; o progresso continua sendo carregado."}
             </p>
-            <p className="mt-2 text-sm text-slate-700">
-              {getImportProgressLabel(jobProgress)}
-            </p>
+            <p className="mt-2 text-sm text-slate-700">{getImportProgressLabel(jobProgress)}</p>
             <ImportProgressDetails
               job={jobProgress}
               compact
@@ -483,96 +487,97 @@ export default function InternalDashboard() {
             title="Consulta por CEP"
             description="Consulta de cobertura por CEP para todos os perfis internos."
           >
-          <form className="flex flex-col gap-3 sm:flex-row sm:items-end" onSubmit={handleConsultSubmit}>
-            <FormField
-              id="dashboard-cep"
-              label="CEP"
-              hint="Informe o CEP com hífen. Ex: 30130-010"
-              error={consultError}
-              className="flex-1"
-              required
+            <form
+              className="flex flex-col gap-3 sm:flex-row sm:items-end"
+              onSubmit={handleConsultSubmit}
             >
-              {({ id, describedBy, "aria-invalid": ariaInvalid }) => (
-                <input
-                  id={id}
-                  type="text"
-                  inputMode="numeric"
-                  value={cep}
-                  onChange={handleCepChange}
-                  placeholder="00000-000"
-                  className="input-modern"
-                  aria-describedby={describedBy}
-                  aria-invalid={ariaInvalid}
-                  required
-                />
-              )}
-            </FormField>
-            <button
-              type="submit"
-              className="btn-primary shrink-0"
-              disabled={isConsulting}
-            >
-              {isConsulting ? "Consultando…" : "Consultar"}
-            </button>
-          </form>
+              <FormField
+                id="dashboard-cep"
+                label="CEP"
+                hint="Informe o CEP com hífen. Ex: 30130-010"
+                error={consultError}
+                className="flex-1"
+                required
+              >
+                {({ id, describedBy, "aria-invalid": ariaInvalid }) => (
+                  <input
+                    id={id}
+                    type="text"
+                    inputMode="numeric"
+                    value={cep}
+                    onChange={handleCepChange}
+                    placeholder="00000-000"
+                    className="input-modern"
+                    aria-describedby={describedBy}
+                    aria-invalid={ariaInvalid}
+                    required
+                  />
+                )}
+              </FormField>
+              <button type="submit" className="btn-primary shrink-0" disabled={isConsulting}>
+                {isConsulting ? "Consultando…" : "Consultar"}
+              </button>
+            </form>
 
-          {isConsulting ? (
-            <div className="mt-5">
-              <SkeletonCards count={3} />
-            </div>
-          ) : result ? (
-            <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-sm font-semibold text-slate-700">
-                CEP consultado: {result.cep}
-                {consultedAddress ? `, ${consultedAddress}` : ""}
-              </p>
-              {result.operators.length > 0 ? (
-                <>
-                  <p className="mt-3 text-sm font-semibold text-slate-800">Resumo por operadora</p>
-                  <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {isConsulting ? (
+              <div className="mt-5">
+                <SkeletonCards count={3} />
+              </div>
+            ) : result ? (
+              <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-sm font-semibold text-slate-700">
+                  CEP consultado: {result.cep}
+                  {consultedAddress ? `, ${consultedAddress}` : ""}
+                </p>
+                {result.operators.length > 0 ? (
+                  <>
+                    <p className="mt-3 text-sm font-semibold text-slate-800">
+                      Resumo por operadora
+                    </p>
+                    <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                      {result.operators.map((operatorName) => (
+                        <OperatorSummaryCard
+                          key={operatorName}
+                          operatorName={operatorName}
+                          count={countRecordsByOperator(result.records)[operatorName] || 0}
+                          config={getOperatorCoverageConfig(operatorName)}
+                        />
+                      ))}
+                    </div>
+                    <p className="mt-2 text-xs text-slate-500">
+                      Total no CEP: {result.records?.length || 0} registro(s)
+                    </p>
+                  </>
+                ) : null}
+                <details className="mt-3 rounded-lg bg-white p-3 ring-1 ring-slate-200">
+                  <summary className="cursor-pointer text-sm font-semibold text-slate-700">
+                    Ver detalhes por operadora
+                  </summary>
+                  <div className="mt-3 space-y-4">
                     {result.operators.map((operatorName) => (
-                      <OperatorSummaryCard
+                      <OperatorCoveragePanel
                         key={operatorName}
                         operatorName={operatorName}
-                        count={countRecordsByOperator(result.records)[operatorName] || 0}
-                        config={getOperatorCoverageConfig(operatorName)}
+                        records={result.records}
                       />
                     ))}
                   </div>
-                  <p className="mt-2 text-xs text-slate-500">
-                    Total no CEP: {result.records?.length || 0} registro(s)
+                </details>
+                {result.operators.length === 0 ? (
+                  <p className="mt-2 text-sm font-semibold text-slate-800">
+                    Nenhuma operadora disponível para este CEP.
                   </p>
-                </>
-              ) : null}
-              <details className="mt-3 rounded-lg bg-white p-3 ring-1 ring-slate-200">
-                <summary className="cursor-pointer text-sm font-semibold text-slate-700">
-                  Ver detalhes por operadora
-                </summary>
-                <div className="mt-3 space-y-4">
-                  {result.operators.map((operatorName) => (
-                    <OperatorCoveragePanel
-                      key={operatorName}
-                      operatorName={operatorName}
-                      records={result.records}
-                    />
-                  ))}
-                </div>
-              </details>
-              {result.operators.length === 0 ? (
-                <p className="mt-2 text-sm font-semibold text-slate-800">
-                  Nenhuma operadora disponível para este CEP.
-                </p>
-              ) : null}
-            </div>
-          ) : (
-            <div className="mt-5">
-              <EmptyState
-                icon="search"
-                title="Nenhum CEP consultado ainda"
-                description="Digite um CEP válido e clique em consultar para ver operadoras e detalhes de cobertura."
-              />
-            </div>
-          )}
+                ) : null}
+              </div>
+            ) : (
+              <div className="mt-5">
+                <EmptyState
+                  icon="search"
+                  title="Nenhum CEP consultado ainda"
+                  description="Digite um CEP válido e clique em consultar para ver operadoras e detalhes de cobertura."
+                />
+              </div>
+            )}
           </PanelCard>
         ) : null}
 
@@ -586,7 +591,6 @@ export default function InternalDashboard() {
             title="Importar bases para o banco interno"
             description='Coluna com nome contendo "CEP" é obrigatória. Todos os outros campos da planilha são preservados integralmente.'
           >
-
             <div className="mt-4 flex flex-wrap gap-2">
               <button
                 type="button"
@@ -627,10 +631,10 @@ export default function InternalDashboard() {
                   <option value="Vero">Vero</option>
                 </select>
                 <p className="mt-1 text-xs text-slate-600">
-                  A operadora escolhida define como os dados são gravados e consultados. Se enviar base
-                  da Nio com &quot;Vivo&quot; selecionado, os CEPs aparecerão como Vivo e a deduplicação
-                  por NUM_FACHADA não será aplicada. Para Vero, a deduplicação específica por número
-                  não é aplicada.
+                  A operadora escolhida define como os dados são gravados e consultados. Se enviar
+                  base da Nio com &quot;Vivo&quot; selecionado, os CEPs aparecerão como Vivo e a
+                  deduplicação por NUM_FACHADA não será aplicada. Para Vero, a deduplicação
+                  específica por número não é aplicada.
                 </p>
               </div>
 
@@ -639,8 +643,8 @@ export default function InternalDashboard() {
                   Arquivos (.csv recomendado, .xlsx)
                 </label>
                 <p className="mb-2 text-xs text-slate-600">
-                  Arquivos grandes: prefira <strong>CSV</strong> (delimitador ;). Excel acima de ~60 MB pode falhar
-                  no servidor.
+                  Arquivos grandes: prefira <strong>CSV</strong> (delimitador ;). Excel acima de ~60
+                  MB pode falhar no servidor.
                 </p>
                 <input
                   id="files"
@@ -652,7 +656,11 @@ export default function InternalDashboard() {
                 />
               </div>
 
-              {importError ? <p className="text-sm text-red-600" role="alert">{importError}</p> : null}
+              {importError ? (
+                <p className="text-sm text-red-600" role="alert">
+                  {importError}
+                </p>
+              ) : null}
               {importFeedback ? <p className="text-sm text-emerald-700">{importFeedback}</p> : null}
 
               {jobProgress ? (
@@ -679,7 +687,9 @@ export default function InternalDashboard() {
                   </div>
                   {jobProgress.current_step ? (
                     <p className="mt-2 rounded-lg bg-white px-3 py-2 text-slate-800 ring-1 ring-slate-200">
-                      <span className="text-xs font-semibold uppercase text-slate-600">Etapa atual</span>
+                      <span className="text-xs font-semibold uppercase text-slate-600">
+                        Etapa atual
+                      </span>
                       <br />
                       {jobProgress.current_step}
                     </p>
@@ -700,8 +710,8 @@ export default function InternalDashboard() {
                     {Number(jobProgress.total_rows || 0).toLocaleString("pt-BR")}
                   </p>
                   <p className="text-slate-700">
-                    Válidas: {Number(jobProgress.imported_rows || 0).toLocaleString("pt-BR")} | Ignoradas:{" "}
-                    {Number(jobProgress.ignored_rows || 0).toLocaleString("pt-BR")}
+                    Válidas: {Number(jobProgress.imported_rows || 0).toLocaleString("pt-BR")} |
+                    Ignoradas: {Number(jobProgress.ignored_rows || 0).toLocaleString("pt-BR")}
                   </p>
                   <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-200">
                     <div
@@ -713,7 +723,9 @@ export default function InternalDashboard() {
                       style={{ width: `${getImportProgressPercent(jobProgress)}%` }}
                     />
                   </div>
-                  <p className="mt-1 text-xs text-slate-700">{getImportProgressLabel(jobProgress)}</p>
+                  <p className="mt-1 text-xs text-slate-700">
+                    {getImportProgressLabel(jobProgress)}
+                  </p>
                   {jobProgress.error_message ? (
                     <p className="mt-1 text-xs text-red-600">{jobProgress.error_message}</p>
                   ) : null}
@@ -742,12 +754,16 @@ export default function InternalDashboard() {
                 </button>
               </div>
               {importHistoryError ? (
-                <p className="mb-3 text-sm text-amber-800" role="alert">{importHistoryError}</p>
+                <p className="mb-3 text-sm text-amber-800" role="alert">
+                  {importHistoryError}
+                </p>
               ) : null}
               <DataTable
                 columns={IMPORT_HISTORY_COLUMNS}
                 caption="Histórico de importações"
-                isEmpty={!isLoadingImportHistory && importHistory.length === 0 && !importHistoryError}
+                isEmpty={
+                  !isLoadingImportHistory && importHistory.length === 0 && !importHistoryError
+                }
                 loading={isLoadingImportHistory}
                 loadingComponent={<SkeletonTable rows={5} cols={7} />}
                 emptyIcon="table"
@@ -777,7 +793,10 @@ export default function InternalDashboard() {
                         <div key={f.file_name} className="mb-1">
                           <span className="font-medium">{f.file_name}</span>
                           {f.file_size_bytes ? (
-                            <span className="text-slate-500"> ({formatBytes(f.file_size_bytes)})</span>
+                            <span className="text-slate-500">
+                              {" "}
+                              ({formatBytes(f.file_size_bytes)})
+                            </span>
                           ) : null}
                         </div>
                       ))}
@@ -833,7 +852,9 @@ export default function InternalDashboard() {
                 </button>
               </div>
               {summaryError ? (
-                <p className="mt-2 text-sm text-amber-800" role="alert">{summaryError}</p>
+                <p className="mt-2 text-sm text-amber-800" role="alert">
+                  {summaryError}
+                </p>
               ) : null}
               <p className="mt-1 text-xs text-slate-500">
                 Total = soma das linhas válidas nos jobs concluídos (histórico acima).
@@ -843,23 +864,24 @@ export default function InternalDashboard() {
                   <SkeletonCards count={3} />
                 </div>
               ) : (
-              <div className="mt-3 grid gap-3 md:grid-cols-3">
-                <MetricCard
-                  label="Total importado"
-                  value={summary.totalImportedRows.toLocaleString("pt-BR")}
-                />
-                <MetricCard
-                  label="Operadoras"
-                  value={Object.keys(summary.byOperator).length}
-                />
-                <MetricCard
-                  label="Campos mapeados"
-                  value={Object.values(summary.fieldsByOperator).reduce((acc, fields) => acc + fields.length, 0)}
-                />
-              </div>
+                <div className="mt-3 grid gap-3 md:grid-cols-3">
+                  <MetricCard
+                    label="Total importado"
+                    value={summary.totalImportedRows.toLocaleString("pt-BR")}
+                  />
+                  <MetricCard label="Operadoras" value={Object.keys(summary.byOperator).length} />
+                  <MetricCard
+                    label="Campos mapeados"
+                    value={Object.values(summary.fieldsByOperator).reduce(
+                      (acc, fields) => acc + fields.length,
+                      0
+                    )}
+                  />
+                </div>
               )}
               <p className="mt-1 text-sm text-slate-700">
-                Total de linhas importadas: <span className="font-semibold">{summary.totalImportedRows}</span>
+                Total de linhas importadas:{" "}
+                <span className="font-semibold">{summary.totalImportedRows}</span>
               </p>
               <div className="mt-2 text-sm text-slate-700">
                 Operadoras:
@@ -885,7 +907,9 @@ export default function InternalDashboard() {
                 ) : (
                   Object.entries(summary.fieldsByOperator).map(([name, fields]) => (
                     <div key={name}>
-                      <p className="text-sm font-semibold text-slate-800">Campos detectados - {name}</p>
+                      <p className="text-sm font-semibold text-slate-800">
+                        Campos detectados - {name}
+                      </p>
                       <p className="text-xs text-slate-700">{fields.join(", ")}</p>
                     </div>
                   ))
@@ -909,8 +933,7 @@ function ImportProgressDetails({ job, compact = false, onCompleteStuck, completi
   const stalled = isImportStalled(job);
   const ageMs = getHeartbeatAgeMs(job);
   const ageMin = ageMs != null ? Math.floor(ageMs / 60000) : null;
-  const linesDone =
-    (job.total_rows || 0) > 0 && (job.processed_rows || 0) >= (job.total_rows || 0);
+  const linesDone = (job.total_rows || 0) > 0 && (job.processed_rows || 0) >= (job.total_rows || 0);
 
   return (
     <div className={compact ? "mt-1 space-y-1" : "mt-2 space-y-2"}>
@@ -919,14 +942,15 @@ function ImportProgressDetails({ job, compact = false, onCompleteStuck, completi
         {job.heartbeat_at ? (
           <span className="text-slate-500">
             {" "}
-            · última atualização há {ageMin != null && ageMin > 0 ? `${ageMin} min` : "poucos segundos"}
+            · última atualização há{" "}
+            {ageMin != null && ageMin > 0 ? `${ageMin} min` : "poucos segundos"}
           </span>
         ) : null}
       </p>
       {phase === "parsing" ? (
         <p className="text-xs text-amber-800">
-          Planilha Excel grande: se passar de alguns minutos sem subir o contador, o servidor pode ter ficado sem
-          memória. Prefira exportar como CSV (;) e importar o .csv.
+          Planilha Excel grande: se passar de alguns minutos sem subir o contador, o servidor pode
+          ter ficado sem memória. Prefira exportar como CSV (;) e importar o .csv.
         </p>
       ) : null}
       {phase === "reading" && (job.total_rows || 0) === 0 ? (
@@ -959,7 +983,9 @@ function ImportProgressDetails({ job, compact = false, onCompleteStuck, completi
               {completing ? "Concluindo…" : "Marcar importação como concluída"}
             </button>
           ) : (
-            <p className="mt-1 text-red-700">Atualize a página — após o deploy da API, a conclusão pode ser automática.</p>
+            <p className="mt-1 text-red-700">
+              Atualize a página — após o deploy da API, a conclusão pode ser automática.
+            </p>
           )}
         </div>
       ) : null}
@@ -995,8 +1021,21 @@ function formatBytes(value) {
 function formatAddressFromRecords(records) {
   if (!Array.isArray(records) || records.length === 0) return "";
   const row = records[0]?.row_data || {};
-  const logradouro = pickField(row, ["LOGRADOURO", "logradouro", "ENDERECO", "ENDEREÇO", "endereco"]);
-  const numero = pickField(row, ["NUM", "Numero", "NUMERO", "numero", "NUM_FACHADA", "num_fachada"]);
+  const logradouro = pickField(row, [
+    "LOGRADOURO",
+    "logradouro",
+    "ENDERECO",
+    "ENDEREÇO",
+    "endereco",
+  ]);
+  const numero = pickField(row, [
+    "NUM",
+    "Numero",
+    "NUMERO",
+    "numero",
+    "NUM_FACHADA",
+    "num_fachada",
+  ]);
   const bairro = pickField(row, ["BAIRRO", "bairro"]);
   const cidade = pickField(row, ["CIDADE", "Cidade", "MUNICIPIO", "municipio", "MUNICÍPIO"]);
   const uf = pickField(row, ["UF", "uf"]);
@@ -1043,7 +1082,9 @@ function OperatorSummaryCard({ operatorName, count, config }) {
       <div className="flex items-center gap-2">
         <OperatorLogo operatorName={operatorName} />
         <div>
-          <p className="text-sm font-semibold text-slate-800">{toOperatorDisplayName(operatorName)}</p>
+          <p className="text-sm font-semibold text-slate-800">
+            {toOperatorDisplayName(operatorName)}
+          </p>
           <p className="text-xs text-slate-500">{config.hint}</p>
         </div>
       </div>
@@ -1069,7 +1110,9 @@ function OperatorCoveragePanel({ operatorName, records }) {
             <OperatorLogo operatorName={operatorName} />
           </span>
           <div>
-            <p className="text-sm font-bold text-slate-900">{toOperatorDisplayName(operatorName)}</p>
+            <p className="text-sm font-bold text-slate-900">
+              {toOperatorDisplayName(operatorName)}
+            </p>
             <p className="text-xs text-slate-500">{config.hint}</p>
           </div>
         </div>
@@ -1328,7 +1371,12 @@ function buildJobStages(job) {
     {
       label: "2. Leitura",
       state: stageState(1),
-      text: phase === "reading" ? translateProgressPhase("reading") : stageState(1) === "done" ? "Concluída" : "—",
+      text:
+        phase === "reading"
+          ? translateProgressPhase("reading")
+          : stageState(1) === "done"
+            ? "Concluída"
+            : "—",
     },
     {
       label: "3. Parse",
@@ -1365,13 +1413,13 @@ function buildJobStages(job) {
 }
 
 function OperatorLogo({ operatorName }) {
+  const [logoFailed, setLogoFailed] = useState(false);
   const normalized = normalizeOperatorName(operatorName);
   const logoSrc = OPERATOR_LOGOS[normalized];
   const displayName = toOperatorDisplayName(operatorName);
   if (!logoSrc) {
     return <span className="text-xs font-semibold text-slate-700">{displayName}</span>;
   }
-  const [logoFailed, setLogoFailed] = useState(false);
   if (logoFailed) {
     return (
       <span className="inline-flex h-5 items-center text-xs font-semibold text-slate-700">
@@ -1391,7 +1439,9 @@ function OperatorLogo({ operatorName }) {
 }
 
 function normalizeOperatorName(name) {
-  return String(name || "").trim().toLowerCase();
+  return String(name || "")
+    .trim()
+    .toLowerCase();
 }
 
 function toOperatorDisplayName(name) {
@@ -1400,9 +1450,4 @@ function toOperatorDisplayName(name) {
   if (n === "nio") return "Nio";
   if (n === "vero") return "Vero";
   return String(name || "");
-}
-
-function hasOperator(operators, operatorName) {
-  const target = normalizeOperatorName(operatorName);
-  return Array.isArray(operators) && operators.some((item) => normalizeOperatorName(item) === target);
 }

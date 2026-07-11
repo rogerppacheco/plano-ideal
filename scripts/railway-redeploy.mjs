@@ -34,9 +34,7 @@ function loadEnvRailway() {
 }
 
 function loadConfig() {
-  return JSON.parse(
-    fs.readFileSync(path.join(__dirname, "railway-setup.config.json"), "utf8")
-  );
+  return JSON.parse(fs.readFileSync(path.join(__dirname, "railway-setup.config.json"), "utf8"));
 }
 
 async function gql(token, query, variables = {}) {

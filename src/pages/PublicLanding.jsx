@@ -21,11 +21,7 @@ const INTERNET_PLANS = [
     id: "super-800",
     name: "Super",
     speedLabel: "800 Mega",
-    benefits: [
-      "Roteador Wi-Fi 6 (nova geração)",
-      "Globoplay 12 meses incluso",
-      "Skeelo",
-    ],
+    benefits: ["Roteador Wi-Fi 6 (nova geração)", "Globoplay 12 meses incluso", "Skeelo"],
     priceStandard: 135,
     priceCard: 120,
     cardDiscount: 15,
@@ -36,11 +32,7 @@ const INTERNET_PLANS = [
     id: "ultra-1giga",
     name: "Ultra",
     speedLabel: "1 Giga",
-    benefits: [
-      "Roteador Wi-Fi 6",
-      "Globoplay 12 meses incluso",
-      "Skeelo",
-    ],
+    benefits: ["Roteador Wi-Fi 6", "Globoplay 12 meses incluso", "Skeelo"],
     priceStandard: 150,
     priceCard: 135,
     cardDiscount: 15,
@@ -58,7 +50,11 @@ const TRUST_PILLS = [
 
 const HERO_FEATURES = [
   { emoji: "⚡", title: "Velocidade real", desc: "Internet fibra direto até sua casa." },
-  { emoji: "📶", title: "Wi-Fi 6 incluso", desc: "Roteador de nova geração nos planos Super e Ultra." },
+  {
+    emoji: "📶",
+    title: "Wi-Fi 6 incluso",
+    desc: "Roteador de nova geração nos planos Super e Ultra.",
+  },
   { emoji: "📱", title: "Nosso App", desc: "Gerencie sua conta e suporte pelo aplicativo." },
 ];
 
@@ -337,8 +333,7 @@ export default function PublicLanding() {
                 </span>
 
                 <h2 className="mt-6 text-4xl font-black leading-[1.08] tracking-tight md:text-6xl">
-                  Internet fibra que{" "}
-                  <span className="text-neon-green">simplesmente funciona</span>
+                  Internet fibra que <span className="text-neon-green">simplesmente funciona</span>
                 </h2>
 
                 <p className="mt-5 text-base leading-relaxed text-white/70 md:text-xl">
@@ -444,8 +439,7 @@ export default function PublicLanding() {
                 Tem Nossa Fibra no seu endereço?
               </h2>
               <p className="mt-2 text-sm text-white/60">
-                Informe seu CEP e fale com um consultor no WhatsApp com a viabilidade já
-                preenchida.
+                Informe seu CEP e fale com um consultor no WhatsApp com a viabilidade já preenchida.
               </p>
 
               {selectedPlan ? (
@@ -467,7 +461,10 @@ export default function PublicLanding() {
 
               <form className="mt-6 grid gap-4" onSubmit={handleSubmit} noValidate>
                 <div>
-                  <label className="mb-1.5 block text-sm font-semibold text-white/80" htmlFor="name">
+                  <label
+                    className="mb-1.5 block text-sm font-semibold text-white/80"
+                    htmlFor="name"
+                  >
                     Nome
                   </label>
                   <input
@@ -484,7 +481,10 @@ export default function PublicLanding() {
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
-                    <label className="mb-1.5 block text-sm font-semibold text-white/80" htmlFor="cep">
+                    <label
+                      className="mb-1.5 block text-sm font-semibold text-white/80"
+                      htmlFor="cep"
+                    >
                       CEP <span className="text-neon-green">*</span>
                     </label>
                     <input

@@ -30,10 +30,7 @@ export function inferProgressPhase(job) {
   if (step.includes("memória") || step.includes("lendo arquivo") || step.includes("preparando")) {
     return "reading";
   }
-  if (
-    job.total_rows > 0 &&
-    (job.processed_rows || 0) >= job.total_rows
-  ) {
+  if (job.total_rows > 0 && (job.processed_rows || 0) >= job.total_rows) {
     return "finalizing";
   }
   if ((job.total_rows || 0) > 0) return "inserting";

@@ -1,0 +1,27 @@
+node_modules
+backend/node_modules
+dist
+coverage
+uploads
+pap-worker
+
+# Dados, mídia e artefatos
+*.csv
+*.xlsx
+*.xls
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.gif
+*.pdf
+
+# Docs e HTML estático (fora do gate de CI nesta onda)
+*.md
+index.html
+src/index.css
+
+# Arquivos gerados e segredos
+.env*
+package-lock.json
+backend/package-lock.json

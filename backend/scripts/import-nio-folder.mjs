@@ -1,23 +1,12 @@
 /**
- * Importa em massa uma pasta de .xlsx FTTH (ex.: 147 bases Vivo) direto no Postgres de produção.
+ * Importa em massa CSVs Nio (mailing DFV) direto no Postgres de produção.
  *
- * Pré-requisitos:
- *   comparador-leads/.env.railway com DATABASE_URL (Railway)
+ * Pré-requisitos: comparador-leads/.env.railway com DATABASE_URL
  *
  * Uso:
  *   cd comparador-leads/backend
- *   node ./scripts/import-ftth-folder.mjs "C:\caminho\Endereços FTTH"
- *
- * Opções:
- *   --operator Vivo          (padrão: Vivo)
- *   --skip-existing          pula arquivos já importados com sucesso
- *   --retry-failed           só arquivos sem job completed (falhou ou nunca rodou)
- *   --from AL.xlsx             retoma a partir deste arquivo (ordem alfabética)
- *   --files A.xlsx,B.xlsx    processa somente arquivos informados
- *   --limit 5                processa só N arquivos (teste)
- *   --dry-run                só lista o que seria importado
- *   --force                  ignora outro job em processing no banco
- *   --batch-size 500         registros por INSERT em lote (padrão: 500 ou IMPORT_BATCH_SIZE)
+ *   node ./scripts/import-nio-folder.mjs "C:\...\Mailing\DFV" --dry-run
+ *   node ./scripts/import-nio-folder.mjs "C:\...\Mailing\DFV" --skip-existing --force
  */
 import dotenv from "dotenv";
 import fs from "node:fs";
@@ -38,10 +27,12 @@ const root = path.join(__dirname, "..", "..");
 dotenv.config({ path: path.join(root, "backend", ".env") });
 dotenv.config({ path: path.join(root, ".env.railway"), override: true });
 
+const DEFAULT_OPERATOR = "Nio";
+
 function parseArgs(argv) {
   const opts = {
     folder: null,
-    operator: "Vivo",
+    operator: DEFAULT_OPERATOR,
     skipExisting: false,
     retryFailed: false,
     from: null,
@@ -50,7 +41,6 @@ function parseArgs(argv) {
     force: false,
     batchSize: null,
     files: null,
-    extraPositionals: [],
   };
   for (let i = 2; i < argv.length; i += 1) {
     const a = argv[i];
@@ -76,21 +66,9 @@ function parseArgs(argv) {
         .split(",")
         .map((s) => s.trim())
         .filter(Boolean);
-    } else if (!a.startsWith("--")) {
-      if (!opts.folder) {
-        opts.folder = a;
-      } else {
-        opts.extraPositionals.push(a);
-      }
+    } else if (!a.startsWith("--") && !opts.folder) {
+      opts.folder = a;
     }
-  }
-  // Fallback: alguns shells/npm podem "sumir" com --files e deixar apenas argumento posicional.
-  if (!opts.files?.length && opts.extraPositionals.length > 0) {
-    const joined = opts.extraPositionals.join(",");
-    opts.files = joined
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
   }
   return opts;
 }
@@ -108,26 +86,40 @@ async function getAdminUserId(pool) {
 async function isFileAlreadyImported(pool, fileName, operator) {
   const r = await pool.query(
     `
-      SELECT j.id
+      SELECT j.id, j.imported_rows, j.finished_at
       FROM import_jobs j
       INNER JOIN import_job_files f ON f.job_id = j.id AND f.file_name = $1
       WHERE j.status = 'completed'
         AND j.operator = $2
         AND j.reverted_at IS NULL
+      ORDER BY j.id DESC
       LIMIT 1
     `,
     [fileName, operator]
   );
-  return Boolean(r.rows[0]);
+  return r.rows[0] || null;
+}
+
+async function getFailedJob(pool, fileName, operator) {
+  const r = await pool.query(
+    `
+      SELECT j.id, j.error_message
+      FROM import_jobs j
+      INNER JOIN import_job_files f ON f.job_id = j.id AND f.file_name = $1
+      WHERE j.status = 'failed'
+        AND j.operator = $2
+        AND j.reverted_at IS NULL
+      ORDER BY j.id DESC
+      LIMIT 1
+    `,
+    [fileName, operator]
+  );
+  return r.rows[0] || null;
 }
 
 async function failStaleProcessingJobs(pool) {
   const r = await pool.query(
-    `
-      SELECT id FROM import_jobs
-      WHERE status IN ('queued', 'processing')
-      ORDER BY id
-    `
+    `SELECT id FROM import_jobs WHERE status IN ('queued', 'processing') ORDER BY id`
   );
   for (const row of r.rows) {
     await recoverStuckJob(pool, row.id);
@@ -138,7 +130,7 @@ async function failStaleProcessingJobs(pool) {
           UPDATE import_jobs
           SET status = 'failed',
               finished_at = NOW(),
-              error_message = 'Interrompido para liberar importação em massa (script FTTH).',
+              error_message = 'Interrompido para liberar importação em massa (script Nio CSV).',
               progress_phase = NULL
           WHERE id = $1
         `,
@@ -161,21 +153,14 @@ async function createJobForFile(pool, operator, userId, filePath, fileName) {
   const jobId = r.rows[0].id;
   return {
     jobId,
-    files: [
-      {
-        path: filePath,
-        originalname: fileName,
-        size: stat.size,
-      },
-    ],
+    files: [{ path: filePath, originalname: fileName, size: stat.size }],
   };
 }
 
-function listXlsxFiles(folder, filesFilter) {
+function listCsvFiles(folder, filesFilter) {
   let names = fs
     .readdirSync(folder)
-    .filter((f) => /\.xlsx$/i.test(f))
-    .filter((f) => !f.startsWith("~$"))
+    .filter((f) => /\.csv$/i.test(f))
     .sort((a, b) => a.localeCompare(b, "pt-BR"));
 
   if (filesFilter?.length) {
@@ -194,13 +179,14 @@ function listXlsxFiles(folder, filesFilter) {
 const opts = parseArgs(process.argv);
 if (!opts.folder || !fs.existsSync(opts.folder)) {
   console.error(`
-Uso: node ./scripts/import-ftth-folder.mjs "<pasta Endereços FTTH>" [opções]
+Uso: node ./scripts/import-nio-folder.mjs "<pasta DFV com CSVs>" [opções]
 
 Exemplo:
-  node ./scripts/import-ftth-folder.mjs "C:\\Users\\rogge\\Downloads\\Endereços FTTH-...\\Endereços FTTH" --operator Vivo --skip-existing
+  node ./scripts/import-nio-folder.mjs "C:\\Users\\rogge\\OneDrive - Parceiros Oi\\Oi\\Roger\\Mailing\\DFV" --dry-run
+  node ./scripts/import-nio-folder.mjs "..." --skip-existing --force
 
-Opções: --skip-existing --retry-failed --from MG_1.xlsx --limit 3 --dry-run --force
-        --files "SP_1.xlsx,SP_2.xlsx"   (só estes arquivos)
+Opções: --skip-existing --retry-failed --from "DDD 32.csv" --limit 1 --dry-run --force
+         --files "DDD 24.csv,DDD 22.csv"   (só estes arquivos)
 `);
   process.exit(1);
 }
@@ -219,11 +205,11 @@ const batchSize = Number(process.env.IMPORT_BATCH_SIZE ?? 500);
 const pool = createPool();
 const databaseUrl = process.env.DATABASE_URL;
 
-console.log("\n=== Importação em massa FTTH ===\n");
+console.log("\n=== Importação em massa Nio (CSV) ===\n");
 console.log("Pasta:", opts.folder);
 console.log("Operadora:", opts.operator);
 if (opts.retryFailed) {
-  console.log("Modo: só arquivos pendentes (sem importação concluída)");
+  console.log("Modo: só arquivos sem importação concluída");
 }
 console.log("Insert em lote:", batchSize, "registros por query");
 console.log("Banco:", process.env.DATABASE_URL.replace(/:[^:@]+@/, ":****@"));
@@ -236,7 +222,7 @@ if (!opts.force) {
   );
   if (busy.rows[0]) {
     console.error(
-      `\nJá existe job #${busy.rows[0].id} em "${busy.rows[0].status}". Aguarde ou use --force para encerrar jobs travados e continuar.\n`
+      `\nJá existe job #${busy.rows[0].id} em "${busy.rows[0].status}". Aguarde ou use --force.\n`
     );
     await pool.end();
     process.exit(1);
@@ -248,7 +234,7 @@ if (!opts.force) {
 
 const userId = await getAdminUserId(pool);
 
-let names = listXlsxFiles(opts.folder, opts.files);
+let names = listCsvFiles(opts.folder, opts.files);
 
 if (opts.from) {
   const idx = names.findIndex((n) => n.toLowerCase() === opts.from.toLowerCase());
@@ -266,12 +252,32 @@ if (opts.limit > 0) {
 console.log(`Arquivos na fila: ${names.length}\n`);
 
 if (opts.dryRun) {
+  let ok = 0;
+  let pend = 0;
+  let failedCount = 0;
   for (const name of names) {
     const fp = path.join(opts.folder, name);
     const sizeMb = (fs.statSync(fp).size / 1024 / 1024).toFixed(2);
-    const skip = opts.skipExisting && (await isFileAlreadyImported(pool, name, opts.operator));
-    console.log(`${skip ? "SKIP" : "    "} ${name} (${sizeMb} MB)`);
+    const job = await isFileAlreadyImported(pool, name, opts.operator);
+    const failed = !job ? await getFailedJob(pool, name, opts.operator) : null;
+    let tag;
+    if (job) {
+      ok += 1;
+      tag = `OK #${job.id} (${Number(job.imported_rows || 0).toLocaleString("pt-BR")} válidas)`;
+    } else if (failed) {
+      failedCount += 1;
+      pend += 1;
+      tag = `FALHOU #${failed.id} (reimportar)`;
+    } else {
+      pend += 1;
+      tag = "IMPORTAR";
+    }
+    console.log(`${tag.padEnd(42)} ${name} (${sizeMb} MB)`);
   }
+  console.log(
+    `\nResumo: ${ok} concluídos no banco | ${pend} a importar${failedCount ? ` (${failedCount} com falha anterior)` : ""}\n`
+  );
+  console.log("Para subir só o que falta: adicione --skip-existing --force\n");
   await pool.end();
   process.exit(0);
 }
@@ -286,24 +292,13 @@ for (let i = 0; i < names.length; i += 1) {
   const filePath = path.join(opts.folder, fileName);
   const label = `[${i + 1}/${names.length}]`;
 
-  if (!fs.existsSync(filePath)) {
-    console.log(
-      `${label} SKIP: ${fileName} — arquivo não encontrado (pode ter sido movido/removido).`
-    );
-    skipped += 1;
-    continue;
-  }
-
   if (opts.skipExisting && (await isFileAlreadyImported(pool, fileName, opts.operator))) {
     console.log(`${label} SKIP (já importado): ${fileName}`);
     skipped += 1;
     continue;
   }
 
-  const check = validateImportFile({
-    originalname: fileName,
-    size: fs.statSync(filePath).size,
-  });
+  const check = validateImportFile({ originalname: fileName, size: fs.statSync(filePath).size });
   if (!check.ok) {
     console.log(`${label} SKIP: ${fileName} — ${check.message}`);
     skipped += 1;

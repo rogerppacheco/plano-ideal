@@ -78,7 +78,9 @@ router.patch("/users/:id/status", requireAuth, requireRole(ROLES.ADMIN), async (
       userId,
       isActive: req.body?.isActive,
     });
-    const message = user.isActive ? "Usuário reativado com sucesso." : "Usuário inativado com sucesso.";
+    const message = user.isActive
+      ? "Usuário reativado com sucesso."
+      : "Usuário inativado com sucesso.";
     return res.json({ user, message });
   } catch (error) {
     return handleUserServiceError(error, res);

@@ -6,7 +6,10 @@ const ALLOWED_ACTIONS = new Set(AUDIT_ACTIONS);
  * Insere log de auditoria. Deve ser chamado dentro de uma transação aberta.
  * @param {import('pg').PoolClient} client
  */
-export async function insertAuditLog(client, { actorUserId, action, targetUserId = null, metadata = {} }) {
+export async function insertAuditLog(
+  client,
+  { actorUserId, action, targetUserId = null, metadata = {} }
+) {
   if (!ALLOWED_ACTIONS.has(action)) {
     throw new Error(`Ação de auditoria inválida: ${action}`);
   }

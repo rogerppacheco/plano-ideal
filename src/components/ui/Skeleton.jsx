@@ -6,10 +6,7 @@ export function SkeletonText({ lines = 3, className = "" }) {
   return (
     <div className={`space-y-2 ${className}`} aria-hidden="true">
       {Array.from({ length: lines }).map((_, i) => (
-        <Skeleton
-          key={i}
-          className={`h-3 ${i === lines - 1 ? "w-2/3" : "w-full"}`}
-        />
+        <Skeleton key={i} className={`h-3 ${i === lines - 1 ? "w-2/3" : "w-full"}`} />
       ))}
     </div>
   );
@@ -60,7 +57,11 @@ export function SkeletonTable({ rows = 5, cols = 4 }) {
 
 export function SkeletonCards({ count = 3 }) {
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-label="Carregando cards" role="status">
+    <div
+      className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
+      aria-label="Carregando cards"
+      role="status"
+    >
       {Array.from({ length: count }).map((_, i) => (
         <div key={i} className="metric-card space-y-3">
           <Skeleton className="h-3 w-24" />

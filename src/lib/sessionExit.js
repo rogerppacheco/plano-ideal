@@ -5,8 +5,7 @@ export const EXIT_REASON_KEY = "planoideal_session_exit";
 const EXIT_MESSAGES = {
   TOKEN_REVOKED:
     "Sua sessão foi encerrada porque sua senha, perfil ou status de acesso foi alterado. Faça login novamente.",
-  ACCOUNT_INACTIVE:
-    "Sua conta foi inativada. Entre em contato com o administrador do sistema.",
+  ACCOUNT_INACTIVE: "Sua conta foi inativada. Entre em contato com o administrador do sistema.",
   INVALID_TOKEN: "Sua sessão expirou. Faça login novamente para continuar.",
   USER_NOT_FOUND: "Usuário não encontrado. Faça login novamente.",
   UNAUTHORIZED: "Sessão inválida. Faça login novamente.",

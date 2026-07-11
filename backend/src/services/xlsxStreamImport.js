@@ -42,7 +42,8 @@ function getHeaderScoreFromTokens(tokens) {
   const set = new Set(tokens);
   let score = 0;
   if (set.has("cep")) score += 5;
-  if ([...set].some((t) => t.endsWith("_cep") || t.startsWith("cep_") || t.includes("cep"))) score += 3;
+  if ([...set].some((t) => t.endsWith("_cep") || t.startsWith("cep_") || t.includes("cep")))
+    score += 3;
   if (set.has("logradouro")) score += 2;
   if (set.has("cidade") || set.has("municipio")) score += 2;
   if (set.has("bairro")) score += 1;
@@ -158,7 +159,8 @@ export async function importXlsxFileExcelJs({
           const parsedHeader = parseHeaderRowFromValues(row.values || []);
           if (parsedHeader.nonEmptyCount === 0) continue;
           const hasCepLikeHeader = parsedHeader.score >= 5;
-          const fallbackAfterLimit = row.number > HEADER_SCAN_LIMIT && parsedHeader.nonEmptyCount >= 2;
+          const fallbackAfterLimit =
+            row.number > HEADER_SCAN_LIMIT && parsedHeader.nonEmptyCount >= 2;
           if (!hasCepLikeHeader && !fallbackAfterLimit) continue;
           headers = parsedHeader.headers;
           continue;

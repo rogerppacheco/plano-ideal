@@ -1,5 +1,4 @@
 import jwt from "jsonwebtoken";
-import { pool } from "../db.js";
 import { getAuthUserState } from "../services/userService.js";
 
 export async function requireAuth(req, res, next) {
