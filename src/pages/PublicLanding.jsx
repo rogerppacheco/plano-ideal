@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import mascotHero from "../assets/mascot-hero.png";
+import mascotHero from "../assets/mascot-hero-transparent.png";
 import { getPublicViabilityStatus } from "../services/api";
 import { maskCep } from "../utils/coverage";
 
@@ -72,6 +72,33 @@ function buildWhatsappLink({ name, cep, facade, statusCode, planLabel }) {
   const planInfo = planLabel ? `Plano de interesse: ${planLabel}. ` : "";
   const message = `Olá! Sou ${name}. Quero contratar internet fibra com o Plano Ideal. ${planInfo}Meu CEP é ${cep}. ${facadeInfo}${reference}`;
   return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
+}
+
+function HeroMascot() {
+  return (
+    <div className="relative flex w-full max-w-md items-center justify-center p-4 lg:max-w-lg lg:justify-end">
+      <div
+        className="pointer-events-none absolute -right-4 top-2 h-28 w-28 rounded-full bg-neon-green/25 blur-2xl"
+        aria-hidden="true"
+      />
+      <div
+        className="pointer-events-none absolute -bottom-8 -left-6 h-36 w-36 rounded-full bg-teal-400/15 blur-3xl"
+        aria-hidden="true"
+      />
+      <GlowingBlobs className="!absolute inset-0 scale-90 opacity-70" />
+      <div className="animate-float relative z-10 w-full">
+        <img
+          src={mascotHero}
+          alt="Mascote Plano Ideal — consultor de internet fibra"
+          className="mx-auto h-auto w-full max-w-sm object-contain drop-shadow-[0_20px_50px_rgba(57,255,20,0.35)] sm:max-w-md lg:max-w-lg"
+          width={512}
+          height={512}
+          loading="eager"
+          decoding="async"
+        />
+      </div>
+    </div>
+  );
 }
 
 function GlowingBlobs({ className = "" }) {
@@ -325,18 +352,7 @@ export default function PublicLanding() {
                 </div>
               </div>
 
-              <div className="relative flex justify-center lg:justify-end">
-                <GlowingBlobs className="!absolute inset-0 scale-75 opacity-80" />
-                <img
-                  src={mascotHero}
-                  alt="Mascote Plano Ideal — consultor de internet fibra"
-                  className="relative z-10 h-64 w-auto max-w-none animate-float object-contain drop-shadow-2xl sm:h-80 md:h-96 lg:h-[28rem]"
-                  width={512}
-                  height={512}
-                  loading="eager"
-                  decoding="async"
-                />
-              </div>
+              <HeroMascot />
             </div>
 
             <div className="mt-14 grid gap-4 sm:grid-cols-3">

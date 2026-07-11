@@ -78,7 +78,7 @@ export default {
       },
       animation: {
         "fade-up": "fade-up 0.5s ease-out both",
-        float: "levitate 5s ease-in-out infinite",
+        float: "levitate 6s ease-in-out infinite",
         "float-slow": "levitate 6s ease-in-out infinite",
         "float-medium": "levitate 5s ease-in-out infinite",
         "float-fast": "levitate 4s ease-in-out infinite",
@@ -91,8 +91,8 @@ export default {
           to: { opacity: "1", transform: "translateY(0)" },
         },
         levitate: {
-          "0%, 100%": { transform: "translateY(0px)" },
-          "50%": { transform: "translateY(-18px)" },
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-20px)" },
         },
         "blob-drift": {
           "0%, 100%": { transform: "translate(0, 0) scale(1)" },
