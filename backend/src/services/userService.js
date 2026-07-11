@@ -345,13 +345,16 @@ export async function deleteUser({ actorUserId, userId }) {
 
     const { rows: creditRows } = await client.query(
       `
-        SELECT COUNT(*)::int AS total
-        FROM credit_consultations
-        WHERE requested_by = $1
+        SELECT EXISTS (
+          SELECT 1
+          FROM credit_consultations
+          WHERE requested_by = $1
+          LIMIT 1
+        ) AS has_history
       `,
       [id]
     );
-    if ((creditRows[0]?.total ?? 0) > 0) {
+    if (creditRows[0]?.has_history) {
       throw new UserServiceError(
         "Usuário possui histórico de consultas de crédito. Use inativação em vez de exclusão.",
         409,

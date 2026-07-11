@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import {
+  ApiError,
   createInternalUser,
   deleteInternalUser,
   getInternalUsers,
@@ -35,6 +36,18 @@ function normalizeUser(user) {
     isActive,
     lastLoginAt: user.last_login_at ?? user.lastLoginAt,
   };
+}
+
+function getActionErrorMessage(error) {
+  if (error instanceof ApiError) {
+    if (error.code === "CREDIT_HISTORY_BLOCKED") {
+      return "Este usuário possui consultas de crédito registradas. Use Inativar em vez de Excluir.";
+    }
+    if (error.code === "REQUEST_TIMEOUT") {
+      return "A operação demorou demais. O servidor pode estar sobrecarregado — tente Inativar.";
+    }
+  }
+  return error.message || "Não foi possível concluir a ação.";
 }
 
 export function UsersAdminTab({ token, currentUserId }) {
@@ -127,7 +140,8 @@ export function UsersAdminTab({ token, currentUserId }) {
       setPendingAction(null);
       await loadUsers();
     } catch (error) {
-      toast.error(error.message || "Não foi possível concluir a ação.");
+      toast.error(getActionErrorMessage(error));
+      setPendingAction(null);
     } finally {
       setIsActionLoading(false);
     }

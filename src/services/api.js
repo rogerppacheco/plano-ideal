@@ -48,19 +48,37 @@ function handleUnauthorized(path, data) {
 }
 
 async function request(path, options = {}) {
-  const { skipAuthRedirect = false, ...fetchOptions } = options;
+  const { skipAuthRedirect = false, timeoutMs = 0, ...fetchOptions } = options;
   const url = buildRequestUrl(path);
+  const controller = timeoutMs > 0 ? new AbortController() : null;
+  const timer =
+    controller != null
+      ? setTimeout(() => controller.abort(), timeoutMs)
+      : null;
   let response;
 
   try {
-    response = await fetch(url, fetchOptions);
+    response = await fetch(url, {
+      ...fetchOptions,
+      signal: controller?.signal,
+    });
   } catch (error) {
+    if (error?.name === "AbortError") {
+      logRequestFailure(url, error, { path, type: "timeout", timeoutMs });
+      throw new ApiError("A operação demorou demais. Tente novamente em instantes.", {
+        status: 0,
+        code: "REQUEST_TIMEOUT",
+        url,
+      });
+    }
     logRequestFailure(url, error, { path, type: "network" });
     throw new ApiError(getFriendlyNetworkMessage(url), {
       status: 0,
       code: "NETWORK_ERROR",
       url,
     });
+  } finally {
+    if (timer) clearTimeout(timer);
   }
 
   const data = await response.json().catch(() => ({}));
@@ -209,6 +227,7 @@ export function updateInternalUserPassword({ userId, password, token }) {
 export function updateInternalUserStatus({ userId, isActive, token }) {
   return request(`/users/${userId}/status`, {
     method: "PATCH",
+    timeoutMs: 30000,
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
@@ -220,6 +239,7 @@ export function updateInternalUserStatus({ userId, isActive, token }) {
 export function deleteInternalUser({ userId, token }) {
   return request(`/users/${userId}`, {
     method: "DELETE",
+    timeoutMs: 30000,
     headers: {
       Authorization: `Bearer ${token}`,
     },

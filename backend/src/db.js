@@ -26,7 +26,10 @@ export function createPoolConfig(connectionString = process.env.DATABASE_URL) {
   const schema = getDbSchema();
   const config = {
     connectionString,
-    options: `-c search_path=${schema}`,
+    options: `-c search_path=${schema} -c statement_timeout=25000`,
+    max: Number(process.env.PG_POOL_MAX || 20),
+    connectionTimeoutMillis: Number(process.env.PG_CONNECTION_TIMEOUT_MS || 8000),
+    idleTimeoutMillis: Number(process.env.PG_IDLE_TIMEOUT_MS || 30000),
   };
   if (needsSsl(connectionString)) {
     config.ssl = { rejectUnauthorized: false };
