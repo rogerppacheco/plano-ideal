@@ -15,7 +15,11 @@ const app = express();
 const port = Number(process.env.PORT || 4000);
 
 function normalizeOrigin(value) {
-  return String(value || "").trim().replace(/\/+$/, "");
+  return String(value || "")
+    .trim()
+    .replace(/^['"]+|['"]+$/g, "")
+    .replace(/\]\(.*$/, "")
+    .replace(/\/+$/, "");
 }
 
 const allowedOrigins = (process.env.FRONTEND_ORIGIN || "http://localhost:5173")
