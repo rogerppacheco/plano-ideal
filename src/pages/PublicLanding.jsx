@@ -1,16 +1,14 @@
 import { useMemo, useState } from "react";
-import { BalloonMascot } from "../components/BalloonMascot";
-import { FloatingBubbles } from "../components/FloatingBubbles";
+import mascotHero from "../assets/mascot-hero.png";
 import { getPublicViabilityStatus } from "../services/api";
 import { maskCep } from "../utils/coverage";
 
 const WHATSAPP_NUMBER = "5511999999999";
 
-const NIO_PLANS = [
+const INTERNET_PLANS = [
   {
     id: "essencial-600",
     name: "Essencial",
-    speed: 600,
     speedLabel: "600 Mega",
     benefits: ["Roteador Wi-Fi 5", "Skeelo"],
     priceStandard: 110,
@@ -22,7 +20,6 @@ const NIO_PLANS = [
   {
     id: "super-800",
     name: "Super",
-    speed: 800,
     speedLabel: "800 Mega",
     benefits: [
       "Roteador Wi-Fi 6 (nova geração)",
@@ -38,7 +35,6 @@ const NIO_PLANS = [
   {
     id: "ultra-1giga",
     name: "Ultra",
-    speed: 1000,
     speedLabel: "1 Giga",
     benefits: [
       "Roteador Wi-Fi 6",
@@ -57,7 +53,13 @@ const TRUST_PILLS = [
   "Preço fixo até jan/2030",
   "Taxa de habilitação isenta*",
   "Fidelidade 12 meses",
-  "Fibra 100% óptica",
+  "Nossa Fibra 100% óptica",
+];
+
+const HERO_FEATURES = [
+  { emoji: "⚡", title: "Velocidade real", desc: "Internet fibra direto até sua casa." },
+  { emoji: "📶", title: "Wi-Fi 6 incluso", desc: "Roteador de nova geração nos planos Super e Ultra." },
+  { emoji: "📱", title: "Nosso App", desc: "Gerencie sua conta e suporte pelo aplicativo." },
 ];
 
 function formatPrice(value) {
@@ -68,17 +70,37 @@ function buildWhatsappLink({ name, cep, facade, statusCode, planLabel }) {
   const reference = statusCode === "V-OK" ? "[Ref: V-OK]" : "[Ref: V-NOK]";
   const facadeInfo = facade?.trim() ? `Fachada: ${facade.trim()}. ` : "";
   const planInfo = planLabel ? `Plano de interesse: ${planLabel}. ` : "";
-  const message = `Olá! Sou ${name}. Quero contratar internet fibra. ${planInfo}Meu CEP é ${cep}. ${facadeInfo}${reference}`;
+  const message = `Olá! Sou ${name}. Quero contratar internet fibra com o Plano Ideal. ${planInfo}Meu CEP é ${cep}. ${facadeInfo}${reference}`;
   return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
 }
 
-function FloatingBubblesLocal() {
-  return <FloatingBubbles variant="dark" />;
+function GlowingBlobs({ className = "" }) {
+  return (
+    <div
+      className={`pointer-events-none absolute inset-0 overflow-hidden ${className}`}
+      aria-hidden="true"
+    >
+      <div className="absolute -left-24 top-1/4 h-96 w-96 animate-blob-drift rounded-full bg-green-500 opacity-40 mix-blend-screen blur-[120px]" />
+      <div
+        className="absolute right-[-4rem] top-1/3 h-[28rem] w-[28rem] animate-blob-drift rounded-full bg-green-400 opacity-30 mix-blend-screen blur-[120px]"
+        style={{ animationDelay: "-4s" }}
+      />
+      <div
+        className="absolute bottom-[-6rem] left-1/2 h-96 w-96 -translate-x-1/2 animate-blob-drift rounded-full bg-green-500 opacity-35 mix-blend-screen blur-[120px]"
+        style={{ animationDelay: "-8s" }}
+      />
+    </div>
+  );
 }
 
 function CheckIcon() {
   return (
-    <svg className="h-4 w-4 shrink-0 text-neon-green" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+    <svg
+      className="mt-0.5 h-4 w-4 shrink-0 text-neon-green"
+      viewBox="0 0 20 20"
+      fill="currentColor"
+      aria-hidden="true"
+    >
       <path
         fillRule="evenodd"
         d="M16.704 5.29a1 1 0 010 1.42l-7.25 7.25a1 1 0 01-1.42 0l-3.25-3.25a1 1 0 111.42-1.42l2.54 2.54 6.54-6.54a1 1 0 011.42 0z"
@@ -90,76 +112,70 @@ function CheckIcon() {
 
 function PlanCard({ plan, onSelect }) {
   const isFeatured = plan.featured;
+  const speedNumber = plan.speedLabel.split(" ")[0];
+  const speedUnit = plan.speedLabel.includes("Giga") ? "Giga" : "Mega";
 
   return (
     <article
       className={`relative flex flex-col rounded-[2rem] border p-6 transition duration-300 sm:p-8 ${
         isFeatured
-          ? "z-10 scale-105 border-neon-green/60 bg-white shadow-nio-featured sm:scale-105"
-          : "border-white/10 bg-white/95 shadow-nio-card backdrop-blur-sm hover:-translate-y-1 hover:shadow-neon-glow"
+          ? "z-10 scale-105 border-neon-green/50 bg-white shadow-pi-featured"
+          : "border-white/10 bg-white/95 shadow-pi-card backdrop-blur-sm hover:-translate-y-1 hover:shadow-neon-glow"
       }`}
       aria-label={`Plano ${plan.name} ${plan.speedLabel}`}
     >
       {plan.badge ? (
-        <span className="absolute -top-4 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-neon-green px-4 py-1.5 text-xs font-extrabold uppercase tracking-wide text-nio-dark shadow-neon-glow">
+        <span className="absolute -top-4 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-neon-green px-4 py-1.5 text-xs font-extrabold uppercase tracking-wide text-pi-dark shadow-neon-glow">
           {plan.badge}
         </span>
       ) : null}
 
-      <div className="flex items-center justify-between gap-2">
-        {isFeatured ? (
-          <span className="rounded-full bg-neon-green/20 px-2.5 py-0.5 text-[10px] font-bold uppercase text-nio-dark">
-            Destaque
-          </span>
-        ) : (
-          <span className="rounded-full bg-nio-dark/5 px-3 py-1 text-xs font-bold uppercase tracking-wider text-nio-dark/50">
-            Fibra óptica
-          </span>
-        )}
-      </div>
+      <span className="w-fit rounded-full bg-pi-dark/5 px-3 py-1 text-xs font-bold uppercase tracking-wider text-pi-dark/60">
+        {isFeatured ? "Plano destaque" : "Internet Fibra"}
+      </span>
 
-      <h3 className="mt-4 text-lg font-bold text-nio-dark">{plan.name}</h3>
+      <h3 className="mt-4 text-lg font-bold text-pi-dark">{plan.name}</h3>
 
       <div className="mt-1 flex items-end gap-1.5">
-        <span className="text-4xl font-black leading-none text-nio-dark sm:text-5xl">
-          {plan.speedLabel.split(" ")[0]}
+        <span className="text-4xl font-black leading-none text-pi-dark sm:text-5xl">
+          {speedNumber}
         </span>
-        <span className="mb-1 text-base font-bold text-nio-dark/60">
-          {plan.speedLabel.includes("Giga") ? "Giga" : "Mega"}
-        </span>
+        <span className="mb-1 text-base font-bold text-pi-dark/60">{speedUnit}</span>
       </div>
 
       <ul className="mt-5 flex-1 space-y-2.5" aria-label="Benefícios do plano">
         {plan.benefits.map((benefit) => (
-          <li key={benefit} className="flex items-start gap-2 text-sm text-nio-dark/80">
+          <li key={benefit} className="flex items-start gap-2 text-sm text-pi-dark/80">
             <CheckIcon />
             {benefit}
           </li>
         ))}
       </ul>
 
-      <div className="mt-6 space-y-3 rounded-[1.5rem] bg-nio-dark/5 p-4">
+      <div className="mt-6 space-y-3 rounded-[1.5rem] bg-pi-dark/5 p-4">
         <div>
-          <p className="text-xs text-nio-dark/50">Boleto / Débito</p>
-          <p className="text-xl font-bold text-nio-dark/70 line-through decoration-nio-dark/30">
+          <p className="text-xs text-pi-dark/50">Boleto / Débito</p>
+          <p className="text-xl font-bold text-pi-dark/60 line-through decoration-pi-dark/25">
             {formatPrice(plan.priceStandard)}
             <span className="text-sm font-medium">/mês</span>
           </p>
         </div>
 
-        <div className="relative">
-          <span className="absolute -top-3 left-0 rounded-full bg-neon-green px-2.5 py-0.5 text-[10px] font-extrabold uppercase text-nio-dark shadow-sm">
+        <div className="relative pt-1">
+          <span className="absolute -top-2 left-0 rounded-full bg-neon-green px-2.5 py-0.5 text-[10px] font-extrabold uppercase text-pi-dark">
             Desconto no Cartão −{formatPrice(plan.cardDiscount)}
           </span>
-          <p className="pt-1 text-3xl font-black text-nio-dark">
+          <p className="pt-2 text-3xl font-black text-pi-dark">
             {formatPrice(plan.priceCard)}
-            <span className="text-base font-semibold text-nio-dark/50">/mês</span>
+            <span className="text-base font-semibold text-pi-dark/50">/mês</span>
           </p>
-          <p className="mt-0.5 text-xs font-medium text-neon-green">pagando no cartão de crédito</p>
+          <p className="mt-0.5 text-xs font-semibold text-neon-green">
+            pagando no cartão de crédito
+          </p>
         </div>
       </div>
 
-      <p className="mt-3 text-center text-[11px] text-nio-dark/40">
+      <p className="mt-3 text-center text-[11px] text-pi-dark/40">
         Preço fixo até jan/2030 · Taxa de habilitação isenta*
       </p>
 
@@ -168,8 +184,8 @@ function PlanCard({ plan, onSelect }) {
         onClick={() => onSelect(plan)}
         className={`mt-5 w-full rounded-full px-6 py-4 text-sm font-extrabold transition duration-200 hover:scale-[1.02] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${
           isFeatured
-            ? "bg-neon-green text-nio-dark shadow-neon-glow hover:shadow-neon-glow-lg focus-visible:outline-neon-green"
-            : "bg-nio-dark text-white hover:bg-nio-darker focus-visible:outline-nio-dark"
+            ? "bg-neon-green text-pi-dark shadow-neon-glow hover:shadow-neon-glow-lg focus-visible:outline-neon-green"
+            : "bg-pi-dark text-white hover:bg-pi-darker focus-visible:outline-neon-green"
         }`}
         aria-label={`Contratar plano ${plan.name} ${plan.speedLabel}`}
       >
@@ -234,11 +250,11 @@ export default function PublicLanding() {
   };
 
   return (
-    <div className="min-h-screen bg-nio-dark text-white">
-      <header className="sticky top-0 z-30 border-b border-white/10 bg-nio-dark/80 backdrop-blur-md">
+    <div className="min-h-screen bg-pi-dark text-white">
+      <header className="sticky top-0 z-30 border-b border-white/10 bg-pi-dark/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 md:px-8">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-neon-green text-sm font-black text-nio-dark">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-neon-green text-sm font-black text-pi-dark">
               PI
             </div>
             <div>
@@ -250,7 +266,7 @@ export default function PublicLanding() {
           </div>
           <a
             href="#planos"
-            className="hidden rounded-full bg-neon-green px-5 py-2.5 text-sm font-extrabold text-nio-dark shadow-neon-glow transition hover:scale-105 sm:inline-flex"
+            className="hidden rounded-full bg-neon-green px-5 py-2.5 text-sm font-extrabold text-pi-dark shadow-neon-glow transition hover:scale-105 sm:inline-flex"
             aria-label="Ver planos de internet disponíveis"
           >
             Ver planos
@@ -260,71 +276,80 @@ export default function PublicLanding() {
 
       <main>
         {/* Hero */}
-        <section className="relative overflow-hidden border-b border-white/5 bg-nio-dark">
-          <FloatingBubblesLocal />
-          <div className="relative mx-auto max-w-6xl px-4 py-16 md:px-8 md:py-24">
-            <div className="grid items-center gap-10 lg:grid-cols-[1fr_auto] lg:gap-6">
-              <div className="mx-auto max-w-3xl text-center lg:mx-0 lg:text-left">
-              <span className="inline-block rounded-full border border-neon-green/30 bg-neon-green/10 px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-neon-green">
-                Internet fibra ultra rápida
-              </span>
+        <section className="relative overflow-hidden border-b border-white/5 bg-pi-dark">
+          <GlowingBlobs />
+          <div className="relative z-10 mx-auto max-w-6xl px-4 py-16 md:px-8 md:py-24">
+            <div className="grid items-center gap-8 lg:grid-cols-[1fr_auto] lg:gap-4">
+              <div className="mx-auto max-w-2xl text-center lg:mx-0 lg:text-left">
+                <span className="inline-block rounded-full border border-neon-green/25 bg-neon-green/10 px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-neon-green">
+                  Nossa Fibra · ultra rápida
+                </span>
 
-              <h2 className="mt-6 text-4xl font-black leading-[1.1] tracking-tight md:text-6xl">
-                Internet fibra que{" "}
-                <span className="text-neon-green">simplesmente funciona</span>
-              </h2>
+                <h2 className="mt-6 text-4xl font-black leading-[1.08] tracking-tight md:text-6xl">
+                  Internet fibra que{" "}
+                  <span className="text-neon-green">simplesmente funciona</span>
+                </h2>
 
-              <p className="mt-5 text-base text-white/70 md:text-xl">
-                Velocidade real, Wi-Fi de última geração e{" "}
-                <strong className="font-bold text-neon-green">preço fixo até janeiro de 2030</strong>.
-                Sem surpresas na fatura.
-              </p>
+                <p className="mt-5 text-base leading-relaxed text-white/70 md:text-xl">
+                  Velocidade real, Wi-Fi de última geração e{" "}
+                  <strong className="font-bold text-neon-green">
+                    preço fixo até janeiro de 2030
+                  </strong>
+                  . Sem surpresas na fatura.
+                </p>
 
-              <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
-                {TRUST_PILLS.map((pill) => (
-                  <span
-                    key={pill}
-                    className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-white/80 backdrop-blur-sm"
+                <div className="mt-6 flex flex-wrap items-center justify-center gap-2 lg:justify-start">
+                  {TRUST_PILLS.map((pill) => (
+                    <span
+                      key={pill}
+                      className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-white/80 backdrop-blur-sm"
+                    >
+                      {pill}
+                    </span>
+                  ))}
+                </div>
+
+                <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row lg:justify-start">
+                  <a
+                    href="#planos"
+                    className="w-full rounded-full bg-neon-green px-8 py-4 text-center text-base font-extrabold text-pi-dark shadow-neon-glow transition hover:scale-105 hover:shadow-neon-glow-lg sm:w-auto"
                   >
-                    {pill}
-                  </span>
-                ))}
+                    Escolher meu plano
+                  </a>
+                  <a
+                    href="#consulta-cobertura"
+                    className="w-full rounded-full border border-white/20 bg-white/5 px-8 py-4 text-center text-base font-bold text-white backdrop-blur-sm transition hover:bg-white/10 sm:w-auto"
+                  >
+                    Consultar meu CEP
+                  </a>
+                </div>
               </div>
 
-              <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row lg:justify-start">
-                <a
-                  href="#planos"
-                  className="w-full rounded-full bg-neon-green px-8 py-4 text-base font-extrabold text-nio-dark shadow-neon-glow transition hover:scale-105 hover:shadow-neon-glow-lg sm:w-auto"
-                >
-                  Escolher meu plano
-                </a>
-                <a
-                  href="#consulta-cobertura"
-                  className="w-full rounded-full border border-white/20 bg-white/5 px-8 py-4 text-base font-bold text-white backdrop-blur-sm transition hover:bg-white/10 sm:w-auto"
-                >
-                  Consultar meu CEP
-                </a>
-              </div>
-              </div>
-
-              <div className="flex justify-center lg:justify-end">
-                <BalloonMascot size="xl" className="lg:-mr-8" />
+              <div className="relative flex justify-center lg:justify-end">
+                <GlowingBlobs className="!absolute inset-0 scale-75 opacity-80" />
+                <img
+                  src={mascotHero}
+                  alt="Mascote Plano Ideal — consultor de internet fibra"
+                  className="relative z-10 h-64 w-auto max-w-none animate-float object-contain drop-shadow-2xl sm:h-80 md:h-96 lg:h-[28rem]"
+                  width={512}
+                  height={512}
+                  loading="eager"
+                  decoding="async"
+                />
               </div>
             </div>
 
             <div className="mt-14 grid gap-4 sm:grid-cols-3">
-              {[
-                { emoji: "⚡", title: "Velocidade real", desc: "Fibra óptica direto até sua casa." },
-                { emoji: "📶", title: "Wi-Fi 6 incluso", desc: "Roteador de nova geração nos planos Super e Ultra." },
-                { emoji: "💬", title: "Atendimento humano", desc: "Consulta de cobertura e contratação via WhatsApp." },
-              ].map((item) => (
+              {HERO_FEATURES.map((item) => (
                 <div
                   key={item.title}
-                  className="rounded-[2rem] border border-white/10 bg-white/5 p-5 backdrop-blur-sm transition hover:border-neon-green/30"
+                  className="rounded-[2rem] border border-white/10 bg-white/5 p-5 backdrop-blur-sm transition hover:border-neon-green/25"
                 >
-                  <span className="text-2xl" aria-hidden="true">{item.emoji}</span>
+                  <span className="text-2xl" aria-hidden="true">
+                    {item.emoji}
+                  </span>
                   <p className="mt-2 text-sm font-bold text-white">{item.title}</p>
-                  <p className="mt-1 text-xs text-white/60">{item.desc}</p>
+                  <p className="mt-1 text-xs leading-relaxed text-white/60">{item.desc}</p>
                 </div>
               ))}
             </div>
@@ -334,17 +359,14 @@ export default function PublicLanding() {
         {/* Planos */}
         <section
           id="planos"
-          className="relative bg-nio-darker py-16 md:py-24"
+          className="relative overflow-hidden bg-pi-darker py-16 md:py-24"
           aria-labelledby="planos-titulo"
         >
-          <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-            <div className="absolute left-1/3 top-0 h-72 w-72 rounded-full bg-neon-green/8 blur-3xl" />
-          </div>
-
-          <div className="relative mx-auto max-w-6xl px-4 md:px-8">
+          <GlowingBlobs />
+          <div className="relative z-10 mx-auto max-w-6xl px-4 md:px-8">
             <div className="mb-12 text-center">
               <span className="rounded-full bg-neon-green/15 px-4 py-1 text-xs font-bold uppercase tracking-widest text-neon-green">
-                Nossos planos
+                Planos Internet Fibra
               </span>
               <h2 id="planos-titulo" className="mt-4 text-3xl font-black text-white md:text-5xl">
                 Escolha sua velocidade
@@ -355,7 +377,7 @@ export default function PublicLanding() {
             </div>
 
             <div className="grid items-center gap-6 md:grid-cols-3 md:gap-4 lg:gap-6">
-              {NIO_PLANS.map((plan) => (
+              {INTERNET_PLANS.map((plan) => (
                 <PlanCard key={plan.id} plan={plan} onSelect={handlePlanSelect} />
               ))}
             </div>
@@ -369,30 +391,33 @@ export default function PublicLanding() {
         {/* Consulta CEP */}
         <section
           id="consulta-cobertura"
-          className="border-t border-white/5 bg-nio-dark py-16 md:py-24"
+          className="relative overflow-hidden border-t border-white/5 bg-pi-dark py-16 md:py-24"
           aria-labelledby="consulta-titulo"
         >
-          <div className="mx-auto max-w-6xl px-4 md:px-8">
+          <GlowingBlobs />
+          <div className="relative z-10 mx-auto max-w-6xl px-4 md:px-8">
             <div className="mx-auto max-w-2xl rounded-[2rem] border border-white/10 bg-white/5 p-6 backdrop-blur-md md:p-10">
               <span className="rounded-full bg-neon-green/15 px-3 py-1 text-xs font-bold uppercase tracking-widest text-neon-green">
                 Consulta de cobertura
               </span>
               <h2 id="consulta-titulo" className="mt-4 text-2xl font-black text-white md:text-3xl">
-                Tem fibra no seu endereço?
+                Tem Nossa Fibra no seu endereço?
               </h2>
               <p className="mt-2 text-sm text-white/60">
-                Informe seu CEP e fale com um consultor no WhatsApp com a viabilidade já preenchida.
+                Informe seu CEP e fale com um consultor no WhatsApp com a viabilidade já
+                preenchida.
               </p>
 
               {selectedPlan ? (
                 <div className="mt-5 flex flex-wrap items-center gap-2 rounded-full border border-neon-green/30 bg-neon-green/10 px-4 py-2.5 text-sm text-neon-green">
                   <span className="font-bold">
-                    {selectedPlan.name} {selectedPlan.speedLabel} — {formatPrice(selectedPlan.priceCard)}/mês
+                    {selectedPlan.name} {selectedPlan.speedLabel} —{" "}
+                    {formatPrice(selectedPlan.priceCard)}/mês
                   </span>
                   <button
                     type="button"
                     onClick={() => setSelectedPlan(null)}
-                    className="rounded-full bg-white/10 px-2 py-0.5 text-xs font-semibold text-white/70 hover:bg-white/20"
+                    className="rounded-full bg-white/10 px-2 py-0.5 text-xs font-semibold text-white/70 transition hover:bg-white/20"
                     aria-label="Remover plano selecionado"
                   >
                     trocar
@@ -436,7 +461,7 @@ export default function PublicLanding() {
                       }`}
                       autoComplete="postal-code"
                       aria-invalid={cepError ? "true" : "false"}
-                      aria-describedby={cepError ? "cep-error" : undefined}
+                      aria-describedby={cepError ? "cep-error" : "cep-hint"}
                       required
                     />
                     {cepError ? (
@@ -444,12 +469,17 @@ export default function PublicLanding() {
                         {cepError}
                       </p>
                     ) : (
-                      <p className="mt-1.5 text-xs text-white/40">Formato: 00000-000</p>
+                      <p id="cep-hint" className="mt-1.5 text-xs text-white/40">
+                        Formato: 00000-000
+                      </p>
                     )}
                   </div>
 
                   <div>
-                    <label className="mb-1.5 block text-sm font-semibold text-white/80" htmlFor="facade">
+                    <label
+                      className="mb-1.5 block text-sm font-semibold text-white/80"
+                      htmlFor="facade"
+                    >
                       Fachada <span className="font-normal text-white/40">(opcional)</span>
                     </label>
                     <input
@@ -467,7 +497,7 @@ export default function PublicLanding() {
                 <button
                   type="submit"
                   disabled={!canSubmit || isSubmitting}
-                  className="w-full rounded-full bg-neon-green py-4 text-base font-extrabold text-nio-dark shadow-neon-glow transition hover:scale-[1.02] hover:shadow-neon-glow-lg disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100"
+                  className="w-full rounded-full bg-neon-green py-4 text-base font-extrabold text-pi-dark shadow-neon-glow transition hover:scale-[1.02] hover:shadow-neon-glow-lg disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100"
                   aria-label="Consultar cobertura e abrir WhatsApp"
                 >
                   {isSubmitting ? "Consultando cobertura…" : "Consultar e falar no WhatsApp"}
@@ -488,7 +518,7 @@ export default function PublicLanding() {
         </section>
       </main>
 
-      <footer className="border-t border-white/5 bg-nio-darker">
+      <footer className="border-t border-white/5 bg-pi-darker">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 py-8 text-center text-sm text-white/40 md:flex-row md:px-8 md:text-left">
           <p>© {new Date().getFullYear()} Plano Ideal. Todos os direitos reservados.</p>
           <a

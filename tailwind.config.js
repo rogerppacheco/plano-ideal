@@ -29,6 +29,15 @@ export default {
           800: "#1e293b",
           900: "#0f172a",
         },
+        /* Paleta white-label — Plano Ideal */
+        pi: {
+          dark: "#0A1A0A",
+          darker: "#111111",
+          surface: "#141F14",
+          muted: "#1C2B1C",
+          ink: "#0F1A0F",
+        },
+        /* Mantido para área interna (alias visual) */
         nio: {
           dark: "#0A1A0A",
           darker: "#111111",
@@ -58,6 +67,8 @@ export default {
         cta: "0 8px 24px -6px rgba(22, 163, 74, 0.35)",
         "neon-glow": "0 0 40px rgba(57, 255, 20, 0.35)",
         "neon-glow-lg": "0 0 60px rgba(57, 255, 20, 0.45)",
+        "pi-card": "0 8px 32px -8px rgba(0, 0, 0, 0.4)",
+        "pi-featured": "0 0 0 2px #39FF14, 0 12px 48px -8px rgba(57, 255, 20, 0.3)",
         "nio-card": "0 8px 32px -8px rgba(0, 0, 0, 0.4)",
         "nio-featured": "0 0 0 2px #39FF14, 0 12px 48px -8px rgba(57, 255, 20, 0.3)",
       },
@@ -67,24 +78,30 @@ export default {
       },
       animation: {
         "fade-up": "fade-up 0.5s ease-out both",
-        "float-slow": "float 9s ease-in-out infinite",
-        "float-medium": "float 6s ease-in-out infinite",
-        "float-fast": "float 4s ease-in-out infinite",
+        float: "levitate 5s ease-in-out infinite",
+        "float-slow": "levitate 6s ease-in-out infinite",
+        "float-medium": "levitate 5s ease-in-out infinite",
+        "float-fast": "levitate 4s ease-in-out infinite",
         "pulse-neon": "pulse-neon 3s ease-in-out infinite",
+        "blob-drift": "blob-drift 12s ease-in-out infinite",
       },
       keyframes: {
         "fade-up": {
           from: { opacity: "0", transform: "translateY(12px)" },
           to: { opacity: "1", transform: "translateY(0)" },
         },
-        float: {
-          "0%, 100%": { transform: "translateY(0px) translateX(0px)" },
-          "33%": { transform: "translateY(-18px) translateX(8px)" },
-          "66%": { transform: "translateY(-8px) translateX(-6px)" },
+        levitate: {
+          "0%, 100%": { transform: "translateY(0px)" },
+          "50%": { transform: "translateY(-18px)" },
+        },
+        "blob-drift": {
+          "0%, 100%": { transform: "translate(0, 0) scale(1)" },
+          "33%": { transform: "translate(12px, -20px) scale(1.05)" },
+          "66%": { transform: "translate(-8px, 10px) scale(0.97)" },
         },
         "pulse-neon": {
-          "0%, 100%": { opacity: "0.4" },
-          "50%": { opacity: "0.7" },
+          "0%, 100%": { opacity: "0.35" },
+          "50%": { opacity: "0.55" },
         },
       },
       backdropBlur: {
