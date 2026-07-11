@@ -226,12 +226,17 @@
     @apply bg-white/20 text-white;
   }
 
+  .dashboard-shell .badge-role {
+    @apply inline-flex rounded-full bg-neon-green/15 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide text-neon-green ring-1 ring-neon-green/30;
+  }
+
   .dashboard-shell .text-slate-900 { @apply text-white; }
   .dashboard-shell .text-slate-800 { @apply text-white/90; }
   .dashboard-shell .text-slate-700 { @apply text-white/80; }
   .dashboard-shell .text-slate-600 { @apply text-white/60; }
   .dashboard-shell .text-slate-500 { @apply text-white/50; }
   .dashboard-shell .bg-slate-50 { @apply bg-white/5; }
+  .dashboard-shell .bg-slate-100 { @apply bg-white/15; }
   .dashboard-shell .bg-white { @apply bg-white/10; }
   .dashboard-shell .border-slate-200 { @apply border-white/10; }
   .dashboard-shell .border-slate-100 { @apply border-white/5; }
