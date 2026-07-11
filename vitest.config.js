@@ -8,7 +8,12 @@ export default defineConfig({
     setupFiles: ["./src/test/setup.ts"],
     coverage: {
       provider: "v8",
-      include: ["src/lib/sessionExit.ts", "src/lib/rbac.ts", "src/services/api.ts"],
+      include: [
+        "src/lib/sessionExit.ts",
+        "src/lib/rbac.ts",
+        "src/services/api.ts",
+        "src/utils/importProgress.ts",
+      ],
       reporter: ["text", "text-summary"],
     },
   },

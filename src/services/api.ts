@@ -9,6 +9,15 @@ import type {
   UserMutationResponse,
   UsersListResponse,
 } from "../types/api";
+import type {
+  ActiveImportJobResponse,
+  CompleteImportJobResponse,
+  CreateImportJobResponse,
+  ImportJobStatusResponse,
+  ImportJobsHistoryResponse,
+  ImportSummaryResponse,
+  RevertImportJobResponse,
+} from "../types/import";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api";
 const SKIP_AUTH_REDIRECT_PATHS = new Set(["/auth/login"]);
@@ -157,8 +166,8 @@ export function getCoverageByCep(cep: string, token: string): Promise<unknown> {
   });
 }
 
-export function getImportSummary(token: string): Promise<unknown> {
-  return request("/import/summary", {
+export function getImportSummary(token: string): Promise<ImportSummaryResponse> {
+  return request<ImportSummaryResponse>("/import/summary", {
     headers: {
       Authorization: `Bearer ${token}`,
     },
@@ -173,12 +182,12 @@ export function createImportJob({
   operator: string;
   files: File[];
   token: string;
-}): Promise<unknown> {
+}): Promise<CreateImportJobResponse> {
   const formData = new FormData();
   formData.append("operator", operator);
   files.forEach((file) => formData.append("files", file));
 
-  return request("/import", {
+  return request<CreateImportJobResponse>("/import", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -187,32 +196,38 @@ export function createImportJob({
   });
 }
 
-export function getImportJobStatus(jobId: string | number, token: string): Promise<unknown> {
-  return request(`/import/jobs/${jobId}`, {
+export function getImportJobStatus(
+  jobId: string | number,
+  token: string
+): Promise<ImportJobStatusResponse> {
+  return request<ImportJobStatusResponse>(`/import/jobs/${jobId}`, {
     headers: {
       Authorization: `Bearer ${token}`,
     },
   });
 }
 
-export function getImportJobsHistory(token: string): Promise<unknown> {
-  return request("/import/jobs", {
+export function getImportJobsHistory(token: string): Promise<ImportJobsHistoryResponse> {
+  return request<ImportJobsHistoryResponse>("/import/jobs", {
     headers: {
       Authorization: `Bearer ${token}`,
     },
   });
 }
 
-export function getActiveImportJob(token: string): Promise<unknown> {
-  return request("/import/jobs/active", {
+export function getActiveImportJob(token: string): Promise<ActiveImportJobResponse> {
+  return request<ActiveImportJobResponse>("/import/jobs/active", {
     headers: {
       Authorization: `Bearer ${token}`,
     },
   });
 }
 
-export function revertImportJob(jobId: string | number, token: string): Promise<unknown> {
-  return request(`/import/jobs/${jobId}`, {
+export function revertImportJob(
+  jobId: string | number,
+  token: string
+): Promise<RevertImportJobResponse> {
+  return request<RevertImportJobResponse>(`/import/jobs/${jobId}`, {
     method: "DELETE",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -220,8 +235,11 @@ export function revertImportJob(jobId: string | number, token: string): Promise<
   });
 }
 
-export function completeStuckImportJob(jobId: string | number, token: string): Promise<unknown> {
-  return request(`/import/jobs/${jobId}/complete`, {
+export function completeStuckImportJob(
+  jobId: string | number,
+  token: string
+): Promise<CompleteImportJobResponse> {
+  return request<CompleteImportJobResponse>(`/import/jobs/${jobId}/complete`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
