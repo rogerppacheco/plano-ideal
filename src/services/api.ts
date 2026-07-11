@@ -11,6 +11,11 @@ import type {
 } from "../types/api";
 import type { CoverageByCepResponse, PublicViabilityResponse } from "../types/coverage";
 import type {
+  CreditConsultationResponse,
+  CreditConsultationsListResponse,
+  CreditScreenshotResponse,
+} from "../types/credit";
+import type {
   ActiveImportJobResponse,
   CompleteImportJobResponse,
   CreateImportJobResponse,
@@ -357,8 +362,8 @@ export function startCreditConsultation({
   token: string;
   document: string;
   cpfRepresentative?: string;
-}): Promise<unknown> {
-  return request("/credit/consult", {
+}): Promise<CreditConsultationResponse> {
+  return request<CreditConsultationResponse>("/credit/consult", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -368,14 +373,20 @@ export function startCreditConsultation({
   });
 }
 
-export function getCreditConsultation(id: string | number, token: string): Promise<unknown> {
-  return request(`/credit/consultations/${id}`, {
+export function getCreditConsultation(
+  id: string | number,
+  token: string
+): Promise<CreditConsultationResponse> {
+  return request<CreditConsultationResponse>(`/credit/consultations/${id}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
 }
 
-export function getCreditConsultationHistory(token: string, limit = 50): Promise<unknown> {
-  return request(`/credit/consultations?limit=${limit}`, {
+export function getCreditConsultationHistory(
+  token: string,
+  limit = 50
+): Promise<CreditConsultationsListResponse> {
+  return request<CreditConsultationsListResponse>(`/credit/consultations?limit=${limit}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
 }
@@ -383,8 +394,8 @@ export function getCreditConsultationHistory(token: string, limit = 50): Promise
 export function getCreditConsultationScreenshot(
   id: string | number,
   token: string
-): Promise<unknown> {
-  return request(`/credit/consultations/${id}/screenshot`, {
+): Promise<CreditScreenshotResponse> {
+  return request<CreditScreenshotResponse>(`/credit/consultations/${id}/screenshot`, {
     headers: { Authorization: `Bearer ${token}` },
   });
 }
