@@ -47,7 +47,7 @@ const corsOptions = {
     callback(null, false);
   },
   methods: ALLOWED_METHODS,
-  allowedHeaders: ["Content-Type", "Authorization"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-API-Key"],
   optionsSuccessStatus: 204,
   maxAge: 86_400,
 };
@@ -59,7 +59,7 @@ function applyCorsHeaders(req, res) {
     res.setHeader("Vary", "Origin");
   }
   res.setHeader("Access-Control-Allow-Methods", ALLOWED_METHODS.join(", "));
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key");
 }
 
 app.use(cors(corsOptions));

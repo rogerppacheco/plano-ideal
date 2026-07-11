@@ -8,7 +8,14 @@ const ALLOWED_ACTIONS = new Set(AUDIT_ACTIONS);
  */
 export async function insertAuditLog(
   client,
-  { actorUserId, action, targetUserId = null, metadata = {} }
+  {
+    actorUserId,
+    action,
+    targetUserId = null,
+    partnerId = null,
+    apiKeyId = null,
+    metadata = {},
+  }
 ) {
   if (!ALLOWED_ACTIONS.has(action)) {
     throw new Error(`Ação de auditoria inválida: ${action}`);
@@ -16,9 +23,23 @@ export async function insertAuditLog(
 
   await client.query(
     `
-      INSERT INTO audit_logs (actor_user_id, action, target_user_id, metadata)
-      VALUES ($1, $2, $3, $4::jsonb)
+      INSERT INTO audit_logs (
+        actor_user_id,
+        action,
+        target_user_id,
+        partner_id,
+        api_key_id,
+        metadata
+      )
+      VALUES ($1, $2, $3, $4, $5, $6::jsonb)
     `,
-    [actorUserId ?? null, action, targetUserId ?? null, JSON.stringify(metadata ?? {})]
+    [
+      actorUserId ?? null,
+      action,
+      targetUserId ?? null,
+      partnerId ?? null,
+      apiKeyId ?? null,
+      JSON.stringify(metadata ?? {}),
+    ]
   );
 }
