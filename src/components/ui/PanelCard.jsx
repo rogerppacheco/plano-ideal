@@ -7,7 +7,9 @@ export function PanelCard({ title, description, action, children, className = ""
             {title ? <h2 className="panel-card-title">{title}</h2> : null}
             {description ? <p className="panel-card-desc">{description}</p> : null}
           </div>
-          {action ? <div className="shrink-0">{action}</div> : null}
+          {action ? (
+            <div className="flex shrink-0 flex-wrap items-center gap-2">{action}</div>
+          ) : null}
         </header>
       ) : null}
       {children}

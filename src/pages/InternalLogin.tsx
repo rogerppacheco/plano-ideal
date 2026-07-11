@@ -92,13 +92,13 @@ export default function InternalLogin() {
   };
 
   return (
-    <div className="hero-mesh relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-10 sm:px-6">
+    <div className="hero-mesh relative flex min-h-screen items-center justify-center overflow-x-hidden px-4 py-10 sm:px-6">
       <LoginBackground />
 
-      <div className="relative z-10 w-full max-w-md">
-        <div className="relative mt-16 rounded-[2rem] border border-white/20 bg-white/10 p-6 shadow-[0_24px_80px_rgba(0,0,0,0.45)] backdrop-blur-md sm:p-8">
+      <div className="relative z-10 w-full max-w-md overflow-visible">
+        <div className="relative mt-16 overflow-visible rounded-[2rem] border border-white/20 bg-white/10 p-6 shadow-[0_24px_80px_rgba(0,0,0,0.45)] backdrop-blur-md sm:p-8">
           <div
-            className="pointer-events-none absolute -top-24 left-1/2 z-20 w-[min(100%,18rem)] -translate-x-1/2 sm:-top-28 sm:w-[20rem]"
+            className="pointer-events-none absolute -top-24 left-1/2 z-20 w-[min(100%,18rem)] -translate-x-1/2 overflow-visible sm:-top-28 sm:w-[20rem]"
             aria-hidden="true"
           >
             <div className="animate-float relative">

@@ -443,9 +443,9 @@ export default function InternalDashboard() {
           title="Área interna"
           description={`Logado como ${sessionUser.name ?? sessionUser.fullName} (${ROLE_LABELS[userRole ?? ""] ?? userRole})`}
           action={
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center justify-end gap-3 overflow-visible">
               <BalloonMascot size="sm" animate={false} className="hidden sm:flex" />
-              <button type="button" onClick={handleLogout} className="btn-secondary">
+              <button type="button" onClick={handleLogout} className="btn-secondary shrink-0">
                 Sair
               </button>
             </div>
@@ -1122,13 +1122,13 @@ function StreetChips({
         {visible.map((street) => (
           <span
             key={street}
-            className="inline-flex max-w-full items-center rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-900"
+            className="inline-flex max-w-full items-center rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-xs font-medium text-white"
           >
             {street}
           </span>
         ))}
         {hidden > 0 ? (
-          <span className="inline-flex rounded-full border border-slate-300 bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
+          <span className="inline-flex rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white/80">
             +{hidden} logradouros
           </span>
         ) : null}
@@ -1213,12 +1213,12 @@ function FacadeNumberChips({
           />
         ))}
         {hiddenMobile > 0 ? (
-          <span className="inline-flex rounded-full border border-brand-200 bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700 sm:hidden">
+          <span className="inline-flex rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white/80 sm:hidden">
             +{hiddenMobile} no mobile
           </span>
         ) : null}
         {hiddenTotal > 0 ? (
-          <span className="hidden rounded-full border border-slate-300 bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600 sm:inline-flex">
+          <span className="hidden rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white/80 sm:inline-flex">
             +{hiddenTotal} ocultos
           </span>
         ) : null}
@@ -1246,7 +1246,7 @@ function FacadeChipGroup({
     const label = group.variants[0]?.full ?? group.base;
     return (
       <span
-        className={`items-center rounded-full border border-slate-300 bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 ${className}`}
+        className={`items-center rounded-full border border-white/25 bg-white/15 px-2.5 py-1 text-xs font-semibold text-white ${className}`}
       >
         {label}
       </span>
@@ -1269,17 +1269,17 @@ function FacadeChipGroup({
         }}
         className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold transition ${
           expanded
-            ? "border-amber-400 bg-amber-100 text-amber-950 ring-2 ring-amber-200"
-            : "border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100"
+            ? "border-amber-300/70 bg-amber-500/25 text-white ring-2 ring-amber-300/40"
+            : "border-white/25 bg-white/10 text-white hover:bg-white/15"
         }`}
       >
-        <span className="tabular-nums text-slate-900">{group.base}</span>
+        <span className="tabular-nums text-white">{group.base}</span>
         {badgeCount > 0 ? (
-          <span className="rounded-full bg-amber-200/80 px-1.5 py-0.5 text-[10px] font-bold text-amber-900">
+          <span className="rounded-full bg-white/20 px-1.5 py-0.5 text-[10px] font-bold text-white">
             +{badgeCount}
           </span>
         ) : null}
-        <span className="text-[10px] text-amber-700" aria-hidden>
+        <span className="text-[10px] text-white/70" aria-hidden>
           {expanded ? "▴" : "▾"}
         </span>
       </button>

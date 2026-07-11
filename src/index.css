@@ -87,7 +87,7 @@
 
   /* ── Dashboard interno (tema neon escuro) ── */
   .dashboard-shell {
-    @apply relative min-h-screen overflow-hidden bg-nio-dark px-4 py-6 text-white sm:px-6 sm:py-8;
+    @apply relative min-h-screen overflow-x-hidden bg-nio-dark px-4 py-6 text-white sm:px-6 sm:py-8;
   }
 
   .dashboard-container {
@@ -99,7 +99,7 @@
   }
 
   .dashboard-shell .panel-card-header {
-    @apply mb-5 flex flex-wrap items-start justify-between gap-3;
+    @apply mb-5 flex flex-wrap items-start justify-between gap-3 overflow-visible;
   }
 
   .dashboard-shell .panel-card-title {

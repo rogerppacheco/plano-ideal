@@ -3,6 +3,7 @@ import { canViewAllCreditHistory } from "../constants/roles.js";
 import { pool } from "../db.js";
 import { requireAuth } from "../middleware/auth.js";
 import { checkCreditRateLimit, hasAvailableBoCredential } from "../services/creditRateLimit.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
 import { validateDocument, maskDocument } from "../utils/documentValidation.js";
 
 const router = express.Router();
@@ -28,43 +29,50 @@ function mapConsultation(row) {
   };
 }
 
-router.post("/credit/consult", requireAuth, async (req, res) => {
-  const { document, cpfRepresentative } = req.body || {};
-  const validation = validateDocument(document, cpfRepresentative);
-  if (!validation.ok) {
-    return res.status(400).json({ message: validation.message });
-  }
+router.post(
+  "/credit/consult",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { document, cpfRepresentative } = req.body || {};
+    const validation = validateDocument(document, cpfRepresentative);
+    if (!validation.ok) {
+      return res.status(400).json({ message: validation.message });
+    }
 
-  const rate = await checkCreditRateLimit(req.user.sub);
-  if (!rate.ok) {
-    return res.status(429).json({ message: rate.message });
-  }
+    const rate = await checkCreditRateLimit(req.user.sub);
+    if (!rate.ok) {
+      return res.status(429).json({ message: rate.message });
+    }
 
-  const boAvailable = await hasAvailableBoCredential();
-  if (!boAvailable) {
-    return res.status(503).json({
-      message: "Todos os logins PAP estão em uso. Tente novamente em alguns instantes.",
-    });
-  }
+    const boAvailable = await hasAvailableBoCredential();
+    if (!boAvailable) {
+      return res.status(503).json({
+        message: "Todos os logins PAP estão em uso. Tente novamente em alguns instantes.",
+      });
+    }
 
-  const insertQuery = `
+    const insertQuery = `
     INSERT INTO credit_consultations (requested_by, document, cpf_representative, status)
     VALUES ($1, $2, $3, 'queued')
     RETURNING id, document, cpf_representative, status, created_at
   `;
-  const { rows } = await pool.query(insertQuery, [
-    req.user.sub,
-    validation.document,
-    validation.cpfRepresentative,
-  ]);
+    const { rows } = await pool.query(insertQuery, [
+      req.user.sub,
+      validation.document,
+      validation.cpfRepresentative,
+    ]);
 
-  return res.status(202).json({ consultation: mapConsultation(rows[0]) });
-});
+    return res.status(202).json({ consultation: mapConsultation(rows[0]) });
+  })
+);
 
-router.get("/credit/consultations", requireAuth, async (req, res) => {
-  const limit = Math.min(Number(req.query.limit) || 50, 200);
-  const viewAll = canViewAllCreditHistory(req.user.role);
-  const query = `
+router.get(
+  "/credit/consultations",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const limit = Math.min(Number(req.query.limit) || 50, 200);
+    const viewAll = canViewAllCreditHistory(req.user.role);
+    const query = `
     SELECT c.id, c.document, c.cpf_representative, c.status, c.approved,
            c.result_detail, c.error_message, c.duration_seconds, c.pap_tt_matricula,
            c.requested_by, c.created_at, c.started_at, c.finished_at,
@@ -76,13 +84,17 @@ router.get("/credit/consultations", requireAuth, async (req, res) => {
     ORDER BY c.created_at DESC
     LIMIT $3
   `;
-  const { rows } = await pool.query(query, [viewAll, req.user.sub, limit]);
-  return res.json({ consultations: rows.map(mapConsultation) });
-});
+    const { rows } = await pool.query(query, [viewAll, req.user.sub, limit]);
+    return res.json({ consultations: rows.map(mapConsultation) });
+  })
+);
 
-router.get("/credit/consultations/:id", requireAuth, async (req, res) => {
-  const viewAll = canViewAllCreditHistory(req.user.role);
-  const query = `
+router.get(
+  "/credit/consultations/:id",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const viewAll = canViewAllCreditHistory(req.user.role);
+    const query = `
     SELECT c.id, c.document, c.cpf_representative, c.status, c.approved,
            c.result_detail, c.error_message, c.duration_seconds, c.pap_tt_matricula,
            c.requested_by, c.created_at, c.started_at, c.finished_at,
@@ -94,27 +106,32 @@ router.get("/credit/consultations/:id", requireAuth, async (req, res) => {
       AND ($2::boolean OR c.requested_by = $3)
     LIMIT 1
   `;
-  const { rows } = await pool.query(query, [req.params.id, viewAll, req.user.sub]);
-  if (!rows[0]) {
-    return res.status(404).json({ message: "Consulta não encontrada." });
-  }
-  return res.json({ consultation: mapConsultation(rows[0]) });
-});
+    const { rows } = await pool.query(query, [req.params.id, viewAll, req.user.sub]);
+    if (!rows[0]) {
+      return res.status(404).json({ message: "Consulta não encontrada." });
+    }
+    return res.json({ consultation: mapConsultation(rows[0]) });
+  })
+);
 
-router.get("/credit/consultations/:id/screenshot", requireAuth, async (req, res) => {
-  const viewAll = canViewAllCreditHistory(req.user.role);
-  const query = `
+router.get(
+  "/credit/consultations/:id/screenshot",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const viewAll = canViewAllCreditHistory(req.user.role);
+    const query = `
     SELECT c.screenshot_base64, c.requested_by
     FROM credit_consultations c
     WHERE c.id = $1
       AND ($2::boolean OR c.requested_by = $3)
     LIMIT 1
   `;
-  const { rows } = await pool.query(query, [req.params.id, viewAll, req.user.sub]);
-  if (!rows[0]?.screenshot_base64) {
-    return res.status(404).json({ message: "Comprovante não disponível." });
-  }
-  return res.json({ screenshotBase64: rows[0].screenshot_base64 });
-});
+    const { rows } = await pool.query(query, [req.params.id, viewAll, req.user.sub]);
+    if (!rows[0]?.screenshot_base64) {
+      return res.status(404).json({ message: "Comprovante não disponível." });
+    }
+    return res.json({ screenshotBase64: rows[0].screenshot_base64 });
+  })
+);
 
 export default router;

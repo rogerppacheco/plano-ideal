@@ -1,3 +1,5 @@
+import { createPortal } from "react-dom";
+
 export function ConfirmDialog({
   open,
   title,
@@ -18,9 +20,9 @@ export function ConfirmDialog({
         ? "rounded-full bg-amber-500 px-4 py-2 text-sm font-bold text-white hover:bg-amber-600"
         : "btn-primary";
 
-  return (
+  const dialog = (
     <div
-      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[9999] flex min-h-screen items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
       role="presentation"
       onClick={onCancel}
     >
@@ -49,4 +51,6 @@ export function ConfirmDialog({
       </div>
     </div>
   );
+
+  return createPortal(dialog, document.body);
 }

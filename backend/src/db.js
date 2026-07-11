@@ -42,3 +42,32 @@ export function createPool(connectionString = process.env.DATABASE_URL) {
 }
 
 export const pool = createPool();
+
+pool.on("error", (error) => {
+  // eslint-disable-next-line no-console
+  console.error("[DB] Erro inesperado no pool de conexões:", error);
+});
+
+export async function verifyDatabaseConnection() {
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) {
+    throw new Error("DATABASE_URL não configurada.");
+  }
+
+  const schema = getDbSchema();
+  let client;
+
+  try {
+    client = await pool.connect();
+    await client.query("SELECT 1 AS ok");
+    await client.query(`SET search_path TO ${schema}`);
+    // eslint-disable-next-line no-console
+    console.log(`[DB] Conexão estabelecida com sucesso (schema="${schema}").`);
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error("[DB] Não foi possível conectar ao PostgreSQL:", error);
+    throw error;
+  } finally {
+    client?.release();
+  }
+}
