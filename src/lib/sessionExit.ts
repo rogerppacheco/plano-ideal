@@ -1,8 +1,9 @@
 import { clearSession } from "./authSession";
+import type { ApiErrorCode } from "../types/api";
 
 export const EXIT_REASON_KEY = "planoideal_session_exit";
 
-const EXIT_MESSAGES = {
+const EXIT_MESSAGES: Record<string, string> = {
   TOKEN_REVOKED:
     "Sua sessão foi encerrada porque sua senha, perfil ou status de acesso foi alterado. Faça login novamente.",
   ACCOUNT_INACTIVE: "Sua conta foi inativada. Entre em contato com o administrador do sistema.",
@@ -11,23 +12,36 @@ const EXIT_MESSAGES = {
   UNAUTHORIZED: "Sessão inválida. Faça login novamente.",
 };
 
-let forcedLogoutHandler = null;
-let isHandlingForcedLogout = false;
+export type ForcedLogoutHandler = (message: string) => void;
 
-export function getSessionExitMessage(code, fallbackMessage) {
-  return EXIT_MESSAGES[code] || fallbackMessage || EXIT_MESSAGES.UNAUTHORIZED;
+export interface ForceLogoutParams {
+  code?: ApiErrorCode;
+  message?: string;
 }
 
-export function registerForcedLogoutHandler(handler) {
+interface SessionExitNotice {
+  code?: ApiErrorCode;
+  message?: string;
+  at?: number;
+}
+
+let forcedLogoutHandler: ForcedLogoutHandler | null = null;
+let isHandlingForcedLogout = false;
+
+export function getSessionExitMessage(code?: string, fallbackMessage?: string): string {
+  return EXIT_MESSAGES[code ?? ""] || fallbackMessage || EXIT_MESSAGES.UNAUTHORIZED;
+}
+
+export function registerForcedLogoutHandler(handler: ForcedLogoutHandler | null): void {
   forcedLogoutHandler = handler;
 }
 
-export function consumeSessionExitNotice() {
+export function consumeSessionExitNotice(): string | null {
   try {
     const raw = sessionStorage.getItem(EXIT_REASON_KEY);
     if (!raw) return null;
     sessionStorage.removeItem(EXIT_REASON_KEY);
-    const parsed = JSON.parse(raw);
+    const parsed = JSON.parse(raw) as SessionExitNotice;
     return parsed?.message || null;
   } catch {
     sessionStorage.removeItem(EXIT_REASON_KEY);
@@ -35,7 +49,7 @@ export function consumeSessionExitNotice() {
   }
 }
 
-export function forceLogout({ code, message }) {
+export function forceLogout({ code, message }: ForceLogoutParams): void {
   if (isHandlingForcedLogout) return;
   isHandlingForcedLogout = true;
 

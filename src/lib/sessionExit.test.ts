@@ -74,13 +74,22 @@ describe("sessionExit", () => {
       registerForcedLogoutHandler(handler);
 
       saveSession({
-        user: { id: 1, username: "admin", role: "admin" },
+        user: {
+          id: 1,
+          username: "admin",
+          fullName: "Admin",
+          role: "admin",
+          isActive: true,
+        },
         token: "token-ativo",
       });
 
       forceLogout({ code: "TOKEN_REVOKED" });
 
-      const stored = JSON.parse(sessionStorage.getItem(EXIT_REASON_KEY));
+      const stored = JSON.parse(sessionStorage.getItem(EXIT_REASON_KEY) ?? "null") as {
+        code: string;
+        message: string;
+      };
       expect(stored.code).toBe("TOKEN_REVOKED");
       expect(stored.message).toContain("senha, perfil ou status");
       expect(sessionStorage.getItem("internalToken")).toBeNull();
@@ -94,7 +103,13 @@ describe("sessionExit", () => {
       vi.stubGlobal("location", { assign });
 
       saveSession({
-        user: { id: 1, username: "admin", role: "admin" },
+        user: {
+          id: 1,
+          username: "admin",
+          fullName: "Admin",
+          role: "admin",
+          isActive: true,
+        },
         token: "token-ativo",
       });
 

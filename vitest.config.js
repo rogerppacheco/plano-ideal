@@ -5,10 +5,10 @@ export default defineConfig({
   plugins: [react()],
   test: {
     environment: "jsdom",
-    setupFiles: ["./src/test/setup.js"],
+    setupFiles: ["./src/test/setup.ts"],
     coverage: {
       provider: "v8",
-      include: ["src/lib/sessionExit.js", "src/lib/rbac.js", "src/services/api.js"],
+      include: ["src/lib/sessionExit.ts", "src/lib/rbac.ts", "src/services/api.ts"],
       reporter: ["text", "text-summary"],
     },
   },

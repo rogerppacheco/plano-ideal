@@ -88,10 +88,10 @@ describe("api interceptor", () => {
   it("lança NETWORK_ERROR quando fetch falha", async () => {
     server.use(http.get(`${API_BASE_URL}/coverage/:cep`, () => HttpResponse.error()));
 
-    await expect(getCoverageByCep("01310100", "token")).rejects.toSatisfy((error) => {
+    await expect(getCoverageByCep("01310100", "token")).rejects.toSatisfy((error: unknown) => {
       expect(error).toBeInstanceOf(ApiError);
-      expect(error.code).toBe("NETWORK_ERROR");
-      expect(error.message).toContain("Erro de conexão");
+      expect((error as ApiError).code).toBe("NETWORK_ERROR");
+      expect((error as ApiError).message).toContain("Erro de conexão");
       return true;
     });
 
@@ -101,7 +101,7 @@ describe("api interceptor", () => {
   it("lança REQUEST_TIMEOUT quando a requisição é abortada por timeout", async () => {
     const abortError = new Error("The operation was aborted");
     abortError.name = "AbortError";
-    const fetchSpy = vi.spyOn(global, "fetch").mockRejectedValueOnce(abortError);
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(abortError);
 
     const { updateInternalUserStatus } = await import("./api");
 
@@ -111,10 +111,10 @@ describe("api interceptor", () => {
         isActive: false,
         token: "token",
       })
-    ).rejects.toSatisfy((error) => {
+    ).rejects.toSatisfy((error: unknown) => {
       expect(error).toBeInstanceOf(ApiError);
-      expect(error.code).toBe("REQUEST_TIMEOUT");
-      expect(error.message).toContain("demorou demais");
+      expect((error as ApiError).code).toBe("REQUEST_TIMEOUT");
+      expect((error as ApiError).message).toContain("demorou demais");
       return true;
     });
 

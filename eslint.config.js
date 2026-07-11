@@ -10,7 +10,7 @@ export default [
       "**/node_modules/**",
       "**/dist/**",
       "**/coverage/**",
-      "**/*.test.{js,jsx}",
+      "**/*.test.{js,jsx,ts,tsx}",
       "src/test/**",
       "**/uploads/**",
       "pap-worker/**",
