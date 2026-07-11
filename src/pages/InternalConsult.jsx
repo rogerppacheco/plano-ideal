@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getOperatorsByCep, maskCep } from "../utils/coverage";
+import { maskCep } from "../utils/coverage";
 import { EmptyState } from "../components/ui/EmptyState";
 import { FormField } from "../components/ui/FormField";
 import { PanelCard } from "../components/ui/PanelCard";
@@ -29,7 +29,7 @@ export default function InternalConsult() {
 
     setIsConsulting(true);
     await new Promise((r) => setTimeout(r, 400));
-    const operators = getOperatorsByCep(cep);
+    const operators = [];
     setResult({ cep, operators });
     setIsConsulting(false);
 

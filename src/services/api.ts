@@ -9,6 +9,7 @@ import type {
   UserMutationResponse,
   UsersListResponse,
 } from "../types/api";
+import type { CoverageByCepResponse, PublicViabilityResponse } from "../types/coverage";
 import type {
   ActiveImportJobResponse,
   CompleteImportJobResponse,
@@ -154,12 +155,12 @@ export function loginInternalUser({
   });
 }
 
-export function getPublicViabilityStatus(cep: string): Promise<unknown> {
-  return request(`/public/viability/${encodeURIComponent(cep)}`);
+export function getPublicViabilityStatus(cep: string): Promise<PublicViabilityResponse> {
+  return request<PublicViabilityResponse>(`/public/viability/${encodeURIComponent(cep)}`);
 }
 
-export function getCoverageByCep(cep: string, token: string): Promise<unknown> {
-  return request(`/coverage/${encodeURIComponent(cep)}`, {
+export function getCoverageByCep(cep: string, token: string): Promise<CoverageByCepResponse> {
+  return request<CoverageByCepResponse>(`/coverage/${encodeURIComponent(cep)}`, {
     headers: {
       Authorization: `Bearer ${token}`,
     },

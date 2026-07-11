@@ -13,6 +13,7 @@ export default defineConfig({
         "src/lib/rbac.ts",
         "src/services/api.ts",
         "src/utils/importProgress.ts",
+        "src/utils/coverage.ts",
       ],
       reporter: ["text", "text-summary"],
     },
