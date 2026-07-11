@@ -319,14 +319,15 @@ export async function ensureUserGovernanceSchema(clientPool = pool) {
   `);
 
   await clientPool.query(`
+    ALTER TABLE internal_users DROP CONSTRAINT IF EXISTS internal_users_role_check;
+  `);
+
+  await clientPool.query(`
     UPDATE internal_users
     SET role = 'operator', updated_at = NOW()
     WHERE role = 'vendedor';
   `);
 
-  await clientPool.query(`
-    ALTER TABLE internal_users DROP CONSTRAINT IF EXISTS internal_users_role_check;
-  `);
   await clientPool.query(`
     ALTER TABLE internal_users
       ADD CONSTRAINT internal_users_role_check
