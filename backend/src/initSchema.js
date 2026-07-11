@@ -101,6 +101,7 @@ export async function ensureSchema() {
   });
 
   await ensureCreditConsultationSchema(pool);
+  await ensureUserGovernanceSchema(pool);
 
   const staleHours = Number(process.env.IMPORT_JOB_STALE_HOURS ?? "168");
   if (Number.isFinite(staleHours) && staleHours > 0) {
@@ -291,3 +292,128 @@ export async function ensureCreditConsultationSchema(clientPool = pool) {
     ON pap_bo_credentials (enabled, in_use_by);
   `);
 }
+
+const USER_ROLES = ["admin", "manager", "operator"];
+
+const AUDIT_ACTIONS = [
+  "USER_CREATED",
+  "USER_UPDATED",
+  "USER_PASSWORD_CHANGED",
+  "USER_DEACTIVATED",
+  "USER_REACTIVATED",
+  "USER_DELETED",
+  "USER_LOGIN",
+];
+
+/**
+ * Governança de usuários: RBAC expandido, soft delete, auditoria e FKs para hard delete seguro.
+ */
+export async function ensureUserGovernanceSchema(clientPool = pool) {
+  await clientPool.query(`
+    ALTER TABLE internal_users
+      ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ,
+      ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 1,
+      ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+  `);
+
+  await clientPool.query(`
+    UPDATE internal_users
+    SET role = 'operator', updated_at = NOW()
+    WHERE role = 'vendedor';
+  `);
+
+  await clientPool.query(`
+    ALTER TABLE internal_users DROP CONSTRAINT IF EXISTS internal_users_role_check;
+  `);
+  await clientPool.query(`
+    ALTER TABLE internal_users
+      ADD CONSTRAINT internal_users_role_check
+      CHECK (role IN ('admin', 'manager', 'operator'));
+  `);
+
+  await clientPool.query(`
+    CREATE INDEX IF NOT EXISTS idx_internal_users_active
+    ON internal_users (is_active)
+    WHERE is_active = TRUE;
+  `);
+
+  await ensureForeignKeyOnDeleteSetNull(clientPool, "coverage_records", "imported_by");
+  await ensureForeignKeyOnDeleteSetNull(clientPool, "import_jobs", "created_by");
+
+  const auditActionList = AUDIT_ACTIONS.map((action) => `'${action}'`).join(", ");
+  await clientPool.query(`
+    CREATE TABLE IF NOT EXISTS audit_logs (
+      id BIGSERIAL PRIMARY KEY,
+      actor_user_id INTEGER REFERENCES internal_users(id) ON DELETE SET NULL,
+      action TEXT NOT NULL CHECK (action IN (${auditActionList})),
+      target_user_id INTEGER REFERENCES internal_users(id) ON DELETE SET NULL,
+      metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+
+  await clientPool.query(`
+    CREATE INDEX IF NOT EXISTS idx_audit_logs_target
+    ON audit_logs (target_user_id, created_at DESC);
+  `);
+  await clientPool.query(`
+    CREATE INDEX IF NOT EXISTS idx_audit_logs_actor
+    ON audit_logs (actor_user_id, created_at DESC);
+  `);
+  await clientPool.query(`
+    CREATE INDEX IF NOT EXISTS idx_audit_logs_action_created
+    ON audit_logs (action, created_at DESC);
+  `);
+}
+
+async function ensureForeignKeyOnDeleteSetNull(clientPool, tableName, columnName) {
+  const { rows: tableRows } = await clientPool.query(
+    `
+      SELECT EXISTS (
+        SELECT 1
+        FROM information_schema.tables
+        WHERE table_schema = current_schema()
+          AND table_name = $1
+      ) AS ok
+    `,
+    [tableName]
+  );
+  if (!tableRows[0]?.ok) return;
+
+  const { rows: fkRows } = await clientPool.query(
+    `
+      SELECT
+        c.conname AS constraint_name,
+        c.confdeltype AS on_delete
+      FROM pg_constraint c
+      JOIN pg_class t ON c.conrelid = t.oid
+      JOIN pg_namespace n ON t.relnamespace = n.oid
+      JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ANY (c.conkey)
+      WHERE n.nspname = current_schema()
+        AND t.relname = $1
+        AND c.contype = 'f'
+        AND a.attname = $2
+      LIMIT 1
+    `,
+    [tableName, columnName]
+  );
+
+  if (fkRows[0]?.on_delete === "n") return;
+
+  if (fkRows[0]?.constraint_name) {
+    await clientPool.query(
+      `ALTER TABLE ${tableName} DROP CONSTRAINT "${fkRows[0].constraint_name}"`
+    );
+  }
+
+  const constraintName = `${tableName}_${columnName}_fkey`;
+  await clientPool.query(`
+    ALTER TABLE ${tableName}
+      ADD CONSTRAINT ${constraintName}
+      FOREIGN KEY (${columnName}) REFERENCES internal_users(id) ON DELETE SET NULL
+  `);
+}
+
+export { USER_ROLES, AUDIT_ACTIONS };

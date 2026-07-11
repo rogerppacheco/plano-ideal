@@ -6,9 +6,14 @@ CREATE TABLE IF NOT EXISTS internal_users (
   id BIGSERIAL PRIMARY KEY,
   username TEXT UNIQUE NOT NULL,
   password_hash TEXT NOT NULL,
-  role TEXT NOT NULL CHECK (role IN ('admin', 'vendedor')),
+  role TEXT NOT NULL CHECK (role IN ('admin', 'manager', 'operator')),
   full_name TEXT NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  last_login_at TIMESTAMPTZ,
+  token_version INTEGER NOT NULL DEFAULT 1,
+  deleted_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS coverage_records (
@@ -18,7 +23,7 @@ CREATE TABLE IF NOT EXISTS coverage_records (
   source_file TEXT NOT NULL,
   sheet_name TEXT,
   row_data JSONB NOT NULL,
-  imported_by INTEGER REFERENCES internal_users(id),
+  imported_by INTEGER REFERENCES internal_users(id) ON DELETE SET NULL,
   imported_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   dedup_secondary TEXT NOT NULL DEFAULT ''
 );
@@ -27,7 +32,7 @@ CREATE TABLE IF NOT EXISTS import_jobs (
   id BIGSERIAL PRIMARY KEY,
   operator TEXT NOT NULL,
   status TEXT NOT NULL CHECK (status IN ('queued', 'processing', 'completed', 'failed')),
-  created_by INTEGER REFERENCES internal_users(id),
+  created_by INTEGER REFERENCES internal_users(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   started_at TIMESTAMPTZ,
   finished_at TIMESTAMPTZ,
@@ -129,3 +134,33 @@ ON credit_consultations (requested_by, created_at DESC);
 
 CREATE INDEX IF NOT EXISTS idx_pap_bo_credentials_enabled
 ON pap_bo_credentials (enabled, in_use_by);
+
+CREATE INDEX IF NOT EXISTS idx_internal_users_active
+ON internal_users (is_active)
+WHERE is_active = TRUE;
+
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id BIGSERIAL PRIMARY KEY,
+  actor_user_id INTEGER REFERENCES internal_users(id) ON DELETE SET NULL,
+  action TEXT NOT NULL CHECK (action IN (
+    'USER_CREATED',
+    'USER_UPDATED',
+    'USER_PASSWORD_CHANGED',
+    'USER_DEACTIVATED',
+    'USER_REACTIVATED',
+    'USER_DELETED',
+    'USER_LOGIN'
+  )),
+  target_user_id INTEGER REFERENCES internal_users(id) ON DELETE SET NULL,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_logs_target
+ON audit_logs (target_user_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_audit_logs_actor
+ON audit_logs (actor_user_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_audit_logs_action_created
+ON audit_logs (action, created_at DESC);

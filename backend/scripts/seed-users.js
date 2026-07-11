@@ -17,8 +17,8 @@ async function run() {
     {
       username: "vendedor",
       password: "vendedor123",
-      role: "vendedor",
-      fullName: "Vendedor",
+      role: "operator",
+      fullName: "Operador",
     },
   ];
 

@@ -1,7 +1,8 @@
 import { useEffect } from "react";
-import { Navigate, Route, Routes, useLocation } from "react-router-dom";
-import { ToastProvider } from "./components/ui/Toast";
+import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
+import { ToastProvider, useToast } from "./components/ui/Toast";
 import { isSessionAuthenticated } from "./lib/authSession";
+import { registerForcedLogoutHandler } from "./lib/sessionExit";
 import InternalDashboard from "./pages/InternalDashboard";
 import InternalLogin from "./pages/InternalLogin";
 import PublicLanding from "./pages/PublicLanding";
@@ -27,10 +28,25 @@ function RequireInternalAuth({ children }) {
   return isAuthed ? children : <Navigate to="/interno" replace />;
 }
 
+function AuthSessionBridge() {
+  const navigate = useNavigate();
+  const toast = useToast();
+
+  useEffect(() => {
+    registerForcedLogoutHandler((message) => {
+      toast.warning(message);
+      navigate("/interno", { replace: true });
+    });
+  }, [navigate, toast]);
+
+  return null;
+}
+
 export default function App() {
   return (
     <ToastProvider>
       <PageTitle />
+      <AuthSessionBridge />
       <Routes>
         <Route path="/" element={<PublicLanding />} />
         <Route path="/interno" element={<InternalLogin />} />

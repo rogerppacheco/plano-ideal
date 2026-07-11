@@ -1,11 +1,45 @@
+import { forceLogout } from "../lib/sessionExit";
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api";
+const SKIP_AUTH_REDIRECT_PATHS = new Set(["/auth/login"]);
+
+export class ApiError extends Error {
+  constructor(message, { status, code } = {}) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.code = code;
+  }
+}
+
+function handleUnauthorized(path, data) {
+  if (SKIP_AUTH_REDIRECT_PATHS.has(path)) return;
+  forceLogout({
+    code: data.code || "UNAUTHORIZED",
+    message: data.message,
+  });
+}
 
 async function request(path, options = {}) {
-  const response = await fetch(`${API_BASE_URL}${path}`, options);
+  const { skipAuthRedirect = false, ...fetchOptions } = options;
+  const response = await fetch(`${API_BASE_URL}${path}`, fetchOptions);
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(data.message || "Falha na requisição.");
+
+  if (response.status === 401 && !skipAuthRedirect && !SKIP_AUTH_REDIRECT_PATHS.has(path)) {
+    handleUnauthorized(path, data);
+    throw new ApiError(data.message || "Sessão inválida.", {
+      status: 401,
+      code: data.code,
+    });
   }
+
+  if (!response.ok) {
+    throw new ApiError(data.message || "Falha na requisição.", {
+      status: response.status,
+      code: data.code,
+    });
+  }
+
   return data;
 }
 
@@ -14,6 +48,7 @@ export function loginInternalUser({ username, password }) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ username, password }),
+    skipAuthRedirect: true,
   });
 }
 
@@ -120,6 +155,26 @@ export function updateInternalUserPassword({ userId, password, token }) {
       Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({ password }),
+  });
+}
+
+export function updateInternalUserStatus({ userId, isActive, token }) {
+  return request(`/users/${userId}/status`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ isActive }),
+  });
+}
+
+export function deleteInternalUser({ userId, token }) {
+  return request(`/users/${userId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
   });
 }
 

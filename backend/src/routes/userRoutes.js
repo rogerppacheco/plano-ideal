@@ -1,85 +1,102 @@
-import bcrypt from "bcryptjs";
 import express from "express";
-import { pool } from "../db.js";
+import { ROLES } from "../constants/roles.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
+import {
+  createUser,
+  deleteUser,
+  handleUserServiceError,
+  listUsers,
+  setUserActive,
+  updateUser,
+  updateUserPassword,
+} from "../services/userService.js";
 
 const router = express.Router();
 
-router.get("/users", requireAuth, requireRole("admin"), async (_req, res) => {
-  const query = `
-    SELECT id, username, full_name, role, created_at
-    FROM internal_users
-    ORDER BY created_at DESC, id DESC
-  `;
-  const { rows } = await pool.query(query);
-  return res.json({ users: rows });
+router.get("/users", requireAuth, requireRole(ROLES.ADMIN), async (_req, res) => {
+  const users = await listUsers();
+  return res.json({ users });
 });
 
-router.post("/users", requireAuth, requireRole("admin"), async (req, res) => {
-  const { username, fullName, role, password } = req.body || {};
-  const normalizedUsername = String(username || "").trim();
-  const normalizedFullName = String(fullName || "").trim();
-  const normalizedRole = String(role || "").trim();
-  const rawPassword = String(password || "");
-
-  if (!normalizedUsername || !normalizedFullName || !normalizedRole || !rawPassword) {
-    return res.status(400).json({ message: "Usuário, nome, perfil e senha são obrigatórios." });
-  }
-  if (!["admin", "vendedor"].includes(normalizedRole)) {
-    return res.status(400).json({ message: "Perfil inválido. Use admin ou vendedor." });
-  }
-  if (rawPassword.length < 6) {
-    return res.status(400).json({ message: "Senha deve ter ao menos 6 caracteres." });
-  }
-
-  const passwordHash = await bcrypt.hash(rawPassword, 10);
-
+router.post("/users", requireAuth, requireRole(ROLES.ADMIN), async (req, res) => {
   try {
-    const insertQuery = `
-      INSERT INTO internal_users (username, password_hash, role, full_name)
-      VALUES ($1, $2, $3, $4)
-      RETURNING id, username, full_name, role, created_at
-    `;
-    const { rows } = await pool.query(insertQuery, [
-      normalizedUsername,
-      passwordHash,
-      normalizedRole,
-      normalizedFullName,
-    ]);
-    return res.status(201).json({ user: rows[0] });
+    const user = await createUser({
+      actorUserId: req.user.sub,
+      username: req.body?.username,
+      fullName: req.body?.fullName,
+      role: req.body?.role,
+      password: req.body?.password,
+    });
+    return res.status(201).json({ user });
   } catch (error) {
-    if (error?.code === "23505") {
-      return res.status(409).json({ message: "Nome de usuário já existe." });
-    }
-    throw error;
+    return handleUserServiceError(error, res);
   }
 });
 
-router.patch("/users/:id/password", requireAuth, requireRole("admin"), async (req, res) => {
+router.patch("/users/:id", requireAuth, requireRole(ROLES.ADMIN), async (req, res) => {
   const userId = Number(req.params.id);
-  const rawPassword = String(req.body?.password || "");
-
   if (!Number.isInteger(userId) || userId <= 0) {
     return res.status(400).json({ message: "ID de usuário inválido." });
   }
-  if (rawPassword.length < 6) {
-    return res.status(400).json({ message: "Senha deve ter ao menos 6 caracteres." });
+
+  try {
+    const user = await updateUser({
+      actorUserId: req.user.sub,
+      userId,
+      fullName: req.body?.fullName,
+      role: req.body?.role,
+    });
+    return res.json({ user, message: "Usuário atualizado com sucesso." });
+  } catch (error) {
+    return handleUserServiceError(error, res);
+  }
+});
+
+router.patch("/users/:id/password", requireAuth, requireRole(ROLES.ADMIN), async (req, res) => {
+  const userId = Number(req.params.id);
+  try {
+    const user = await updateUserPassword({
+      actorUserId: req.user.sub,
+      userId,
+      password: req.body?.password,
+    });
+    return res.json({ user, message: "Senha atualizada com sucesso." });
+  } catch (error) {
+    return handleUserServiceError(error, res);
+  }
+});
+
+router.patch("/users/:id/status", requireAuth, requireRole(ROLES.ADMIN), async (req, res) => {
+  const userId = Number(req.params.id);
+  if (!Number.isInteger(userId) || userId <= 0) {
+    return res.status(400).json({ message: "ID de usuário inválido." });
   }
 
-  const passwordHash = await bcrypt.hash(rawPassword, 10);
-  const updateQuery = `
-    UPDATE internal_users
-    SET password_hash = $1
-    WHERE id = $2
-    RETURNING id, username, full_name, role, created_at
-  `;
-  const { rows } = await pool.query(updateQuery, [passwordHash, userId]);
+  try {
+    const user = await setUserActive({
+      actorUserId: req.user.sub,
+      userId,
+      isActive: req.body?.isActive,
+    });
+    const message = user.isActive ? "Usuário reativado com sucesso." : "Usuário inativado com sucesso.";
+    return res.json({ user, message });
+  } catch (error) {
+    return handleUserServiceError(error, res);
+  }
+});
 
-  if (!rows.length) {
-    return res.status(404).json({ message: "Usuário não encontrado." });
+router.delete("/users/:id", requireAuth, requireRole(ROLES.ADMIN), async (req, res) => {
+  const userId = Number(req.params.id);
+  if (!Number.isInteger(userId) || userId <= 0) {
+    return res.status(400).json({ message: "ID de usuário inválido." });
   }
 
-  return res.json({ user: rows[0], message: "Senha atualizada com sucesso." });
+  try {
+    const result = await deleteUser({ actorUserId: req.user.sub, userId });
+    return res.json({ ...result, message: "Usuário excluído permanentemente." });
+  } catch (error) {
+    return handleUserServiceError(error, res);
+  }
 });
 
 export default router;

@@ -2,7 +2,13 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { clearSession, getSessionToken, getSessionUser } from "../lib/authSession";
 import {
-  createInternalUser,
+  buildDashboardTabs,
+  canManageImports,
+  canManagePap,
+  canManageUsers,
+  ROLE_LABELS,
+} from "../lib/rbac";
+import {
   completeStuckImportJob,
   createImportJob,
   getActiveImportJob,
@@ -10,9 +16,7 @@ import {
   getImportJobStatus,
   getImportJobsHistory,
   getImportSummary,
-  getInternalUsers,
   revertImportJob,
-  updateInternalUserPassword,
 } from "../services/api";
 import nioLogo from "../assets/operators/nio.png";
 import veroLogo from "../assets/operators/Vero.jpg";
@@ -20,19 +24,16 @@ import vivoLogo from "../assets/operators/vivo.png";
 import { buildFacadeLabel, buildStreetLabel, countRecordsByOperator, groupFacadeNumbers, maskCep } from "../utils/coverage";
 import { CreditConsultTab } from "../components/CreditConsultTab";
 import { PapAdminTab } from "../components/PapAdminTab";
+import { UsersAdminTab } from "../components/UsersAdminTab";
 import { BalloonMascot } from "../components/BalloonMascot";
 import { FloatingBubbles } from "../components/FloatingBubbles";
 import { DataTable, DataTableCell, DataTableRow } from "../components/ui/DataTable";
 import { EmptyState } from "../components/ui/EmptyState";
 import { FormField } from "../components/ui/FormField";
 import { DashboardTabs, MetricCard, PanelCard } from "../components/ui/PanelCard";
-import { SkeletonCards, SkeletonTable, SkeletonUserList } from "../components/ui/Skeleton";
+import { SkeletonCards, SkeletonTable } from "../components/ui/Skeleton";
 import { useToast } from "../components/ui/Toast";
 
-const ROLE_LABELS = {
-  admin: "Administrador",
-  vendedor: "Vendedor",
-};
 import {
   getHeartbeatAgeMs,
   getImportProgressLabel,
@@ -82,21 +83,6 @@ const IMPORT_HISTORY_COLUMNS = [
   { key: "actions", label: "Ações" },
 ];
 
-function buildDashboardTabs(isAdmin) {
-  const tabs = [
-    { id: "consulta", label: "Consulta", icon: "📍" },
-    { id: "credito", label: "Consulta Crédito", icon: "💳" },
-  ];
-  if (isAdmin) {
-    tabs.push(
-      { id: "pap", label: "PAP", icon: "⚙️" },
-      { id: "importacoes", label: "Importações", icon: "📥" },
-      { id: "usuarios", label: "Usuários", icon: "👥" }
-    );
-  }
-  return tabs;
-}
-
 function buildTemplateCsv(operator) {
   const headers = [
     "CEP",
@@ -132,7 +118,10 @@ export default function InternalDashboard() {
   const toast = useToast();
   const sessionUser = useMemo(() => getSessionUser(), []);
   const token = useMemo(() => getSessionToken(), []);
-  const isAdmin = sessionUser?.role === "admin";
+  const userRole = sessionUser?.role;
+  const showImports = canManageImports(userRole);
+  const showPap = canManagePap(userRole);
+  const showUsers = canManageUsers(userRole);
 
   const [cep, setCep] = useState("");
   const [result, setResult] = useState(null);
@@ -156,22 +145,8 @@ export default function InternalDashboard() {
   const [summaryError, setSummaryError] = useState("");
   const [revertingJobId, setRevertingJobId] = useState(null);
   const [completingJobId, setCompletingJobId] = useState(null);
-  const [users, setUsers] = useState([]);
-  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [isLoadingImportHistory, setIsLoadingImportHistory] = useState(false);
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
-  const [usersError, setUsersError] = useState("");
-  const [usersFeedback, setUsersFeedback] = useState("");
-  const [isCreatingUser, setIsCreatingUser] = useState(false);
-  const [passwordEditUserId, setPasswordEditUserId] = useState(null);
-  const [passwordDraft, setPasswordDraft] = useState("");
-  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
-  const [newUser, setNewUser] = useState({
-    username: "",
-    fullName: "",
-    role: "vendedor",
-    password: "",
-  });
   const consultedAddress = useMemo(() => formatAddressFromRecords(result?.records), [result]);
 
   if (!sessionUser || !token) {
@@ -184,14 +159,13 @@ export default function InternalDashboard() {
       return;
     }
 
-    if (isAdmin) {
+    if (showImports) {
       loadSummary();
-      loadUsers();
       loadImportHistory();
       resumeActiveImportJob();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionUser, token, isAdmin, navigate]);
+  }, [sessionUser, token, showImports, navigate]);
 
   const loadSummary = async () => {
     setIsLoadingSummary(true);
@@ -281,23 +255,6 @@ export default function InternalDashboard() {
     }
   };
 
-  const loadUsers = async () => {
-    if (!isAdmin) return;
-    setIsLoadingUsers(true);
-    try {
-      const data = await getInternalUsers(token);
-      setUsers(data.users || []);
-      setUsersError("");
-    } catch (error) {
-      setUsers([]);
-      const message = error.message || "Não foi possível carregar usuários.";
-      setUsersError(message);
-      toast.error(message);
-    } finally {
-      setIsLoadingUsers(false);
-    }
-  };
-
   const handleLogout = () => {
     clearSession();
     navigate("/");
@@ -346,72 +303,6 @@ export default function InternalDashboard() {
     link.download = `modelo-importacao-${templateOperator.toLowerCase()}.csv`;
     link.click();
     URL.revokeObjectURL(url);
-  };
-
-  const handleCreateUserSubmit = async (event) => {
-    event.preventDefault();
-    setUsersFeedback("");
-    setUsersError("");
-    try {
-      setIsCreatingUser(true);
-      await createInternalUser({
-        username: newUser.username,
-        fullName: newUser.fullName,
-        role: newUser.role,
-        password: newUser.password,
-        token,
-      });
-      toast.success("Usuário criado com sucesso.");
-      setUsersFeedback("");
-      setNewUser({ username: "", fullName: "", role: "vendedor", password: "" });
-      await loadUsers();
-    } catch (error) {
-      const message = error.message || "Não foi possível criar usuário.";
-      setUsersError(message);
-      toast.error(message);
-    } finally {
-      setIsCreatingUser(false);
-    }
-  };
-
-  const handleTogglePasswordEdit = (userId) => {
-    setUsersFeedback("");
-    setUsersError("");
-    if (passwordEditUserId === userId) {
-      setPasswordEditUserId(null);
-      setPasswordDraft("");
-      return;
-    }
-    setPasswordEditUserId(userId);
-    setPasswordDraft("");
-  };
-
-  const handleUpdatePasswordSubmit = async (event, user) => {
-    event.preventDefault();
-    setUsersFeedback("");
-    setUsersError("");
-    if (passwordDraft.length < 6) {
-      setUsersError("A nova senha deve ter ao menos 6 caracteres.");
-      return;
-    }
-    try {
-      setIsUpdatingPassword(true);
-      const result = await updateInternalUserPassword({
-        userId: user.id,
-        password: passwordDraft,
-        token,
-      });
-      toast.success(result.message || `Senha de ${user.full_name} atualizada.`);
-      setUsersFeedback("");
-      setPasswordEditUserId(null);
-      setPasswordDraft("");
-    } catch (error) {
-      const message = error.message || "Não foi possível alterar a senha.";
-      setUsersError(message);
-      toast.error(message);
-    } finally {
-      setIsUpdatingPassword(false);
-    }
   };
 
   const finishImportJob = async (job) => {
@@ -535,13 +426,13 @@ export default function InternalDashboard() {
   const importInProgress =
     jobProgress && (jobProgress.status === "queued" || jobProgress.status === "processing");
 
-  const dashboardTabs = useMemo(() => buildDashboardTabs(isAdmin), [isAdmin]);
+  const dashboardTabs = useMemo(() => buildDashboardTabs(userRole), [userRole]);
 
   return (
     <div className="dashboard-shell">
       <FloatingBubbles variant="dark" />
       <div className="dashboard-container">
-        {isAdmin && importInProgress ? (
+        {showImports && importInProgress ? (
           <div className="rounded-xl border-2 border-brand-400 bg-brand-50 p-4 shadow-sm">
             <p className="font-bold text-brand-900">
               Importação em andamento — job #{jobProgress.id} ({jobProgress.operator})
@@ -571,7 +462,7 @@ export default function InternalDashboard() {
 
         <PanelCard
           title="Área interna"
-          description={`Logado como ${sessionUser.name} (${sessionUser.role})`}
+          description={`Logado como ${sessionUser.name} (${ROLE_LABELS[userRole] ?? userRole})`}
           action={
             <div className="flex items-center gap-3">
               <BalloonMascot size="sm" animate={false} className="hidden sm:flex" />
@@ -590,7 +481,7 @@ export default function InternalDashboard() {
           <PanelCard
             id="panel-consulta"
             title="Consulta por CEP"
-            description="Consulta disponível para admin e vendedor."
+            description="Consulta de cobertura por CEP para todos os perfis internos."
           >
           <form className="flex flex-col gap-3 sm:flex-row sm:items-end" onSubmit={handleConsultSubmit}>
             <FormField
@@ -687,9 +578,9 @@ export default function InternalDashboard() {
 
         {activeTab === "credito" ? <CreditConsultTab token={token} /> : null}
 
-        {isAdmin && activeTab === "pap" ? <PapAdminTab token={token} /> : null}
+        {showPap && activeTab === "pap" ? <PapAdminTab token={token} /> : null}
 
-        {isAdmin && activeTab === "importacoes" ? (
+        {showImports && activeTab === "importacoes" ? (
           <PanelCard
             id="panel-importacoes"
             title="Importar bases para o banco interno"
@@ -1004,166 +895,8 @@ export default function InternalDashboard() {
           </PanelCard>
         ) : null}
 
-        {isAdmin && activeTab === "usuarios" ? (
-          <PanelCard
-            id="panel-usuarios"
-            title="Cadastro de usuários"
-            description="Apenas administradores podem criar e gerenciar usuários internos."
-          >
-
-            <form className="grid gap-4 md:grid-cols-2" onSubmit={handleCreateUserSubmit}>
-              <FormField id="new-fullName" label="Nome completo" required>
-                {({ id }) => (
-                  <input
-                    id={id}
-                    type="text"
-                    value={newUser.fullName}
-                    onChange={(event) => setNewUser((prev) => ({ ...prev, fullName: event.target.value }))}
-                    className="input-modern"
-                    required
-                  />
-                )}
-              </FormField>
-              <FormField id="new-username" label="Usuário" hint="Login de acesso ao painel." required>
-                {({ id, describedBy }) => (
-                  <input
-                    id={id}
-                    type="text"
-                    value={newUser.username}
-                    onChange={(event) => setNewUser((prev) => ({ ...prev, username: event.target.value }))}
-                    className="input-modern"
-                    aria-describedby={describedBy}
-                    required
-                  />
-                )}
-              </FormField>
-              <FormField id="new-role" label="Perfil">
-                {({ id }) => (
-                  <select
-                    id={id}
-                    value={newUser.role}
-                    onChange={(event) => setNewUser((prev) => ({ ...prev, role: event.target.value }))}
-                    className="input-modern"
-                  >
-                    <option value="vendedor">vendedor</option>
-                    <option value="admin">admin</option>
-                  </select>
-                )}
-              </FormField>
-              <FormField id="new-password" label="Senha" hint="Mínimo de 6 caracteres." required>
-                {({ id, describedBy }) => (
-                  <input
-                    id={id}
-                    type="password"
-                    minLength={6}
-                    value={newUser.password}
-                    onChange={(event) => setNewUser((prev) => ({ ...prev, password: event.target.value }))}
-                    className="input-modern"
-                    aria-describedby={describedBy}
-                    required
-                  />
-                )}
-              </FormField>
-
-              <div className="md:col-span-2">
-                <button type="submit" disabled={isCreatingUser} className="btn-primary">
-                  {isCreatingUser ? "Criando…" : "Criar usuário"}
-                </button>
-              </div>
-            </form>
-
-            <div className="mt-6">
-              <div className="mb-3 flex items-center justify-between">
-                <h3 className="text-sm font-bold text-slate-900">Usuários cadastrados</h3>
-                <button
-                  type="button"
-                  className="btn-secondary text-xs"
-                  onClick={loadUsers}
-                  disabled={isLoadingUsers}
-                >
-                  {isLoadingUsers ? "Atualizando…" : "Atualizar"}
-                </button>
-              </div>
-              {isLoadingUsers ? (
-                <SkeletonUserList count={5} />
-              ) : users.length === 0 ? (
-                <EmptyState
-                  icon="users"
-                  title="Nenhum usuário encontrado"
-                  description="Crie o primeiro usuário usando o formulário acima."
-                />
-              ) : (
-                <div className="space-y-2">
-                  {users.map((user) => (
-                    <div
-                      key={user.id}
-                      className="rounded-lg border border-slate-200 bg-white px-3 py-2"
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <p className="text-sm font-semibold text-slate-800">
-                          {user.full_name} <span className="text-slate-500">(@{user.username})</span>
-                        </p>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="badge-role">
-                            {ROLE_LABELS[user.role] ?? user.role}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => handleTogglePasswordEdit(user.id)}
-                            className="btn-secondary px-3 py-1 text-xs"
-                            aria-label={`Alterar senha de ${user.full_name}`}
-                          >
-                            {passwordEditUserId === user.id ? "Cancelar" : "Alterar senha"}
-                          </button>
-                        </div>
-                      </div>
-                      {passwordEditUserId === user.id ? (
-                        <form
-                          className="mt-3 flex flex-col gap-2 border-t border-slate-100 pt-3 sm:flex-row sm:items-end"
-                          onSubmit={(event) => handleUpdatePasswordSubmit(event, user)}
-                        >
-                          <div className="flex-1">
-                            <label
-                              className="mb-1 block text-xs font-medium text-slate-700"
-                              htmlFor={`password-${user.id}`}
-                            >
-                              Nova senha para {user.full_name}
-                            </label>
-                            <input
-                              id={`password-${user.id}`}
-                              type="password"
-                              minLength={6}
-                              value={passwordDraft}
-                              onChange={(event) => setPasswordDraft(event.target.value)}
-                              className="input-modern"
-                              placeholder="Mínimo 6 caracteres"
-                              required
-                              autoFocus
-                            />
-                          </div>
-                          <button
-                            type="submit"
-                            disabled={isUpdatingPassword}
-                            className="btn-primary px-4 py-2 text-xs disabled:opacity-50"
-                          >
-                            {isUpdatingPassword ? "Salvando…" : "Salvar senha"}
-                          </button>
-                        </form>
-                      ) : null}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </PanelCard>
-        ) : null}
-
-        {!isAdmin ? (
-          <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
-            <p className="text-sm text-amber-900">
-              Seu perfil é vendedor. Importação de base disponível apenas para administradores.
-            </p>
-          </section>
+        {showUsers && activeTab === "usuarios" ? (
+          <UsersAdminTab token={token} currentUserId={sessionUser.id} />
         ) : null}
       </div>
     </div>

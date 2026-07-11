@@ -1,4 +1,5 @@
 import express from "express";
+import { canViewAllCreditHistory } from "../constants/roles.js";
 import { pool } from "../db.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { checkCreditRateLimit, hasAvailableBoCredential } from "../services/creditRateLimit.js";
@@ -62,6 +63,7 @@ router.post("/credit/consult", requireAuth, async (req, res) => {
 
 router.get("/credit/consultations", requireAuth, async (req, res) => {
   const limit = Math.min(Number(req.query.limit) || 50, 200);
+  const viewAll = canViewAllCreditHistory(req.user.role);
   const query = `
     SELECT c.id, c.document, c.cpf_representative, c.status, c.approved,
            c.result_detail, c.error_message, c.duration_seconds, c.pap_tt_matricula,
@@ -70,15 +72,16 @@ router.get("/credit/consultations", requireAuth, async (req, res) => {
            u.full_name AS requester_name
     FROM credit_consultations c
     JOIN internal_users u ON u.id = c.requested_by
-    WHERE ($1 = 'admin' OR c.requested_by = $2)
+    WHERE ($1::boolean OR c.requested_by = $2)
     ORDER BY c.created_at DESC
     LIMIT $3
   `;
-  const { rows } = await pool.query(query, [req.user.role, req.user.sub, limit]);
+  const { rows } = await pool.query(query, [viewAll, req.user.sub, limit]);
   return res.json({ consultations: rows.map(mapConsultation) });
 });
 
 router.get("/credit/consultations/:id", requireAuth, async (req, res) => {
+  const viewAll = canViewAllCreditHistory(req.user.role);
   const query = `
     SELECT c.id, c.document, c.cpf_representative, c.status, c.approved,
            c.result_detail, c.error_message, c.duration_seconds, c.pap_tt_matricula,
@@ -88,10 +91,10 @@ router.get("/credit/consultations/:id", requireAuth, async (req, res) => {
     FROM credit_consultations c
     JOIN internal_users u ON u.id = c.requested_by
     WHERE c.id = $1
-      AND ($2 = 'admin' OR c.requested_by = $3)
+      AND ($2::boolean OR c.requested_by = $3)
     LIMIT 1
   `;
-  const { rows } = await pool.query(query, [req.params.id, req.user.role, req.user.sub]);
+  const { rows } = await pool.query(query, [req.params.id, viewAll, req.user.sub]);
   if (!rows[0]) {
     return res.status(404).json({ message: "Consulta não encontrada." });
   }
@@ -99,14 +102,15 @@ router.get("/credit/consultations/:id", requireAuth, async (req, res) => {
 });
 
 router.get("/credit/consultations/:id/screenshot", requireAuth, async (req, res) => {
+  const viewAll = canViewAllCreditHistory(req.user.role);
   const query = `
     SELECT c.screenshot_base64, c.requested_by
     FROM credit_consultations c
     WHERE c.id = $1
-      AND ($2 = 'admin' OR c.requested_by = $3)
+      AND ($2::boolean OR c.requested_by = $3)
     LIMIT 1
   `;
-  const { rows } = await pool.query(query, [req.params.id, req.user.role, req.user.sub]);
+  const { rows } = await pool.query(query, [req.params.id, viewAll, req.user.sub]);
   if (!rows[0]?.screenshot_base64) {
     return res.status(404).json({ message: "Comprovante não disponível." });
   }

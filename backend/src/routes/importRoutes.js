@@ -5,6 +5,7 @@ import path from "node:path";
 import { Worker } from "node:worker_threads";
 import multer from "multer";
 import { pool } from "../db.js";
+import { ROLES } from "../constants/roles.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import {
   countRecordsForJob,
@@ -17,7 +18,7 @@ import { recoverStuckJob } from "../services/importJobRecovery.js";
 const router = express.Router();
 const upload = multer({ dest: path.join(os.tmpdir(), "planoideal-imports") });
 
-router.post("/import", requireAuth, requireRole("admin"), upload.array("files"), async (req, res) => {
+router.post("/import", requireAuth, requireRole(ROLES.ADMIN, ROLES.MANAGER), upload.array("files"), async (req, res) => {
   const operator = String(req.body.operator || "").trim();
   if (!operator) {
     return res.status(400).json({ message: "Operadora é obrigatória." });
@@ -69,7 +70,7 @@ router.post("/import", requireAuth, requireRole("admin"), upload.array("files"),
   return res.status(202).json({ jobId, status: "queued" });
 });
 
-router.get("/import/jobs/active", requireAuth, requireRole("admin"), async (_req, res) => {
+router.get("/import/jobs/active", requireAuth, requireRole(ROLES.ADMIN, ROLES.MANAGER), async (_req, res) => {
   const jobQuery = `
     SELECT id, operator, status, created_at, started_at, finished_at,
            total_files, total_rows, processed_rows, imported_rows, ignored_rows, error_message,
@@ -136,7 +137,7 @@ router.get("/import/jobs/active", requireAuth, requireRole("admin"), async (_req
   return res.json({ job: { ...finalJob, files } });
 });
 
-router.get("/import/jobs", requireAuth, requireRole("admin"), async (_req, res) => {
+router.get("/import/jobs", requireAuth, requireRole(ROLES.ADMIN, ROLES.MANAGER), async (_req, res) => {
   const fullQuery = `
     SELECT
       j.id,
@@ -213,7 +214,7 @@ router.get("/import/jobs", requireAuth, requireRole("admin"), async (_req, res) 
   return res.json({ jobs });
 });
 
-router.get("/import/jobs/:jobId", requireAuth, requireRole("admin"), async (req, res) => {
+router.get("/import/jobs/:jobId", requireAuth, requireRole(ROLES.ADMIN, ROLES.MANAGER), async (req, res) => {
   const jobId = Number(req.params.jobId);
   if (!Number.isInteger(jobId) || jobId <= 0) {
     return res.status(400).json({ message: "Job inválido." });
@@ -258,7 +259,7 @@ router.get("/import/jobs/:jobId", requireAuth, requireRole("admin"), async (req,
   });
 });
 
-router.post("/import/jobs/:jobId/complete", requireAuth, requireRole("admin"), async (req, res) => {
+router.post("/import/jobs/:jobId/complete", requireAuth, requireRole(ROLES.ADMIN, ROLES.MANAGER), async (req, res) => {
   const jobId = Number(req.params.jobId);
   if (!Number.isInteger(jobId) || jobId <= 0) {
     return res.status(400).json({ message: "Job inválido." });
@@ -302,7 +303,7 @@ router.post("/import/jobs/:jobId/complete", requireAuth, requireRole("admin"), a
   });
 });
 
-router.delete("/import/jobs/:jobId", requireAuth, requireRole("admin"), async (req, res) => {
+router.delete("/import/jobs/:jobId", requireAuth, requireRole(ROLES.ADMIN, ROLES.MANAGER), async (req, res) => {
   const jobId = Number(req.params.jobId);
   if (!Number.isInteger(jobId) || jobId <= 0) {
     return res.status(400).json({ message: "Job inválido." });
@@ -329,7 +330,7 @@ router.delete("/import/jobs/:jobId", requireAuth, requireRole("admin"), async (r
   });
 });
 
-router.get("/import/summary", requireAuth, requireRole("admin"), async (_req, res) => {
+router.get("/import/summary", requireAuth, requireRole(ROLES.ADMIN, ROLES.MANAGER), async (_req, res) => {
   // Soma por job concluído — rápido mesmo com milhões de linhas em coverage_records.
   // COUNT(*) em coverage_records estourava timeout do Railway e o painel ficava em 0.
   const totalsQuery = `
