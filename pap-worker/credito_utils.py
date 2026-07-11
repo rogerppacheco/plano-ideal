@@ -39,8 +39,11 @@ def _get_credito_emails_pool():
 
 
 def _use_mailinator():
-    """Se deve usar endereços @mailinator.com."""
-    return os.environ.get("CREDITO_EMAIL_MAILINATOR", "").strip().lower() in ("1", "true", "yes")
+    """Se deve usar endereços @mailinator.com (padrão true, igual site-record)."""
+    raw = os.environ.get("CREDITO_EMAIL_MAILINATOR")
+    if raw is None or not str(raw).strip():
+        return True
+    return str(raw).strip().lower() in ("1", "true", "yes")
 
 
 def gerar_email_credito() -> str:
@@ -54,7 +57,7 @@ def gerar_email_credito() -> str:
     """
     if _use_mailinator():
         local = f"credito{int(time.time() * 1000)}{random.randint(100, 999)}"
-        return f"{local}@mailinator.com"
+        return f"{local}@mailinator.com"  # inbox pública — aceita envio sem cadastro (Nio valida entrega)
     pool = _get_credito_emails_pool()
     if pool:
         return random.choice(pool)

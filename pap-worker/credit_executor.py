@@ -222,6 +222,7 @@ def execute_credit_consultation(consultation_id: int) -> None:
         ok, msg = automacao.iniciar_sessao()
         if not ok:
             raise RuntimeError(f"Erro ao acessar PAP: {msg}")
+        logger.info("[CRÉDITO] Consulta %s: login PAP OK", consultation_id)
 
         ok_prep, msg_prep = automacao._preparar_novo_pedido_etapa1()
         if not ok_prep:
@@ -293,6 +294,13 @@ def execute_credit_consultation(consultation_id: int) -> None:
         cel = gerar_celular_random()
         cel_sec = gerar_celular_random()
         email = gerar_email_credito()
+        logger.info(
+            "[CRÉDITO] Consulta %s — etapa 4 contato: cel=%s cel_sec=%s email=%s",
+            consultation_id,
+            cel,
+            cel_sec,
+            email,
+        )
         aprovado = False
         resultado_credito = None
 
@@ -305,9 +313,20 @@ def execute_credit_consultation(consultation_id: int) -> None:
             if msg in ("TELEFONE_REJEITADO",):
                 cel = gerar_celular_random()
                 cel_sec = gerar_celular_random()
+                logger.info(
+                    "[CRÉDITO] Consulta %s — telefone rejeitado, novos: cel=%s cel_sec=%s",
+                    consultation_id,
+                    cel,
+                    cel_sec,
+                )
                 continue
             if msg in ("EMAIL_REJEITADO", "EMAIL_INVALIDO"):
                 email = gerar_email_credito()
+                logger.info(
+                    "[CRÉDITO] Consulta %s — e-mail rejeitado, novo: %s",
+                    consultation_id,
+                    email,
+                )
                 continue
             if msg == "CREDITO_NEGADO":
                 break
@@ -317,6 +336,7 @@ def execute_credit_consultation(consultation_id: int) -> None:
         duration = time.time() - tempo_inicio
 
         if aprovado:
+            logger.info("[CRÉDITO] Consulta %s: APROVADO em %.1fs", consultation_id, duration)
             _finish_consultation(
                 consultation_id,
                 status="success",
@@ -328,6 +348,7 @@ def execute_credit_consultation(consultation_id: int) -> None:
                 bo_credential_id=bo_id,
             )
         else:
+            logger.info("[CRÉDITO] Consulta %s: NEGADO em %.1fs", consultation_id, duration)
             _finish_consultation(
                 consultation_id,
                 status="success",
