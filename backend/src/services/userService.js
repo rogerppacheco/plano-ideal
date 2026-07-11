@@ -422,7 +422,7 @@ export async function getAuthUserState(userId) {
   const id = parseUserId(userId);
   const { rows } = await pool.query(
     `
-      SELECT is_active, token_version, role, username, full_name
+      SELECT id, is_active, token_version, role, username, full_name
       FROM internal_users
       WHERE id = $1
       LIMIT 1
