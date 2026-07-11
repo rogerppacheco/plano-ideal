@@ -10,6 +10,7 @@ import importRoutes from "./routes/importRoutes.js";
 import papCredentialRoutes from "./routes/papCredentialRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import externalRoutes from "./routes/external/index.js";
+import partnerAdminRoutes from "./routes/partnerAdminRoutes.js";
 import { mountSwaggerDocs } from "./docs/swagger.js";
 
 dotenv.config();
@@ -98,6 +99,7 @@ app.use("/api", papCredentialRoutes);
 app.use("/api", importRoutes);
 app.use("/api", userRoutes);
 app.use("/api/v1/external", externalRoutes);
+app.use("/api", partnerAdminRoutes);
 
 app.use((error, req, res, _next) => {
   applyCorsHeaders(req, res);

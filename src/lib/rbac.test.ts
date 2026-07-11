@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   ROLES,
   buildDashboardTabs,
+  canManageApiPartners,
   canManageImports,
   canManagePap,
   canManageUsers,
@@ -12,6 +13,7 @@ describe("rbac", () => {
   describe("permissões por papel", () => {
     it("admin tem todas as permissões de gestão", () => {
       expect(canManageUsers(ROLES.ADMIN)).toBe(true);
+      expect(canManageApiPartners(ROLES.ADMIN)).toBe(true);
       expect(canManagePap(ROLES.ADMIN)).toBe(true);
       expect(canManageImports(ROLES.ADMIN)).toBe(true);
       expect(canViewAllCreditHistory(ROLES.ADMIN)).toBe(true);
@@ -51,6 +53,7 @@ describe("rbac", () => {
         "importacoes",
         "pap",
         "usuarios",
+        "api-parceiros",
       ]);
     });
   });

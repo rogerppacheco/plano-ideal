@@ -20,6 +20,16 @@ import type {
   RevertImportJobResponse,
 } from "../types/import";
 import type {
+  ApiKeysListResponse,
+  CreateApiKeyForm,
+  CreateApiKeyResponse,
+  CreatePartnerForm,
+  PartnerMutationResponse,
+  PartnersListResponse,
+  RevokeApiKeyResponse,
+  UpdatePartnerForm,
+} from "../types/apiKeys";
+import type {
   PapCredentialsResponse,
   PapMutationResponse,
   PapTtMatriculasResponse,
@@ -482,6 +492,72 @@ export function deletePapTtMatricula(
   token: string
 ): Promise<PapMutationResponse> {
   return request<PapMutationResponse>(`/pap/tt-matriculas/${id}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function getPartners(token: string): Promise<PartnersListResponse> {
+  return request<PartnersListResponse>("/partners", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function createPartner({
+  token,
+  ...payload
+}: CreatePartnerForm & { token: string }): Promise<PartnerMutationResponse> {
+  return request<PartnerMutationResponse>("/partners", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updatePartner({
+  token,
+  partnerId,
+  ...payload
+}: UpdatePartnerForm & { token: string; partnerId: number }): Promise<PartnerMutationResponse> {
+  return request<PartnerMutationResponse>(`/partners/${partnerId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function getPartnerApiKeys(partnerId: number, token: string): Promise<ApiKeysListResponse> {
+  return request<ApiKeysListResponse>(`/partners/${partnerId}/keys`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function createPartnerApiKey({
+  token,
+  partnerId,
+  ...payload
+}: CreateApiKeyForm & { token: string; partnerId: number }): Promise<CreateApiKeyResponse> {
+  return request<CreateApiKeyResponse>(`/partners/${partnerId}/keys`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function revokePartnerApiKey(
+  apiKeyId: number,
+  token: string
+): Promise<RevokeApiKeyResponse> {
+  return request<RevokeApiKeyResponse>(`/api-keys/${apiKeyId}`, {
     method: "DELETE",
     headers: { Authorization: `Bearer ${token}` },
   });

@@ -10,6 +10,7 @@ import { useNavigate } from "react-router-dom";
 import { clearSession, getSessionToken, getSessionUser } from "../lib/authSession";
 import {
   buildDashboardTabs,
+  canManageApiPartners,
   canManageImports,
   canManagePap,
   canManageUsers,
@@ -42,6 +43,7 @@ import { useCoverageConsult } from "../hooks/useCoverageConsult";
 import { CreditConsultTab } from "../components/CreditConsultTab";
 import { FloatingBubbles } from "../components/FloatingBubbles";
 import { PapAdminTab } from "../components/PapAdminTab";
+import { ApiPartnersAdminTab } from "../components/ApiPartnersAdminTab";
 import { UsersAdminTab } from "../components/UsersAdminTab";
 import { DataTable, DataTableCell, DataTableRow } from "../components/ui/DataTable";
 import { EmptyState } from "../components/ui/EmptyState";
@@ -138,6 +140,7 @@ export default function InternalDashboard() {
   const showImports = canManageImports(userRole);
   const showPap = canManagePap(userRole);
   const showUsers = canManageUsers(userRole);
+  const showApiPartners = canManageApiPartners(userRole);
 
   const {
     cep,
@@ -912,6 +915,10 @@ export default function InternalDashboard() {
 
         {showUsers && activeTab === "usuarios" ? (
           <UsersAdminTab token={token} currentUserId={sessionUser.id} />
+        ) : null}
+
+        {showApiPartners && activeTab === "api-parceiros" ? (
+          <ApiPartnersAdminTab token={token} />
         ) : null}
       </div>
     </div>

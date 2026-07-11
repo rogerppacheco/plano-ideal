@@ -23,6 +23,10 @@ export function canManageUsers(role: Role | string | null | undefined): boolean 
   return role === ROLES.ADMIN;
 }
 
+export function canManageApiPartners(role: Role | string | null | undefined): boolean {
+  return role === ROLES.ADMIN;
+}
+
 export function canManagePap(role: Role | string | null | undefined): boolean {
   return role === ROLES.ADMIN;
 }
@@ -49,6 +53,7 @@ export function buildDashboardTabs(role: Role | string | null | undefined): Dash
   }
   if (canManageUsers(role)) {
     tabs.push({ id: "usuarios", label: "Usuários", icon: "👥" });
+    tabs.push({ id: "api-parceiros", label: "API / Parceiros", icon: "🔑" });
   }
 
   return tabs;
