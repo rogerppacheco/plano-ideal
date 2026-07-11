@@ -255,6 +255,35 @@
     @apply inline-flex rounded-full bg-neon-green/15 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide text-neon-green ring-1 ring-neon-green/30;
   }
 
+  /* Chips de cobertura: ilhas claras com texto escuro forçado (WCAG no tema escuro) */
+  .dashboard-shell .coverage-chip {
+    @apply inline-flex items-center rounded-full border border-gray-300 bg-gray-100 px-2.5 py-1 text-xs font-semibold;
+    color: #111827 !important;
+  }
+
+  .dashboard-shell .coverage-chip-street {
+    @apply inline-flex max-w-full items-center rounded-full border border-emerald-300 bg-emerald-100 px-2.5 py-1 text-xs font-semibold;
+    color: #064e3b !important;
+  }
+
+  .dashboard-shell .coverage-chip-amber {
+    @apply inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-100 px-2.5 py-1 text-xs font-semibold transition;
+    color: #111827 !important;
+  }
+
+  .dashboard-shell .coverage-chip-amber.is-expanded {
+    @apply border-amber-400 bg-amber-200 ring-2 ring-amber-300;
+  }
+
+  .dashboard-shell .coverage-chip-badge {
+    @apply rounded-full bg-amber-200 px-1.5 py-0.5 text-[10px] font-bold;
+    color: #111827 !important;
+  }
+
+  .dashboard-shell .coverage-operator-panel {
+    @apply rounded-xl border border-white/15 bg-black/20 p-3;
+  }
+
   .dashboard-shell .text-slate-900 { @apply text-white; }
   .dashboard-shell .text-slate-800 { @apply text-white/90; }
   .dashboard-shell .text-slate-700 { @apply text-white/80; }

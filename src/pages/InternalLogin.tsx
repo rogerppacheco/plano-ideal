@@ -92,91 +92,95 @@ export default function InternalLogin() {
   };
 
   return (
-    <div className="hero-mesh relative flex min-h-screen items-center justify-center overflow-x-hidden px-4 py-10 sm:px-6">
+    <div className="hero-mesh relative flex min-h-screen items-center overflow-x-hidden px-4 py-10 sm:px-6">
       <LoginBackground />
 
-      <div className="relative z-10 w-full max-w-md pt-28 sm:pt-32">
-        <div
-          className="pointer-events-none absolute -top-32 left-1/2 z-20 w-64 -translate-x-1/2 sm:-top-36 sm:w-72"
-          aria-hidden="true"
-        >
-          <div className="animate-float relative">
-            <div className="absolute bottom-1 left-1/2 h-7 w-[72%] -translate-x-1/2 rounded-[100%] bg-black/50 blur-xl" />
+      <div className="relative z-10 mx-auto grid w-full max-w-5xl items-center gap-10 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,22rem)] lg:gap-14 xl:max-w-6xl">
+        <div className="order-2 flex justify-center lg:order-1 lg:justify-end lg:pr-6">
+          <div className="animate-float relative w-44 sm:w-52 lg:w-64 xl:w-72">
+            <div
+              className="pointer-events-none absolute bottom-2 left-1/2 h-10 w-[72%] -translate-x-1/2 rounded-[100%] bg-black/45 blur-xl"
+              aria-hidden="true"
+            />
             <img
               src={mascotHero}
-              alt=""
+              alt="Mascote Plano Ideal — consultor na nuvem"
               className="relative z-10 mx-auto h-auto w-full object-contain drop-shadow-[0_20px_45px_rgba(0,0,0,0.55)]"
-              width={288}
-              height={288}
+              width={320}
+              height={320}
               decoding="async"
             />
           </div>
         </div>
 
-        <div className="relative overflow-visible rounded-[2rem] border border-white/20 bg-white/10 p-6 shadow-[0_24px_80px_rgba(0,0,0,0.45)] backdrop-blur-md sm:p-8">
-          <div className="text-center">
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-neon-green">
-              Plano Ideal
-            </p>
-            <h1 className="mt-2 text-2xl font-extrabold text-white sm:text-3xl">Área interna</h1>
-            <p className="mx-auto mt-2 max-w-xs text-sm leading-relaxed text-white/65">
-              Consulta de CEP, crédito e importações conforme o seu perfil de acesso.
+        <div className="order-1 w-full max-w-md justify-self-center lg:order-2 lg:justify-self-start">
+          <div className="rounded-[2rem] border border-white/20 bg-white/10 p-6 shadow-[0_24px_80px_rgba(0,0,0,0.45)] backdrop-blur-md sm:p-8">
+            <div className="text-center lg:text-left">
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-neon-green">
+                Plano Ideal
+              </p>
+              <h1 className="mt-2 text-2xl font-extrabold text-white sm:text-3xl">Área interna</h1>
+              <p className="mx-auto mt-2 max-w-xs text-sm leading-relaxed text-white/65 lg:mx-0">
+                Consulta de CEP, crédito e importações conforme o seu perfil de acesso.
+              </p>
+            </div>
+
+            {sessionExitMessage ? (
+              <div
+                className="mt-5 rounded-2xl border border-amber-400/35 bg-amber-500/10 p-4 text-left"
+                role="alert"
+              >
+                <p className="text-sm font-semibold text-amber-100">Sessão encerrada</p>
+                <p className="mt-1 text-sm leading-relaxed text-amber-50/90">
+                  {sessionExitMessage}
+                </p>
+              </div>
+            ) : null}
+
+            <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
+              <FormField id="login-user" label="Usuário" required>
+                {({ id }) => (
+                  <input
+                    id={id}
+                    type="text"
+                    value={user}
+                    onChange={(event) => setUser(event.target.value)}
+                    className="input-modern login-input"
+                    autoComplete="username"
+                    required
+                  />
+                )}
+              </FormField>
+
+              <FormField id="login-password" label="Senha" error={error} required>
+                {({ id, describedBy, "aria-invalid": ariaInvalid }) => (
+                  <input
+                    id={id}
+                    type="password"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    className="input-modern login-input"
+                    autoComplete="current-password"
+                    aria-describedby={describedBy}
+                    aria-invalid={ariaInvalid}
+                    required
+                  />
+                )}
+              </FormField>
+
+              <button
+                type="submit"
+                className="btn-primary login-submit w-full"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? "Entrando…" : "Entrar"}
+              </button>
+            </form>
+
+            <p className="mt-5 text-center text-xs text-white/45 lg:text-left">
+              Credenciais cadastradas no painel administrativo.
             </p>
           </div>
-
-          {sessionExitMessage ? (
-            <div
-              className="mt-5 rounded-2xl border border-amber-400/35 bg-amber-500/10 p-4 text-left"
-              role="alert"
-            >
-              <p className="text-sm font-semibold text-amber-100">Sessão encerrada</p>
-              <p className="mt-1 text-sm leading-relaxed text-amber-50/90">{sessionExitMessage}</p>
-            </div>
-          ) : null}
-
-          <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
-            <FormField id="login-user" label="Usuário" required>
-              {({ id }) => (
-                <input
-                  id={id}
-                  type="text"
-                  value={user}
-                  onChange={(event) => setUser(event.target.value)}
-                  className="input-modern login-input"
-                  autoComplete="username"
-                  required
-                />
-              )}
-            </FormField>
-
-            <FormField id="login-password" label="Senha" error={error} required>
-              {({ id, describedBy, "aria-invalid": ariaInvalid }) => (
-                <input
-                  id={id}
-                  type="password"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  className="input-modern login-input"
-                  autoComplete="current-password"
-                  aria-describedby={describedBy}
-                  aria-invalid={ariaInvalid}
-                  required
-                />
-              )}
-            </FormField>
-
-            <button
-              type="submit"
-              className="btn-primary login-submit w-full"
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? "Entrando…" : "Entrar"}
-            </button>
-          </form>
-
-          <p className="mt-5 text-center text-xs text-white/45">
-            Credenciais cadastradas no painel administrativo.
-          </p>
         </div>
       </div>
     </div>

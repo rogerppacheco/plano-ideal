@@ -24,6 +24,7 @@ import {
   getImportSummary,
   revertImportJob,
 } from "../services/api";
+import mascotCloudHero from "../assets/mascot-cloud-hero.png";
 import nioLogo from "../assets/operators/nio.png";
 import veroLogo from "../assets/operators/Vero.jpg";
 import vivoLogo from "../assets/operators/vivo.png";
@@ -39,10 +40,9 @@ import {
 } from "../utils/coverage";
 import { useCoverageConsult } from "../hooks/useCoverageConsult";
 import { CreditConsultTab } from "../components/CreditConsultTab";
+import { FloatingBubbles } from "../components/FloatingBubbles";
 import { PapAdminTab } from "../components/PapAdminTab";
 import { UsersAdminTab } from "../components/UsersAdminTab";
-import { BalloonMascot } from "../components/BalloonMascot";
-import { FloatingBubbles } from "../components/FloatingBubbles";
 import { DataTable, DataTableCell, DataTableRow } from "../components/ui/DataTable";
 import { EmptyState } from "../components/ui/EmptyState";
 import { FormField } from "../components/ui/FormField";
@@ -109,6 +109,24 @@ function buildTemplateCsv(operator: string): string {
     `${operator} - linha de exemplo`,
   ];
   return `${headers.join(";")}\n${example.join(";")}`;
+}
+
+function DashboardBrandWatermark() {
+  return (
+    <div
+      className="pointer-events-none fixed bottom-4 left-2 z-0 hidden opacity-[0.14] md:block lg:bottom-8 lg:left-6"
+      aria-hidden="true"
+    >
+      <img
+        src={mascotCloudHero}
+        alt=""
+        className="h-auto w-40 object-contain lg:w-48"
+        width={192}
+        height={192}
+        decoding="async"
+      />
+    </div>
+  );
 }
 
 export default function InternalDashboard() {
@@ -411,6 +429,7 @@ export default function InternalDashboard() {
 
   return (
     <div className="dashboard-shell">
+      <DashboardBrandWatermark />
       <FloatingBubbles variant="dark" />
       <div className="dashboard-container">
         {showImports && importInProgress ? (
@@ -443,12 +462,9 @@ export default function InternalDashboard() {
           title="Área interna"
           description={`Logado como ${sessionUser.name ?? sessionUser.fullName} (${ROLE_LABELS[userRole ?? ""] ?? userRole})`}
           action={
-            <div className="flex flex-wrap items-center justify-end gap-3 overflow-visible">
-              <BalloonMascot size="sm" animate={false} className="hidden sm:flex" />
-              <button type="button" onClick={handleLogout} className="btn-secondary shrink-0">
-                Sair
-              </button>
-            </div>
+            <button type="button" onClick={handleLogout} className="btn-secondary shrink-0">
+              Sair
+            </button>
           }
         />
 
@@ -499,16 +515,14 @@ export default function InternalDashboard() {
                 <SkeletonCards count={3} />
               </div>
             ) : consultResult ? (
-              <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
-                <p className="text-sm font-semibold text-slate-700">
+              <div className="mt-4 rounded-xl border border-white/15 bg-black/20 p-4">
+                <p className="text-sm font-semibold text-white/85">
                   CEP consultado: {consultResult.cep}
                   {consultedAddress ? `, ${consultedAddress}` : ""}
                 </p>
                 {consultResult.operators.length > 0 ? (
                   <>
-                    <p className="mt-3 text-sm font-semibold text-slate-800">
-                      Resumo por operadora
-                    </p>
+                    <p className="mt-3 text-sm font-semibold text-white">Resumo por operadora</p>
                     <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                       {consultResult.operators.map((operatorName) => (
                         <OperatorSummaryCard
@@ -519,13 +533,13 @@ export default function InternalDashboard() {
                         />
                       ))}
                     </div>
-                    <p className="mt-2 text-xs text-slate-500">
+                    <p className="mt-2 text-xs text-white/55">
                       Total no CEP: {consultResult.records.length} registro(s)
                     </p>
                   </>
                 ) : null}
-                <details className="mt-3 rounded-lg bg-white p-3 ring-1 ring-slate-200">
-                  <summary className="cursor-pointer text-sm font-semibold text-slate-700">
+                <details className="mt-3 rounded-lg border border-white/10 bg-black/15 p-3">
+                  <summary className="cursor-pointer text-sm font-semibold text-white/85">
                     Ver detalhes por operadora
                   </summary>
                   <div className="mt-3 space-y-4">
@@ -1052,25 +1066,23 @@ function OperatorCoveragePanel({
       : getOperatorNumberList(records, operatorName, config.keys).length;
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3">
+    <div className="coverage-operator-panel">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <span className="inline-flex rounded-lg border border-slate-200 bg-white px-2 py-1">
+          <span className="inline-flex rounded-lg border border-white/15 bg-white/10 px-2 py-1">
             <OperatorLogo operatorName={operatorName} />
           </span>
           <div>
-            <p className="text-sm font-bold text-slate-900">
-              {toOperatorDisplayName(operatorName)}
-            </p>
-            <p className="text-xs text-slate-500">{config.hint}</p>
+            <p className="text-sm font-bold text-white">{toOperatorDisplayName(operatorName)}</p>
+            <p className="text-xs text-white/55">{config.hint}</p>
           </div>
         </div>
-        <p className="text-xs font-semibold text-slate-600">
+        <p className="text-xs font-semibold text-white/70">
           {opRecords.length.toLocaleString("pt-BR")} registro(s)
           {uniqueCount > 0 ? ` · ${uniqueCount.toLocaleString("pt-BR")} distinto(s)` : ""}
         </p>
       </div>
-      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-white/55">
         {config.title}
       </p>
       {config.mode === "streets" ? (
@@ -1120,18 +1132,11 @@ function StreetChips({
     <div>
       <div className="flex flex-wrap gap-2">
         {visible.map((street) => (
-          <span
-            key={street}
-            className="inline-flex max-w-full items-center rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-gray-900"
-          >
+          <span key={street} className="coverage-chip-street">
             {street}
           </span>
         ))}
-        {hidden > 0 ? (
-          <span className="inline-flex rounded-full border border-gray-300 bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-900">
-            +{hidden} logradouros
-          </span>
-        ) : null}
+        {hidden > 0 ? <span className="coverage-chip">+{hidden} logradouros</span> : null}
       </div>
     </div>
   );
@@ -1190,7 +1195,7 @@ function FacadeNumberChips({
 
   return (
     <div className="mt-2">
-      <p className="mb-2 text-[11px] leading-snug text-slate-500">
+      <p className="mb-2 text-[11px] leading-snug text-white/55">
         <span className="inline-flex items-center gap-1">
           <span className="inline-block h-2 w-2 rounded-full bg-slate-300" />
           número único
@@ -1213,14 +1218,10 @@ function FacadeNumberChips({
           />
         ))}
         {hiddenMobile > 0 ? (
-          <span className="inline-flex rounded-full border border-gray-300 bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-900 sm:hidden">
-            +{hiddenMobile} no mobile
-          </span>
+          <span className="coverage-chip sm:hidden">+{hiddenMobile} no mobile</span>
         ) : null}
         {hiddenTotal > 0 ? (
-          <span className="hidden rounded-full border border-gray-300 bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-900 sm:inline-flex">
-            +{hiddenTotal} ocultos
-          </span>
+          <span className="coverage-chip hidden sm:inline-flex">+{hiddenTotal} ocultos</span>
         ) : null}
       </div>
     </div>
@@ -1244,13 +1245,7 @@ function FacadeChipGroup({
 
   if (!group.isExpandable) {
     const label = group.variants[0]?.full ?? group.base;
-    return (
-      <span
-        className={`items-center rounded-full border border-gray-300 bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-900 ${className}`}
-      >
-        {label}
-      </span>
-    );
+    return <span className={`coverage-chip ${className}`}>{label}</span>;
   }
 
   const badgeCount =
@@ -1267,18 +1262,10 @@ function FacadeChipGroup({
           event.stopPropagation();
           onToggle();
         }}
-        className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold transition ${
-          expanded
-            ? "border-amber-400 bg-amber-100 text-gray-900 ring-2 ring-amber-300"
-            : "border-amber-300 bg-amber-50 text-gray-900 hover:bg-amber-100"
-        }`}
+        className={`coverage-chip-amber ${expanded ? "is-expanded" : ""}`}
       >
-        <span className="tabular-nums font-semibold text-gray-900">{group.base}</span>
-        {badgeCount > 0 ? (
-          <span className="rounded-full bg-amber-200 px-1.5 py-0.5 text-[10px] font-bold text-gray-900">
-            +{badgeCount}
-          </span>
-        ) : null}
+        <span className="tabular-nums">{group.base}</span>
+        {badgeCount > 0 ? <span className="coverage-chip-badge">+{badgeCount}</span> : null}
         <span className="text-[10px] text-gray-700" aria-hidden>
           {expanded ? "▴" : "▾"}
         </span>
@@ -1297,8 +1284,8 @@ function FacadeChipGroup({
                 key={variant.full}
                 className={`rounded-md px-2 py-1 text-xs ${
                   variant.isPlain
-                    ? "bg-gray-50 font-semibold text-gray-900"
-                    : "bg-amber-50 text-gray-900"
+                    ? "bg-gray-100 font-semibold text-gray-900"
+                    : "bg-amber-100 text-gray-900"
                 }`}
               >
                 {variant.isPlain ? (
