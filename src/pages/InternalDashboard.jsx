@@ -20,6 +20,8 @@ import vivoLogo from "../assets/operators/vivo.png";
 import { buildFacadeLabel, buildStreetLabel, countRecordsByOperator, groupFacadeNumbers, maskCep } from "../utils/coverage";
 import { CreditConsultTab } from "../components/CreditConsultTab";
 import { PapAdminTab } from "../components/PapAdminTab";
+import { BalloonMascot } from "../components/BalloonMascot";
+import { FloatingBubbles } from "../components/FloatingBubbles";
 import { DataTable, DataTableCell, DataTableRow } from "../components/ui/DataTable";
 import { EmptyState } from "../components/ui/EmptyState";
 import { FormField } from "../components/ui/FormField";
@@ -532,6 +534,7 @@ export default function InternalDashboard() {
 
   return (
     <div className="dashboard-shell">
+      <FloatingBubbles variant="dark" />
       <div className="dashboard-container">
         {isAdmin && importInProgress ? (
           <div className="rounded-xl border-2 border-brand-400 bg-brand-50 p-4 shadow-sm">
@@ -565,9 +568,12 @@ export default function InternalDashboard() {
           title="Área interna"
           description={`Logado como ${sessionUser.name} (${sessionUser.role})`}
           action={
-            <button type="button" onClick={handleLogout} className="btn-secondary">
-              Sair
-            </button>
+            <div className="flex items-center gap-3">
+              <BalloonMascot size="sm" animate={false} className="hidden sm:flex" />
+              <button type="button" onClick={handleLogout} className="btn-secondary">
+                Sair
+              </button>
+            </div>
           }
         />
 

@@ -1,4 +1,6 @@
 import { useMemo, useState } from "react";
+import { BalloonMascot } from "../components/BalloonMascot";
+import { FloatingBubbles } from "../components/FloatingBubbles";
 import { getPublicViabilityStatus } from "../services/api";
 import { maskCep } from "../utils/coverage";
 
@@ -24,7 +26,7 @@ const NIO_PLANS = [
     speedLabel: "800 Mega",
     benefits: [
       "Roteador Wi-Fi 6 (nova geração)",
-      "Globoplay 12 meses por conta da Nio",
+      "Globoplay 12 meses incluso",
       "Skeelo",
     ],
     priceStandard: 135,
@@ -40,7 +42,7 @@ const NIO_PLANS = [
     speedLabel: "1 Giga",
     benefits: [
       "Roteador Wi-Fi 6",
-      "Globoplay 12 meses por conta da Nio",
+      "Globoplay 12 meses incluso",
       "Skeelo",
     ],
     priceStandard: 150,
@@ -66,20 +68,12 @@ function buildWhatsappLink({ name, cep, facade, statusCode, planLabel }) {
   const reference = statusCode === "V-OK" ? "[Ref: V-OK]" : "[Ref: V-NOK]";
   const facadeInfo = facade?.trim() ? `Fachada: ${facade.trim()}. ` : "";
   const planInfo = planLabel ? `Plano de interesse: ${planLabel}. ` : "";
-  const message = `Olá! Sou ${name}. Quero contratar internet fibra Nio. ${planInfo}Meu CEP é ${cep}. ${facadeInfo}${reference}`;
+  const message = `Olá! Sou ${name}. Quero contratar internet fibra. ${planInfo}Meu CEP é ${cep}. ${facadeInfo}${reference}`;
   return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
 }
 
-function FloatingBubbles() {
-  return (
-    <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-      <div className="absolute -left-16 top-20 h-64 w-64 rounded-full bg-neon-green/20 blur-3xl animate-float-slow" />
-      <div className="absolute right-0 top-32 h-48 w-72 rounded-[3rem] bg-white/5 blur-2xl animate-float-medium" />
-      <div className="absolute bottom-20 left-1/4 h-40 w-56 rounded-full bg-neon-green/15 blur-3xl animate-float-fast" />
-      <div className="absolute -right-10 bottom-40 h-56 w-56 rounded-[2rem] bg-neon-green/10 blur-2xl animate-float-slow" />
-      <div className="absolute left-1/2 top-1/2 h-32 w-48 -translate-x-1/2 rounded-full bg-white/5 blur-xl animate-pulse-neon" />
-    </div>
-  );
+function FloatingBubblesLocal() {
+  return <FloatingBubbles variant="dark" />;
 }
 
 function CheckIcon() {
@@ -113,14 +107,15 @@ function PlanCard({ plan, onSelect }) {
       ) : null}
 
       <div className="flex items-center justify-between gap-2">
-        <p className="rounded-full bg-nio-dark/5 px-3 py-1 text-xs font-bold uppercase tracking-wider text-nio-dark/70">
-          Nio Fibra
-        </p>
         {isFeatured ? (
           <span className="rounded-full bg-neon-green/20 px-2.5 py-0.5 text-[10px] font-bold uppercase text-nio-dark">
             Destaque
           </span>
-        ) : null}
+        ) : (
+          <span className="rounded-full bg-nio-dark/5 px-3 py-1 text-xs font-bold uppercase tracking-wider text-nio-dark/50">
+            Fibra óptica
+          </span>
+        )}
       </div>
 
       <h3 className="mt-4 text-lg font-bold text-nio-dark">{plan.name}</h3>
@@ -244,13 +239,13 @@ export default function PublicLanding() {
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 md:px-8">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-neon-green text-sm font-black text-nio-dark">
-              N
+              PI
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-neon-green">
-                Nio Fibra
+                Plano Ideal
               </p>
-              <h1 className="text-lg font-extrabold tracking-tight md:text-xl">Plano Ideal</h1>
+              <h1 className="text-lg font-extrabold tracking-tight md:text-xl">Internet Fibra</h1>
             </div>
           </div>
           <a
@@ -266,9 +261,10 @@ export default function PublicLanding() {
       <main>
         {/* Hero */}
         <section className="relative overflow-hidden border-b border-white/5 bg-nio-dark">
-          <FloatingBubbles />
+          <FloatingBubblesLocal />
           <div className="relative mx-auto max-w-6xl px-4 py-16 md:px-8 md:py-24">
-            <div className="mx-auto max-w-3xl text-center">
+            <div className="grid items-center gap-10 lg:grid-cols-[1fr_auto] lg:gap-6">
+              <div className="mx-auto max-w-3xl text-center lg:mx-0 lg:text-left">
               <span className="inline-block rounded-full border border-neon-green/30 bg-neon-green/10 px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-neon-green">
                 Internet fibra ultra rápida
               </span>
@@ -295,7 +291,7 @@ export default function PublicLanding() {
                 ))}
               </div>
 
-              <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row lg:justify-start">
                 <a
                   href="#planos"
                   className="w-full rounded-full bg-neon-green px-8 py-4 text-base font-extrabold text-nio-dark shadow-neon-glow transition hover:scale-105 hover:shadow-neon-glow-lg sm:w-auto"
@@ -308,6 +304,11 @@ export default function PublicLanding() {
                 >
                   Consultar meu CEP
                 </a>
+              </div>
+              </div>
+
+              <div className="flex justify-center lg:justify-end">
+                <BalloonMascot size="xl" className="lg:-mr-8" />
               </div>
             </div>
 
@@ -343,7 +344,7 @@ export default function PublicLanding() {
           <div className="relative mx-auto max-w-6xl px-4 md:px-8">
             <div className="mb-12 text-center">
               <span className="rounded-full bg-neon-green/15 px-4 py-1 text-xs font-bold uppercase tracking-widest text-neon-green">
-                Planos Nio
+                Nossos planos
               </span>
               <h2 id="planos-titulo" className="mt-4 text-3xl font-black text-white md:text-5xl">
                 Escolha sua velocidade
@@ -489,7 +490,7 @@ export default function PublicLanding() {
 
       <footer className="border-t border-white/5 bg-nio-darker">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 py-8 text-center text-sm text-white/40 md:flex-row md:px-8 md:text-left">
-          <p>© {new Date().getFullYear()} Plano Ideal · Parceiro Nio Fibra</p>
+          <p>© {new Date().getFullYear()} Plano Ideal. Todos os direitos reservados.</p>
           <a
             href="/interno"
             className="rounded-full px-3 py-1 text-xs text-white/30 transition hover:bg-white/5 hover:text-white/60"

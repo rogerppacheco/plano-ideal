@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { BalloonMascot } from "../components/BalloonMascot";
+import { FloatingBubbles } from "../components/FloatingBubbles";
 import { FormField } from "../components/ui/FormField";
 import { PanelCard } from "../components/ui/PanelCard";
 import { useToast } from "../components/ui/Toast";
@@ -38,13 +40,18 @@ export default function InternalLogin() {
 
   return (
     <div className="dashboard-shell">
-      <div className="dashboard-container max-w-md">
-        <PanelCard>
-          <p className="section-label">Plano Ideal</p>
-          <h1 className="mt-1 text-2xl font-extrabold text-slate-900">Área interna</h1>
-          <p className="mt-2 text-sm text-slate-600">
-            Acesso para equipe consultar operadoras por CEP e, no perfil admin, importar bases.
-          </p>
+      <FloatingBubbles variant="dark" />
+      <div className="dashboard-container max-w-lg">
+        <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-start">
+          <div className="hidden shrink-0 sm:block">
+            <BalloonMascot size="md" />
+          </div>
+          <PanelCard className="flex-1">
+            <p className="section-label">Plano Ideal</p>
+            <h1 className="mt-1 text-2xl font-extrabold">Área interna</h1>
+            <p className="mt-2 text-sm text-white/60">
+              Acesso para equipe consultar operadoras por CEP e, no perfil admin, importar bases.
+            </p>
 
           <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
             <FormField id="login-user" label="Usuário" required>
@@ -82,10 +89,11 @@ export default function InternalLogin() {
             </button>
           </form>
 
-          <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
+          <div className="mt-4 rounded-[1.5rem] border border-white/10 bg-white/5 p-3 text-xs text-white/50">
             <p>Use credenciais cadastradas no PostgreSQL.</p>
           </div>
-        </PanelCard>
+          </PanelCard>
+        </div>
       </div>
     </div>
   );
