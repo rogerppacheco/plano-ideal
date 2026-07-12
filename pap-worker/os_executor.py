@@ -249,9 +249,15 @@ def execute_os_consultation(consultation_id: int) -> None:
         )
 
         duration = time.time() - tempo_inicio
-        screenshot_b64 = _file_to_base64(
-            _resolve_screenshot_path(detalhes, list_screenshot_path)
-        )
+        screenshot_path = _resolve_screenshot_path(detalhes, list_screenshot_path)
+        screenshot_b64 = _file_to_base64(screenshot_path)
+        if not screenshot_b64:
+            logger.warning(
+                "[OS] Consulta %s sem captura persistida (list=%s, detail=%s)",
+                consultation_id,
+                list_screenshot_path,
+                [item.get("detail_screenshot_path") for item in (detalhes or [])],
+            )
 
         if not sucesso:
             raise RuntimeError(msg or "Falha na consulta de OS no PAP.")

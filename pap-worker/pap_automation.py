@@ -2430,6 +2430,11 @@ class PAPNioAutomation:
                     if detail_path and os.path.isfile(detail_path):
                         list_screenshot_path = detail_path
                         break
+            if not list_screenshot_path:
+                logger.warning(
+                    "[PAP] Captura do detalhe não disponível; salvando screenshot da tela Consulta OS"
+                )
+                list_screenshot_path = self._screenshot_consulta_os_return_path()
             return True, "ok", detalhes, list_screenshot_path
         list_screenshot_path = self._screenshot_consulta_os_return_path()
         return True, "no_results", [], list_screenshot_path
@@ -2506,6 +2511,10 @@ class PAPNioAutomation:
         """
         num = (numero_os or "").strip()
         num_sem_zero = num.lstrip("0") or num
+        detail_screenshot_path: Optional[str] = None
+        status_agendamento = None
+        agendamento_texto = None
+        pendencia_texto = None
         try:
             link = None
             href = (detalhe_href or "").strip()
@@ -2540,9 +2549,6 @@ class PAPNioAutomation:
                 url_atual = self.page.url
                 if "detalhe-os" not in (url_atual or ""):
                     self.page.wait_for_load_state("domcontentloaded", timeout=5000)
-            status_agendamento = None
-            agendamento_texto = None
-            pendencia_texto = None
             # Status agendamento
             try:
                 loc_st = self.page.get_by_text("Status agendamento", exact=False).locator(
@@ -2623,7 +2629,12 @@ class PAPNioAutomation:
                 self.page.go_back()
             except Exception:
                 pass
-            return None, None, None, None
+            return (
+                status_agendamento or None,
+                agendamento_texto or None,
+                pendencia_texto or None,
+                detail_screenshot_path,
+            )
 
     def _variantes_busca_matricula_vendedor(self, matricula: str) -> List[str]:
         """Gera termos de busca para o autocomplete de vendedor (formato do PAP varia)."""
