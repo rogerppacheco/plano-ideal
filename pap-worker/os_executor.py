@@ -87,6 +87,17 @@ def _build_summary(
     return f"{count} pedidos encontrados."
 
 
+def _resolve_screenshot_path(
+    detalhes: list[dict[str, Any]],
+    list_screenshot_path: str | None,
+) -> str | None:
+    for item in detalhes or []:
+        detail_path = item.get("detail_screenshot_path")
+        if detail_path and os.path.isfile(detail_path):
+            return detail_path
+    return list_screenshot_path
+
+
 def _finish_consultation(
     consultation_id: int,
     *,
@@ -238,7 +249,9 @@ def execute_os_consultation(consultation_id: int) -> None:
         )
 
         duration = time.time() - tempo_inicio
-        screenshot_b64 = _file_to_base64(list_screenshot_path)
+        screenshot_b64 = _file_to_base64(
+            _resolve_screenshot_path(detalhes, list_screenshot_path)
+        )
 
         if not sucesso:
             raise RuntimeError(msg or "Falha na consulta de OS no PAP.")

@@ -2424,6 +2424,12 @@ class PAPNioAutomation:
                 list_screenshot_path = self._screenshot_consulta_os_return_path()
 
         if detalhes:
+            if not list_screenshot_path:
+                for row in detalhes:
+                    detail_path = row.get("detail_screenshot_path")
+                    if detail_path and os.path.isfile(detail_path):
+                        list_screenshot_path = detail_path
+                        break
             return True, "ok", detalhes, list_screenshot_path
         list_screenshot_path = self._screenshot_consulta_os_return_path()
         return True, "no_results", [], list_screenshot_path

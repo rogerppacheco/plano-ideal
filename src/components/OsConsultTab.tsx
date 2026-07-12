@@ -1,7 +1,14 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { getOsConsultationScreenshot } from "../services/api";
 import type { OsConsultation, OsOrderResult } from "../types/os";
-import { isPendingOsStatus, isOsNotFoundResult, osResultBadgeLabel, osStatusLabel } from "../types/os";
+import {
+  isPendingOsStatus,
+  isOsNotFoundResult,
+  isTerminalOsStatus,
+  osResultBadgeLabel,
+  osStatusLabel,
+} from "../types/os";
 import { useOsConsult } from "../hooks/useOsConsult";
 import { DataTable, DataTableCell, DataTableRow } from "./ui/DataTable";
 import type { DataTableColumn } from "./ui/DataTable";
@@ -54,9 +61,9 @@ function OrderDetailsTable({ orders }: { orders: OsOrderResult[] }) {
   }
 
   return (
-    <div className="mt-3 overflow-x-auto rounded-xl border border-white/10">
+    <div className="mt-3 overflow-x-auto rounded-xl border border-slate-200">
       <table className="min-w-full text-sm">
-        <thead className="bg-white/5 text-left text-xs uppercase tracking-wide text-gray-400">
+        <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
           <tr>
             <th className="px-3 py-2">OS</th>
             <th className="px-3 py-2">Status</th>
@@ -68,10 +75,7 @@ function OrderDetailsTable({ orders }: { orders: OsOrderResult[] }) {
         </thead>
         <tbody>
           {orders.map((order, index) => (
-            <tr
-              key={`${order.numero_os || index}`}
-              className="border-t border-white/10 text-gray-100"
-            >
+            <tr key={`${order.numero_os || index}`} className="border-t border-slate-200 text-slate-800">
               <td className="px-3 py-2 font-mono text-xs">{order.numero_os || "—"}</td>
               <td className="px-3 py-2">{order.status || "—"}</td>
               <td className="px-3 py-2">{order.plano || "—"}</td>
@@ -84,6 +88,127 @@ function OrderDetailsTable({ orders }: { orders: OsOrderResult[] }) {
       </table>
     </div>
   );
+}
+
+function consultationTitle(consultation: OsConsultation): string {
+  const doc = consultation.documentMasked || consultation.document;
+  const os = consultation.numeroOsFiltro ? ` · OS ${consultation.numeroOsFiltro}` : "";
+  return `Consulta #${consultation.id} — ${doc}${os}`;
+}
+
+function OsConsultResultPanel({
+  consultation,
+  onOpenScreenshot,
+}: {
+  consultation: OsConsultation;
+  onOpenScreenshot?: (consultation: OsConsultation) => void;
+}) {
+  if (isPendingOsStatus(consultation.status)) {
+    return (
+      <div className="mt-3 space-y-2" role="status" aria-label="Consulta em andamento">
+        <p className="text-sm text-slate-600">
+          Status: <span className="font-medium">{osStatusLabel(consultation.status)}</span>
+        </p>
+        <div className="skeleton h-3 w-48" />
+        <p className="text-sm text-amber-800">
+          Aguardando retorno do PAP… o histórico abaixo atualiza automaticamente.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-slate-600">
+        Status: <span className="font-medium">{osStatusLabel(consultation.status)}</span>
+      </p>
+      {consultation.status === "success" ? (
+        <>
+          <ResultBadge item={consultation} />
+          {consultation.resultSummary ? (
+            <p className="text-sm text-slate-700">{consultation.resultSummary}</p>
+          ) : null}
+          <OrderDetailsTable orders={consultation.results} />
+          {consultation.durationSeconds != null ? (
+            <p className="text-xs text-slate-500">
+              Tempo de resposta: {consultation.durationSeconds}s
+            </p>
+          ) : null}
+          {consultation.hasScreenshot && onOpenScreenshot ? (
+            <button
+              type="button"
+              className="btn-secondary px-3 py-2 text-xs"
+              onClick={() => onOpenScreenshot(consultation)}
+            >
+              Ver captura PAP
+            </button>
+          ) : null}
+        </>
+      ) : null}
+      {consultation.status === "failed" ? (
+        <p className="text-sm font-medium text-red-700">
+          {consultation.errorMessage || "Erro ao consultar OS."}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function OsConsultResultModal({
+  open,
+  consultation,
+  onClose,
+  onOpenScreenshot,
+}: {
+  open: boolean;
+  consultation: OsConsultation | null;
+  onClose: () => void;
+  onOpenScreenshot: (consultation: OsConsultation) => void;
+}) {
+  useEffect(() => {
+    if (!open) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [open]);
+
+  if (!open || !consultation) return null;
+
+  const modal = (
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+      role="presentation"
+      onClick={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="os-result-modal-title"
+        className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-4 py-3">
+          <h3 id="os-result-modal-title" className="text-sm font-bold text-slate-900">
+            {consultationTitle(consultation)}
+          </h3>
+          <button type="button" onClick={onClose} className="btn-secondary px-3 py-1 text-xs">
+            Fechar
+          </button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-auto p-4">
+          <OsConsultResultPanel consultation={consultation} onOpenScreenshot={onOpenScreenshot} />
+        </div>
+      </div>
+    </div>
+  );
+
+  return createPortal(modal, document.body);
+}
+
+function canViewStoredResult(item: OsConsultation): boolean {
+  return isTerminalOsStatus(item.status);
 }
 
 export function OsConsultTab({ token }: OsConsultTabProps) {
@@ -103,6 +228,9 @@ export function OsConsultTab({ token }: OsConsultTabProps) {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalTitle, setModalTitle] = useState("");
   const [modalScreenshot, setModalScreenshot] = useState("");
+  const [resultModalConsultation, setResultModalConsultation] = useState<OsConsultation | null>(
+    null
+  );
 
   const openScreenshot = async (consultation: OsConsultation) => {
     try {
@@ -173,54 +301,12 @@ export function OsConsultTab({ token }: OsConsultTabProps) {
       {trackingConsultation ? (
         <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
           <p className="text-sm font-semibold text-slate-800">
-            Consulta #{trackingConsultation.id} — {trackingConsultation.documentMasked}
-            {trackingConsultation.numeroOsFiltro
-              ? ` · OS ${trackingConsultation.numeroOsFiltro}`
-              : ""}
+            {consultationTitle(trackingConsultation)}
           </p>
-          <p className="mt-1 text-sm text-slate-600">
-            Status:{" "}
-            <span className="font-medium">{osStatusLabel(trackingConsultation.status)}</span>
-          </p>
-
-          {isPendingOsStatus(trackingConsultation.status) ? (
-            <div className="mt-3 space-y-2" role="status" aria-label="Consulta em andamento">
-              <div className="skeleton h-3 w-48" />
-              <p className="text-sm text-amber-800">
-                Aguardando retorno do PAP… o histórico abaixo atualiza automaticamente.
-              </p>
-            </div>
-          ) : null}
-
-          {trackingConsultation.status === "success" ? (
-            <div className="mt-3">
-              <ResultBadge item={trackingConsultation} />
-              {trackingConsultation.resultSummary ? (
-                <p className="mt-2 text-sm text-slate-700">{trackingConsultation.resultSummary}</p>
-              ) : null}
-              <OrderDetailsTable orders={trackingConsultation.results} />
-              {trackingConsultation.durationSeconds != null ? (
-                <p className="mt-2 text-xs text-slate-500">
-                  Tempo de resposta: {trackingConsultation.durationSeconds}s
-                </p>
-              ) : null}
-              {trackingConsultation.hasScreenshot ? (
-                <button
-                  type="button"
-                  className="btn-secondary mt-3 px-3 py-2 text-xs"
-                  onClick={() => openScreenshot(trackingConsultation)}
-                >
-                  Ver captura PAP
-                </button>
-              ) : null}
-            </div>
-          ) : null}
-
-          {trackingConsultation.status === "failed" ? (
-            <p className="mt-2 text-sm font-medium text-red-700">
-              {trackingConsultation.errorMessage || "Erro ao consultar OS."}
-            </p>
-          ) : null}
+          <OsConsultResultPanel
+            consultation={trackingConsultation}
+            onOpenScreenshot={openScreenshot}
+          />
         </div>
       ) : null}
 
@@ -255,23 +341,38 @@ export function OsConsultTab({ token }: OsConsultTabProps) {
                   <ResultBadge item={item} />
                 </DataTableCell>
                 <DataTableCell>
-                  {item.hasScreenshot ? (
-                    <button
-                      type="button"
-                      className="btn-ghost"
-                      onClick={() => openScreenshot(item)}
-                    >
-                      Ver captura
-                    </button>
-                  ) : (
-                    <span className="text-xs text-slate-400">—</span>
-                  )}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {canViewStoredResult(item) ? (
+                      <button
+                        type="button"
+                        className="btn-ghost"
+                        onClick={() => setResultModalConsultation(item)}
+                      >
+                        Ver resultado
+                      </button>
+                    ) : null}
+                    {item.hasScreenshot ? (
+                      <button type="button" className="btn-ghost" onClick={() => openScreenshot(item)}>
+                        Ver captura
+                      </button>
+                    ) : null}
+                    {!canViewStoredResult(item) && !item.hasScreenshot ? (
+                      <span className="text-xs text-slate-400">—</span>
+                    ) : null}
+                  </div>
                 </DataTableCell>
               </DataTableRow>
             ))}
           </DataTable>
         </div>
       </div>
+
+      <OsConsultResultModal
+        open={resultModalConsultation != null}
+        consultation={resultModalConsultation}
+        onClose={() => setResultModalConsultation(null)}
+        onOpenScreenshot={openScreenshot}
+      />
 
       <ScreenshotModal
         open={modalOpen}
