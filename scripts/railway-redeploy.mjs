@@ -136,6 +136,7 @@ const env =
 
 const api = services.find((s) => s.name === config.apiServiceName);
 const frontend = services.find((s) => s.name === config.frontendServiceName);
+const pap = services.find((s) => s.name === (config.papServiceName || "plano-ideal-pap"));
 
 if (!api || !frontend) {
   console.error("Serviços não encontrados:", { api: !!api, frontend: !!frontend });
@@ -146,4 +147,9 @@ console.log(`Projeto: ${details.name} | ambiente: ${env.name}\n`);
 console.log("Disparando redeploy…");
 await deployService(token, api.id, env.id, api.name);
 await deployService(token, frontend.id, env.id, frontend.name);
+if (pap) {
+  await deployService(token, pap.id, env.id, pap.name);
+} else {
+  console.warn("  Serviço PAP não encontrado — pulando redeploy do worker.");
+}
 console.log("\nConcluído. Acompanhe em https://railway.com → Deployments (5–10 min).");

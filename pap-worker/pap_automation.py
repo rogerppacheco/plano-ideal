@@ -1688,24 +1688,14 @@ class PAPNioAutomation:
 
     _SELETOR_CONSULTA_OS_PRONTA = (
         'input.input-text-filter[placeholder*="CPF"], '
+        'span.titulo-filtro:has-text("Filtros"), .titulo-filtro, '
         'button:has-text("Filtros"), button.btn-filters-new'
     )
 
     def _tela_consulta_os_carregada(self, timeout_ms: int = 5000) -> bool:
-        """Verifica se a tela Consulta OS está pronta (URL ou controles visíveis)."""
+        """Verifica se a tela Consulta OS está pronta pelos controles visíveis, não só pela URL."""
         if not self.page:
             return False
-        url = (self.page.url or "").lower()
-        if "consulta-os" in url:
-            try:
-                self.page.wait_for_selector(
-                    self._SELETOR_CONSULTA_OS_PRONTA,
-                    state="visible",
-                    timeout=timeout_ms,
-                )
-            except Exception:
-                pass
-            return True
         try:
             self.page.wait_for_selector(
                 self._SELETOR_CONSULTA_OS_PRONTA,
@@ -1831,6 +1821,14 @@ class PAPNioAutomation:
             logger.info("[PAP] Navegação para Consulta OS OK (URL direta)")
             return True
 
+        if self._sessao_expirada_detectada():
+            logger.warning("[PAP] Consulta OS redirecionou para login/sessão inativa; tentando relogin.")
+            ok_relogin, msg_relogin = self.garantir_sessao_ativa(PAP_CONSULTA_OS_URL)
+            if ok_relogin and self._tela_consulta_os_carregada(12000):
+                logger.info("[PAP] Navegação para Consulta OS OK após relogin")
+                return True
+            logger.warning("[PAP] Relogin Consulta OS não deixou tela pronta: %s", msg_relogin)
+
         if not rapido:
             try:
                 self.page.wait_for_load_state("networkidle", timeout=6000)
@@ -1883,6 +1881,143 @@ class PAPNioAutomation:
             self.page.wait_for_timeout(1000)
 
         return False
+
+    _SELETOR_INPUT_CPF_FILTRO = (
+        'input.input-text-filter[placeholder="Digite o CPF/CNPJ..."], input.input-text-filter'
+    )
+
+    def _diagnosticar_tela_consulta_os(self) -> None:
+        """Loga pistas da tela quando o controle de Filtros não aparece."""
+        try:
+            url = (self.page.url or "")[:160]
+            title = ""
+            try:
+                title = self.page.title()
+            except Exception:
+                pass
+            body_text = ""
+            try:
+                body_text = (self.page.locator("body").inner_text(timeout=2000) or "")[:500]
+            except Exception:
+                pass
+            logger.warning(
+                "[PAP] Diagnóstico Consulta OS url=%s title=%s textos=%s",
+                url,
+                title,
+                body_text.replace("\n", " | "),
+            )
+        except Exception as e:
+            logger.debug("[PAP] Diagnóstico Consulta OS falhou: %s", e)
+
+    def _localizar_controle_filtros_consulta_os(self, timeout_ms: int = 6000) -> Optional[Any]:
+        """Retorna o locator do controle Filtros, priorizando span.titulo-filtro."""
+        if not self.page:
+            return None
+        seletores = [
+            'span.titulo-filtro:has-text("Filtros")',
+            '.titulo-filtro:has-text("Filtros")',
+            'span.titulo-filtro',
+            'span:text-is("Filtros")',
+            'button:has-text("Filtros")',
+            '[role="button"]:has-text("Filtros")',
+            'text=Filtros',
+        ]
+        for idx, sel in enumerate(seletores):
+            try:
+                loc = self.page.locator(sel).first
+                loc.wait_for(state="visible", timeout=timeout_ms if idx == 0 else 1200)
+                return loc
+            except Exception:
+                continue
+        return None
+
+    def _abrir_painel_filtros_consulta_os(self, rapido: bool = False) -> Tuple[bool, str]:
+        """
+        Abre o painel de Filtros na Consulta OS e garante o campo CPF/CNPJ visível.
+
+        No PAP o controle costuma ser span.titulo-filtro e abrir por hover; em outras
+        renderizações, click ou dispatch JS resolvem.
+        """
+        if not self.page:
+            return False, "Sessão PAP indisponível."
+
+        input_selector = self._SELETOR_INPUT_CPF_FILTRO
+        hover_wait = 250 if rapido else 400
+        click_wait = 400 if rapido else 600
+        timeout_ms = 12000 if not rapido else 10000
+
+        try:
+            if self.page.locator(input_selector).first.is_visible(timeout=500):
+                return True, "Painel de Filtros já aberto."
+        except Exception:
+            pass
+
+        filtros_loc = self._localizar_controle_filtros_consulta_os(timeout_ms=timeout_ms)
+        if filtros_loc is None:
+            try:
+                self.page.wait_for_load_state("networkidle", timeout=8000)
+            except Exception:
+                pass
+            self.page.wait_for_timeout(1500)
+            filtros_loc = self._localizar_controle_filtros_consulta_os(timeout_ms=8000)
+
+        if filtros_loc is None:
+            try:
+                if "consulta-os" in (self.page.url or "").lower():
+                    self.page.reload(wait_until="domcontentloaded", timeout=20000)
+                else:
+                    self.page.goto(PAP_CONSULTA_OS_URL, wait_until="domcontentloaded", timeout=30000)
+                self.page.wait_for_timeout(1500)
+                filtros_loc = self._localizar_controle_filtros_consulta_os(timeout_ms=12000)
+            except Exception as e:
+                logger.warning("[PAP] Retry navegação Consulta OS para Filtros: %s", e)
+
+        if filtros_loc is None:
+            logger.warning("[PAP] Controles de Filtros não apareceram na Consulta OS")
+            self._diagnosticar_tela_consulta_os()
+            return False, "Tela Consulta OS não exibiu o controle de Filtros."
+
+        try:
+            filtros_loc.hover(timeout=timeout_ms)
+            self.page.wait_for_timeout(hover_wait)
+            self.page.wait_for_selector(input_selector, state="visible", timeout=timeout_ms)
+            return True, "Painel de Filtros aberto (hover)."
+        except Exception as e:
+            logger.debug("[PAP] Hover em Filtros não abriu o painel: %s", e)
+
+        try:
+            filtros_loc.click(force=True, timeout=timeout_ms)
+            self.page.wait_for_timeout(click_wait)
+            self.page.wait_for_selector(input_selector, state="visible", timeout=timeout_ms)
+            return True, "Painel de Filtros aberto (click)."
+        except Exception as e:
+            logger.warning("[PAP] Click em Filtros falhou: %s", e)
+
+        try:
+            opened = self.page.evaluate(
+                """() => {
+                    const candidatos = Array.from(document.querySelectorAll(
+                        'span.titulo-filtro, .titulo-filtro, span, button, a, [role="button"]'
+                    ));
+                    const el = candidatos.find((node) => {
+                        const text = (node.textContent || '').trim();
+                        return text === 'Filtros' || (text.startsWith('Filtros') && text.length < 20);
+                    });
+                    if (!el) return false;
+                    el.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+                    el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+                    el.click();
+                    return true;
+                }"""
+            )
+            if opened:
+                self.page.wait_for_timeout(click_wait)
+                self.page.wait_for_selector(input_selector, state="visible", timeout=timeout_ms)
+                return True, "Painel de Filtros aberto (JS)."
+        except Exception as e:
+            logger.warning("[PAP] Fallback JS em Filtros falhou: %s", e)
+
+        return False, "Painel de Filtros não abriu ou campo CPF/CNPJ não encontrado."
 
     def abrir_consulta_os_e_filtrar_cpf(self, cpf: str) -> Tuple[bool, str]:
         """
@@ -1978,6 +2113,75 @@ class PAPNioAutomation:
             logger.warning(f"[PAP] Erro ao salvar screenshot Consulta OS: {e}")
             return None
 
+    @staticmethod
+    def _extrair_digitos_os(valor: Optional[str]) -> str:
+        return re.sub(r"\D", "", str(valor or "")).strip()
+
+    @classmethod
+    def _variantes_numero_os(cls, valor: Optional[str]) -> set:
+        raw = cls._extrair_digitos_os(valor)
+        if not raw:
+            return set()
+        sem_zero = raw.lstrip("0") or raw
+        return {raw, sem_zero}
+
+    def _linha_corresponde_os_filtro(
+        self,
+        row: Dict[str, Any],
+        filtro_raw: str,
+        filtro_sem_zero: str,
+    ) -> bool:
+        for variant in self._variantes_numero_os(row.get("numero_os")):
+            if variant == filtro_raw or variant == filtro_sem_zero:
+                return True
+
+        href = (row.get("detalhe_href") or "").strip()
+        if href:
+            frag = href.split("detalhe-os/")[-1].strip("/").split("?")[0]
+            for variant in self._variantes_numero_os(frag):
+                if variant == filtro_raw or variant == filtro_sem_zero:
+                    return True
+            if filtro_raw and (filtro_raw in href or filtro_sem_zero in href):
+                return True
+        return False
+
+    def _preencher_numero_os_filtro_consulta_os(self, numero_os: str) -> bool:
+        """Preenche o campo de Nº da OS no painel de filtros, quando disponível no PAP."""
+        os_limpo = self._extrair_digitos_os(numero_os)
+        if not os_limpo or not self.page:
+            return False
+
+        seletores = [
+            'input.input-text-filter[placeholder*="OS"]',
+            'input.input-text-filter[placeholder*="os"]',
+            'input[placeholder*="Número da OS"]',
+            'input[placeholder*="Numero da OS"]',
+            'input[placeholder*="número da OS"]',
+            'input[aria-label*="OS"]',
+            'input[name*="os"]',
+            'input[id*="os"]',
+        ]
+        for sel in seletores:
+            loc = self.page.locator(sel).first
+            try:
+                if loc.count() == 0:
+                    continue
+                loc.fill(os_limpo, force=True, timeout=5000)
+                logger.info("[PAP] Nº OS preenchido no filtro Consulta OS: %s", os_limpo)
+                return True
+            except Exception:
+                continue
+
+        inputs = self.page.locator("input.input-text-filter")
+        try:
+            if inputs.count() >= 2:
+                inputs.nth(1).fill(os_limpo, force=True, timeout=5000)
+                logger.info("[PAP] Nº OS preenchido no 2º filtro Consulta OS: %s", os_limpo)
+                return True
+        except Exception:
+            pass
+        return False
+
     def consulta_os_por_cpf_com_resultado(
         self,
         cpf: str,
@@ -1988,12 +2192,12 @@ class PAPNioAutomation:
         Fluxo completo: login, Consulta OS, Filtros, CPF, período 30 dias, Filtrar.
         Lê a tabela e por linha detecta se existe link Detalhar (nao_pertence_pdv=False) ou não (não pertence ao PDV).
         Para cada linha com link Detalhar: abre o detalhe, extrai status_agendamento, agendamento, pendência e tira screenshot da tela de detalhe.
-        Se numero_os_filtro for informado, filtra o resultado para retornar somente aquela OS (comparando com e sem zeros à esquerda).
+        Se numero_os_filtro for informado, tenta preencher o campo no painel PAP e,
+        após a tabela, filtra para retornar somente aquela OS (comparando número exibido e link Detalhar).
         Returns:
-            (sucesso, mensagem, lista de dicts com status/plano/numero_os/data_hora, nao_pertence_pdv,
-             e quando tem Detalhar: status_agendamento, agendamento, pendencia, detail_screenshot_path),
-            list_screenshot_path (screenshot da lista; usado quando só 1 pedido e não pertence ao PDV).
-            Se não houver pedidos: (True, "no_results", [], list_screenshot_path).
+            ...
+            Se não houver pedidos para o CPF: (True, "no_results", [], list_screenshot_path).
+            Se houver pedidos mas a OS filtrada não existir: (True, "os_not_found:<lista>", [], list_screenshot_path).
         """
         from datetime import timedelta
         cpf_limpo = re.sub(r'\D', '', cpf) if cpf else ""
@@ -2015,33 +2219,13 @@ class PAPNioAutomation:
             return False, "Não foi possível acessar a tela Consulta OS.", [], None
         self.page.wait_for_timeout(350 if rapido else 1000)
 
-        # No PAP, o painel de Filtros abre ao PASSAR O MOUSE em cima de "Filtros" (hover), não ao clicar.
-        input_selector = 'input.input-text-filter[placeholder="Digite o CPF/CNPJ..."], input.input-text-filter'
-        hover_wait = 250 if rapido else 400
-        try:
-            self.page.locator('button:has-text("Filtros"), a:has-text("Filtros"), [role="button"]:has-text("Filtros")').first.hover(timeout=5000)
-            self.page.wait_for_timeout(hover_wait)
-        except Exception:
-            try:
-                self.page.locator('text=Filtros').first.hover(timeout=5000)
-                self.page.wait_for_timeout(hover_wait)
-            except Exception as e:
-                logger.debug(f"[PAP] Hover em Filtros: {e}")
-        try:
-            self.page.wait_for_selector(input_selector, state="visible", timeout=5000)
-        except Exception:
-            try:
-                self.page.locator('button:has-text("Filtros")').first.click(force=True, timeout=5000)
-                self.page.wait_for_timeout(600)
-            except Exception:
-                self.page.locator('a:has-text("Filtros")').first.click(force=True, timeout=5000)
-                self.page.wait_for_timeout(600)
-            try:
-                self.page.wait_for_selector(input_selector, state="visible", timeout=4000)
-            except Exception:
-                return False, "Painel de Filtros não abriu ou campo CPF/CNPJ não encontrado.", [], None
+        ok_filtros, msg_filtros = self._abrir_painel_filtros_consulta_os(rapido=rapido)
+        if not ok_filtros:
+            return False, msg_filtros, [], None
+        logger.info("[PAP] %s", msg_filtros)
 
         # Preencher CPF/CNPJ e clicar Filtrar (reduzidos waits para agilizar)
+        input_selector = self._SELETOR_INPUT_CPF_FILTRO
         locator_cpf = self.page.locator(input_selector).first
         try:
             if locator_cpf.count() == 0:
@@ -2051,6 +2235,17 @@ class PAPNioAutomation:
             logger.warning(f"[PAP] fill CPF com force falhou: {e}")
             return False, f"Não foi possível preencher CPF/CNPJ no filtro: {e}", [], None
         self.page.wait_for_timeout(150)
+
+        if numero_os_filtro:
+            preencheu_os = self._preencher_numero_os_filtro_consulta_os(numero_os_filtro)
+            if preencheu_os:
+                logger.info("[PAP] Consulta OS com filtro de OS %s no painel PAP", numero_os_filtro)
+            else:
+                logger.info(
+                    "[PAP] Campo de OS não encontrado no painel; filtro %s será aplicado após a tabela",
+                    numero_os_filtro,
+                )
+            self.page.wait_for_timeout(100)
 
         # Período: últimos 30 dias (já costuma vir preenchido; preenche só se necessário)
         hoje = datetime.now().date()
@@ -2172,16 +2367,28 @@ class PAPNioAutomation:
 
         # Se for consulta por OS (via filtro), reduzir a lista antes de abrir detalhes para evitar abrir várias OS do mesmo CPF
         if detalhes and numero_os_filtro:
-            filtro_raw = re.sub(r"\D", "", str(numero_os_filtro)).strip()
+            filtro_raw = self._extrair_digitos_os(numero_os_filtro)
             filtro_sem_zero = (filtro_raw.lstrip("0") or filtro_raw) if filtro_raw else ""
             if filtro_raw:
-                filtrados = []
-                for d in detalhes:
-                    os_tbl = re.sub(r"\D", "", str(d.get("numero_os") or "")).strip()
-                    os_tbl_sem_zero = os_tbl.lstrip("0") or os_tbl
-                    if os_tbl == filtro_raw or os_tbl_sem_zero == filtro_sem_zero:
-                        filtrados.append(d)
-                detalhes = filtrados
+                detalhes_antes_filtro = list(detalhes)
+                detalhes = [
+                    d for d in detalhes_antes_filtro
+                    if self._linha_corresponde_os_filtro(d, filtro_raw, filtro_sem_zero)
+                ]
+                if not detalhes and detalhes_antes_filtro:
+                    os_encontradas = sorted({
+                        self._extrair_digitos_os(d.get("numero_os"))
+                        for d in detalhes_antes_filtro
+                        if self._extrair_digitos_os(d.get("numero_os"))
+                    })
+                    logger.info(
+                        "[PAP] OS %s não encontrada entre %s pedidos do CPF: %s",
+                        filtro_raw,
+                        len(detalhes_antes_filtro),
+                        ", ".join(os_encontradas),
+                    )
+                    list_screenshot_path = self._screenshot_consulta_os_return_path()
+                    return True, f"os_not_found:{','.join(os_encontradas)}", [], list_screenshot_path
 
         detalhes = sorted(detalhes, key=lambda d: str(d.get("numero_os") or ""))
 

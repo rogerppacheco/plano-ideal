@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { getOsConsultationScreenshot } from "../services/api";
 import type { OsConsultation, OsOrderResult } from "../types/os";
-import { isPendingOsStatus, osResultBadgeLabel, osStatusLabel } from "../types/os";
+import { isPendingOsStatus, isOsNotFoundResult, osResultBadgeLabel, osStatusLabel } from "../types/os";
 import { useOsConsult } from "../hooks/useOsConsult";
 import { DataTable, DataTableCell, DataTableRow } from "./ui/DataTable";
 import type { DataTableColumn } from "./ui/DataTable";
@@ -39,6 +39,9 @@ function ResultBadge({ item }: { item: OsConsultation }) {
   if (item.status === "failed") {
     return <span className="badge-status badge-status-error">Erro</span>;
   }
+  if (isOsNotFoundResult(item)) {
+    return <span className="badge-status badge-status-pending">OS não encontrada</span>;
+  }
   if (item.resultsCount === 0) {
     return <span className="badge-status badge-status-denied">Sem pedidos</span>;
   }
@@ -47,11 +50,7 @@ function ResultBadge({ item }: { item: OsConsultation }) {
 
 function OrderDetailsTable({ orders }: { orders: OsOrderResult[] }) {
   if (!orders.length) {
-    return (
-      <p className="text-sm text-slate-600">
-        Nenhum pedido nos últimos 30 dias para este documento.
-      </p>
-    );
+    return null;
   }
 
   return (
@@ -148,7 +147,7 @@ export function OsConsultTab({ token }: OsConsultTabProps) {
         <FormField
           id="os-numero"
           label="Nº da OS (opcional)"
-          hint="Filtra um pedido específico, como no fluxo STATUS do WhatsApp."
+          hint="Restringe o resultado a uma OS entre os pedidos do CPF nos últimos 30 dias."
         >
           {({ id, describedBy }) => (
             <input

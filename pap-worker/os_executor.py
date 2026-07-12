@@ -56,8 +56,28 @@ def _sanitize_results_for_storage(detalhes: list[dict[str, Any]]) -> list[dict[s
     return cleaned
 
 
-def _build_summary(msg: str, detalhes: list[dict[str, Any]]) -> str:
+def _build_summary(
+    msg: str,
+    detalhes: list[dict[str, Any]],
+    *,
+    numero_os_filtro: str | None = None,
+) -> str:
+    if msg.startswith("os_not_found"):
+        os_list = msg.split(":", 1)[1] if ":" in msg else ""
+        os_hint = ""
+        if os_list:
+            os_hint = f" Pedidos encontrados para este documento: {os_list.replace(',', ', ')}."
+        os_num = numero_os_filtro or "informada"
+        return (
+            f"OS {os_num} não encontrada nos últimos 30 dias para este documento."
+            f"{os_hint}"
+        )
     if msg == "no_results" or not detalhes:
+        if numero_os_filtro:
+            return (
+                f"Nenhum pedido encontrado nos últimos 30 dias para este documento "
+                f"(filtro OS {numero_os_filtro})."
+            )
         return "Nenhum pedido encontrado nos últimos 30 dias."
     count = len(detalhes)
     if count == 1:
@@ -224,7 +244,11 @@ def execute_os_consultation(consultation_id: int) -> None:
             raise RuntimeError(msg or "Falha na consulta de OS no PAP.")
 
         results_json = _sanitize_results_for_storage(detalhes)
-        summary = _build_summary(msg, results_json)
+        summary = _build_summary(
+            msg,
+            results_json,
+            numero_os_filtro=numero_os_filtro,
+        )
 
         _finish_consultation(
             consultation_id,

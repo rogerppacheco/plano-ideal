@@ -65,11 +65,20 @@ export function osStatusLabel(status: OsConsultStatus): string {
   return status;
 }
 
+export function isOsNotFoundResult(consultation: OsConsultation): boolean {
+  if (!consultation.numeroOsFiltro || consultation.resultsCount > 0) {
+    return false;
+  }
+  const summary = (consultation.resultSummary || "").toLowerCase();
+  return summary.includes("não encontrada") || summary.includes("nao encontrada");
+}
+
 export function osResultBadgeLabel(consultation: OsConsultation): string {
   if (isPendingOsStatus(consultation.status)) {
     return osStatusLabel(consultation.status);
   }
   if (consultation.status === "failed") return "Erro";
+  if (isOsNotFoundResult(consultation)) return "OS não encontrada";
   if (consultation.resultsCount === 0) return "Sem pedidos";
   if (consultation.resultsCount === 1) return "1 pedido";
   return `${consultation.resultsCount} pedidos`;
