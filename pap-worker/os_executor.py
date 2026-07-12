@@ -50,7 +50,7 @@ def _sanitize_results_for_storage(detalhes: list[dict[str, Any]]) -> list[dict[s
         row = {
             key: value
             for key, value in item.items()
-            if key not in ("detail_screenshot_path", "detalhe_href") and value is not None
+            if key not in ("detail_screenshot_path", "detalhe_href", "screenshot_b64") and value is not None
         }
         cleaned.append(row)
     return cleaned
@@ -243,14 +243,18 @@ def execute_os_consultation(consultation_id: int) -> None:
 
         logger.info("[OS] Consulta %s: login PAP OK", consultation_id)
 
-        sucesso, msg, detalhes, list_screenshot_path = automacao.consulta_os_por_cpf_com_resultado(
-            document,
-            numero_os_filtro=numero_os_filtro,
+        sucesso, msg, detalhes, list_screenshot_path, screenshot_b64 = (
+            automacao.consulta_os_por_cpf_com_resultado(
+                document,
+                numero_os_filtro=numero_os_filtro,
+            )
         )
 
         duration = time.time() - tempo_inicio
-        screenshot_path = _resolve_screenshot_path(detalhes, list_screenshot_path)
-        screenshot_b64 = _file_to_base64(screenshot_path)
+        if not screenshot_b64:
+            screenshot_b64 = _file_to_base64(
+                _resolve_screenshot_path(detalhes, list_screenshot_path)
+            )
         if not screenshot_b64:
             logger.warning(
                 "[OS] Consulta %s sem captura persistida (list=%s, detail=%s)",
@@ -258,6 +262,8 @@ def execute_os_consultation(consultation_id: int) -> None:
                 list_screenshot_path,
                 [item.get("detail_screenshot_path") for item in (detalhes or [])],
             )
+        else:
+            logger.info("[OS] Consulta %s captura persistida (%s bytes)", consultation_id, len(screenshot_b64))
 
         if not sucesso:
             raise RuntimeError(msg or "Falha na consulta de OS no PAP.")

@@ -2086,6 +2086,56 @@ class PAPNioAutomation:
             logger.exception(f"[PAP] abrir_consulta_os_e_filtrar_cpf: {e}")
             return False, str(e)
 
+    def _ler_arquivo_base64(self, filepath: Optional[str]) -> Optional[str]:
+        if not filepath or not os.path.isfile(filepath):
+            return None
+        try:
+            with open(filepath, "rb") as handle:
+                return base64.b64encode(handle.read()).decode("ascii")
+        except OSError as exc:
+            logger.warning("[PAP] Falha ao ler captura %s: %s", filepath, exc)
+            return None
+
+    def _coletar_screenshot_b64_consulta_os(
+        self,
+        detalhes: List[Dict[str, Any]],
+        list_screenshot_path: Optional[str],
+    ) -> Optional[str]:
+        for row in detalhes or []:
+            embutido = row.get("screenshot_b64")
+            if embutido:
+                logger.info("[PAP] Captura OS reutilizada do detalhe (%s bytes)", len(embutido))
+                return embutido
+
+        candidatos: List[str] = []
+        if list_screenshot_path:
+            candidatos.append(list_screenshot_path)
+        for row in detalhes or []:
+            detail_path = row.get("detail_screenshot_path")
+            if detail_path:
+                candidatos.append(detail_path)
+
+        for path in candidatos:
+            encoded = self._ler_arquivo_base64(path)
+            if encoded:
+                logger.info("[PAP] Captura OS embarcada (%s bytes) de %s", len(encoded), path)
+                return encoded
+        return None
+
+    def _retorno_consulta_os(
+        self,
+        sucesso: bool,
+        mensagem: str,
+        detalhes: List[Dict[str, Any]],
+        list_screenshot_path: Optional[str],
+    ) -> Tuple[bool, str, List[Dict[str, Any]], Optional[str], Optional[str]]:
+        screenshot_b64 = (
+            self._coletar_screenshot_b64_consulta_os(detalhes, list_screenshot_path)
+            if sucesso
+            else None
+        )
+        return sucesso, mensagem, detalhes, list_screenshot_path, screenshot_b64
+
     def _screenshot_consulta_os_return_path(self, full_page: Optional[bool] = None) -> Optional[str]:
         """
         Tira screenshot da tela atual (Consulta OS) e retorna o caminho do arquivo.
@@ -2187,7 +2237,7 @@ class PAPNioAutomation:
         cpf: str,
         numero_os_filtro: Optional[str] = None,
         os_prioridade_crm: Optional[set] = None,
-    ) -> Tuple[bool, str, List[Dict[str, Any]], Optional[str]]:
+    ) -> Tuple[bool, str, List[Dict[str, Any]], Optional[str], Optional[str]]:
         """
         Fluxo completo: login, Consulta OS, Filtros, CPF, período 30 dias, Filtrar.
         Lê a tabela e por linha detecta se existe link Detalhar (nao_pertence_pdv=False) ou não (não pertence ao PDV).
@@ -2202,26 +2252,26 @@ class PAPNioAutomation:
         from datetime import timedelta
         cpf_limpo = re.sub(r'\D', '', cpf) if cpf else ""
         if not cpf_limpo:
-            return False, "CPF/CNPJ inválido (vazio).", [], None
+            return self._retorno_consulta_os(False, "CPF/CNPJ inválido (vazio).", [], None)
 
         if not self.logado:
             sucesso, msg = self.iniciar_sessao()
             if not sucesso:
-                return False, msg, [], None
+                return self._retorno_consulta_os(False, msg, [], None)
         else:
             ok_sessao, msg_sessao = self.garantir_sessao_ativa(PAP_CONSULTA_OS_URL)
             if not ok_sessao:
-                return False, msg_sessao, [], None
+                return self._retorno_consulta_os(False, msg_sessao, [], None)
 
         rapido = self.optimize_for_credit
         ok_menu = self._clicar_menu_consulta_os()
         if not ok_menu:
-            return False, "Não foi possível acessar a tela Consulta OS.", [], None
+            return self._retorno_consulta_os(False, "Não foi possível acessar a tela Consulta OS.", [], None)
         self.page.wait_for_timeout(350 if rapido else 1000)
 
         ok_filtros, msg_filtros = self._abrir_painel_filtros_consulta_os(rapido=rapido)
         if not ok_filtros:
-            return False, msg_filtros, [], None
+            return self._retorno_consulta_os(False, msg_filtros, [], None)
         logger.info("[PAP] %s", msg_filtros)
 
         # Preencher CPF/CNPJ e clicar Filtrar (reduzidos waits para agilizar)
@@ -2229,11 +2279,11 @@ class PAPNioAutomation:
         locator_cpf = self.page.locator(input_selector).first
         try:
             if locator_cpf.count() == 0:
-                return False, "Campo CPF/CNPJ não encontrado nos filtros.", [], None
+                return self._retorno_consulta_os(False, "Campo CPF/CNPJ não encontrado nos filtros.", [], None)
             locator_cpf.fill(cpf_limpo, force=True, timeout=8000)
         except Exception as e:
             logger.warning(f"[PAP] fill CPF com force falhou: {e}")
-            return False, f"Não foi possível preencher CPF/CNPJ no filtro: {e}", [], None
+            return self._retorno_consulta_os(False, f"Não foi possível preencher CPF/CNPJ no filtro: {e}", [], None)
         self.page.wait_for_timeout(150)
 
         if numero_os_filtro:
@@ -2269,11 +2319,11 @@ class PAPNioAutomation:
         locator_btn = self.page.locator(btn_selector).first
         try:
             if locator_btn.count() == 0:
-                return False, "Botão 'Filtrar' não encontrado.", [], None
+                return self._retorno_consulta_os(False, "Botão 'Filtrar' não encontrado.", [], None)
             locator_btn.click(force=True, timeout=8000)
         except Exception as e:
             logger.warning(f"[PAP] click Filtrar falhou: {e}")
-            return False, f"Não foi possível clicar em Filtrar: {e}", [], None
+            return self._retorno_consulta_os(False, f"Não foi possível clicar em Filtrar: {e}", [], None)
         # Esperar a tabela de resultados carregar (pode demorar; colunas: STATUS, PLANO, NÚMERO DA OS, DATA E HORA [DA CRIAÇÃO], DETALHES)
         try:
             self.page.wait_for_selector(
@@ -2388,7 +2438,12 @@ class PAPNioAutomation:
                         ", ".join(os_encontradas),
                     )
                     list_screenshot_path = self._screenshot_consulta_os_return_path()
-                    return True, f"os_not_found:{','.join(os_encontradas)}", [], list_screenshot_path
+                    return self._retorno_consulta_os(
+                        True,
+                        f"os_not_found:{','.join(os_encontradas)}",
+                        [],
+                        list_screenshot_path,
+                    )
 
         detalhes = sorted(detalhes, key=lambda d: str(d.get("numero_os") or ""))
 
@@ -2413,6 +2468,9 @@ class PAPNioAutomation:
                     row["pendencia"] = pendencia
                 if detail_screenshot_path:
                     row["detail_screenshot_path"] = detail_screenshot_path
+                    screenshot_b64 = self._ler_arquivo_base64(detail_screenshot_path)
+                    if screenshot_b64:
+                        row["screenshot_b64"] = screenshot_b64
 
         # Screenshot da lista só quando necessário (sem print de detalhe / não pertence ao PDV)
         if detalhes:
@@ -2435,9 +2493,9 @@ class PAPNioAutomation:
                     "[PAP] Captura do detalhe não disponível; salvando screenshot da tela Consulta OS"
                 )
                 list_screenshot_path = self._screenshot_consulta_os_return_path()
-            return True, "ok", detalhes, list_screenshot_path
+            return self._retorno_consulta_os(True, "ok", detalhes, list_screenshot_path)
         list_screenshot_path = self._screenshot_consulta_os_return_path()
-        return True, "no_results", [], list_screenshot_path
+        return self._retorno_consulta_os(True, "no_results", [], list_screenshot_path)
 
     _RE_PENDENCIA_CODIGO_PAP = re.compile(r"^\d{4}\s*-\s*.+", re.I)
 
@@ -2594,6 +2652,12 @@ class PAPNioAutomation:
                     pendencia_texto = codigo_ok
             self.page.wait_for_timeout(150 if rapido else 300)
             detail_screenshot_path = self._screenshot_consulta_os_return_path()
+            if detail_screenshot_path:
+                logger.info(
+                    "[PAP] Captura detalhe OS %s salva (%s)",
+                    num,
+                    detail_screenshot_path,
+                )
             self.page.go_back()
             if rapido:
                 self.page.wait_for_timeout(400)
