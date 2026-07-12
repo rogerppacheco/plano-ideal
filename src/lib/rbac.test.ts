@@ -35,14 +35,19 @@ describe("rbac", () => {
   });
 
   describe("buildDashboardTabs", () => {
-    it("operator vê apenas consulta e crédito", () => {
+    it("operator vê consulta, crédito e consulta OS", () => {
       const tabs = buildDashboardTabs(ROLES.OPERATOR);
-      expect(tabs.map((tab) => tab.id)).toEqual(["consulta", "credito"]);
+      expect(tabs.map((tab) => tab.id)).toEqual(["consulta", "credito", "consulta-os"]);
     });
 
     it("manager inclui importações", () => {
       const tabs = buildDashboardTabs(ROLES.MANAGER);
-      expect(tabs.map((tab) => tab.id)).toEqual(["consulta", "credito", "importacoes"]);
+      expect(tabs.map((tab) => tab.id)).toEqual([
+        "consulta",
+        "credito",
+        "consulta-os",
+        "importacoes",
+      ]);
     });
 
     it("admin inclui todas as abas", () => {
@@ -50,6 +55,7 @@ describe("rbac", () => {
       expect(tabs.map((tab) => tab.id)).toEqual([
         "consulta",
         "credito",
+        "consulta-os",
         "importacoes",
         "pap",
         "usuarios",

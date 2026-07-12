@@ -61,6 +61,23 @@ export function validateDocument(document, cpfRepresentative = null) {
   return { ok: false, message: "Informe um CPF (11 dígitos) ou CNPJ (14 dígitos)." };
 }
 
+export function validateOsLookupDocument(document) {
+  const digits = onlyDigits(document);
+  if (digits.length === 11) {
+    if (!isValidCpf(digits)) {
+      return { ok: false, message: "CPF inválido." };
+    }
+    return { ok: true, document: digits };
+  }
+  if (digits.length === 14) {
+    if (!isValidCnpj(digits)) {
+      return { ok: false, message: "CNPJ inválido." };
+    }
+    return { ok: true, document: digits };
+  }
+  return { ok: false, message: "Informe um CPF (11 dígitos) ou CNPJ (14 dígitos)." };
+}
+
 export function maskDocument(document) {
   const digits = onlyDigits(document);
   if (digits.length === 11) {

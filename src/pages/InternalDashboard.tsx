@@ -41,6 +41,7 @@ import {
 } from "../utils/coverage";
 import { useCoverageConsult } from "../hooks/useCoverageConsult";
 import { CreditConsultTab } from "../components/CreditConsultTab";
+import { OsConsultTab } from "../components/OsConsultTab";
 import { FloatingBubbles } from "../components/FloatingBubbles";
 import { PapAdminTab } from "../components/PapAdminTab";
 import { ApiPartnersAdminTab } from "../components/ApiPartnersAdminTab";
@@ -574,6 +575,8 @@ export default function InternalDashboard() {
         ) : null}
 
         {activeTab === "credito" ? <CreditConsultTab token={token} /> : null}
+
+        {activeTab === "consulta-os" ? <OsConsultTab token={token} /> : null}
 
         {showPap && activeTab === "pap" ? <PapAdminTab token={token} /> : null}
 

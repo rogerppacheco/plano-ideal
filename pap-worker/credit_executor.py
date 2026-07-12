@@ -29,7 +29,7 @@ def _release_bo(cur, credential_id: int | None) -> None:
     cur.execute(
         """
         UPDATE pap_bo_credentials
-        SET in_use_by = NULL, locked_at = NULL
+        SET in_use_by = NULL, locked_at = NULL, in_use_kind = NULL
         WHERE id = %s
         """,
         [credential_id],

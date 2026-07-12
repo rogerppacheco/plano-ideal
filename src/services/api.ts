@@ -16,6 +16,11 @@ import type {
   CreditScreenshotResponse,
 } from "../types/credit";
 import type {
+  OsConsultationResponse,
+  OsConsultationsListResponse,
+  OsScreenshotResponse,
+} from "../types/os";
+import type {
   ActiveImportJobResponse,
   CompleteImportJobResponse,
   CreateImportJobResponse,
@@ -396,6 +401,52 @@ export function getCreditConsultationScreenshot(
   token: string
 ): Promise<CreditScreenshotResponse> {
   return request<CreditScreenshotResponse>(`/credit/consultations/${id}/screenshot`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function startOsConsultation({
+  token,
+  document,
+  numeroOs,
+}: {
+  token: string;
+  document: string;
+  numeroOs?: string;
+}): Promise<OsConsultationResponse> {
+  return request<OsConsultationResponse>("/os/consult", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ document, numeroOs }),
+  });
+}
+
+export function getOsConsultation(
+  id: string | number,
+  token: string
+): Promise<OsConsultationResponse> {
+  return request<OsConsultationResponse>(`/os/consultations/${id}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function getOsConsultationHistory(
+  token: string,
+  limit = 50
+): Promise<OsConsultationsListResponse> {
+  return request<OsConsultationsListResponse>(`/os/consultations?limit=${limit}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function getOsConsultationScreenshot(
+  id: string | number,
+  token: string
+): Promise<OsScreenshotResponse> {
+  return request<OsScreenshotResponse>(`/os/consultations/${id}/screenshot`, {
     headers: { Authorization: `Bearer ${token}` },
   });
 }

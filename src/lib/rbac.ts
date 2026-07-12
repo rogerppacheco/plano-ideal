@@ -43,6 +43,7 @@ export function buildDashboardTabs(role: Role | string | null | undefined): Dash
   const tabs: DashboardTab[] = [
     { id: "consulta", label: "Consulta", icon: "📍" },
     { id: "credito", label: "Consulta Crédito", icon: "💳" },
+    { id: "consulta-os", label: "Consulta OS", icon: "📋" },
   ];
 
   if (canManageImports(role)) {

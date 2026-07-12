@@ -15,6 +15,12 @@ class Settings:
     PAP_SCREENSHOTS_R2 = False
     PAP_HEADLESS = os.environ.get("PAP_HEADLESS", "true").lower() in ("1", "true", "yes")
     PAP_CREDITO_FAST_MODE = os.environ.get("PAP_CREDITO_FAST_MODE", "true").lower() in ("1", "true", "yes")
+    PAP_OS_FAST_MODE = os.environ.get("PAP_OS_FAST_MODE", "true").lower() in ("1", "true", "yes")
+    PAP_CAPTURE_SCREENSHOTS_OS = os.environ.get("PAP_CAPTURE_SCREENSHOTS_OS", "").lower() in (
+        "1",
+        "true",
+        "yes",
+    )
     PAP_CREDITO_MAX_CONSULTAS_POR_TT_DIA = int(os.environ.get("PAP_CREDITO_MAX_CONSULTAS_POR_TT_DIA", "6"))
     PAP_WORKER_POLL_SECONDS = float(os.environ.get("PAP_WORKER_POLL_SECONDS", "2"))
     PAP_BO_LOCK_TIMEOUT_MINUTES = int(os.environ.get("PAP_BO_LOCK_TIMEOUT_MINUTES", "30"))
