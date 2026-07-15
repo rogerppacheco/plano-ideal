@@ -676,6 +676,7 @@ export function uploadGdpPricingSpreadsheet({
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
     body: formData,
+    timeoutMs: 120_000,
   });
 }
 

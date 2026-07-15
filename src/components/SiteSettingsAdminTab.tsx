@@ -168,7 +168,10 @@ export function SiteSettingsAdminTab({ token }: SiteSettingsAdminTabProps) {
   return (
     <div className="space-y-6">
       {loadError ? (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        <div
+          className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200"
+          role="alert"
+        >
           {loadError} Você ainda pode editar e salvar abaixo; recarregue a página para tentar
           novamente.
         </div>

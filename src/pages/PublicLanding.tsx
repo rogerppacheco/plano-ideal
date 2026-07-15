@@ -801,7 +801,7 @@ export default function PublicLanding() {
                           id="uf"
                           value={selectedUf}
                           onChange={handleManualUfChange}
-                          className={`w-full rounded-full border bg-white/10 px-5 py-3.5 text-sm text-white outline-none transition focus:ring-2 ${
+                          className={`select-dark w-full rounded-full border bg-white/10 px-5 py-3.5 text-sm text-white outline-none transition focus:ring-2 ${
                             ufError
                               ? "border-red-400 focus:border-red-400 focus:ring-red-400/20"
                               : "border-white/15 focus:border-neon-green/50 focus:ring-neon-green/20"
@@ -858,7 +858,7 @@ export default function PublicLanding() {
                           value={selectedCity}
                           onChange={handleManualCityChange}
                           disabled={!selectedUf || cityOptions.length === 0}
-                          className={`w-full rounded-full border bg-white/10 px-5 py-3.5 text-sm text-white outline-none transition focus:ring-2 disabled:cursor-not-allowed disabled:opacity-50 ${
+                          className={`select-dark w-full rounded-full border bg-white/10 px-5 py-3.5 text-sm text-white outline-none transition focus:ring-2 disabled:cursor-not-allowed disabled:opacity-50 ${
                             cityError
                               ? "border-red-400 focus:border-red-400 focus:ring-red-400/20"
                               : "border-white/15 focus:border-neon-green/50 focus:ring-neon-green/20"

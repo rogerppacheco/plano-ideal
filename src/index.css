@@ -85,6 +85,14 @@
     @apply text-sm text-ink-600;
   }
 
+  .select-dark {
+    color-scheme: dark;
+  }
+
+  .select-dark option {
+    @apply bg-pi-dark text-white;
+  }
+
   /* ── Dashboard interno (tema neon escuro) ── */
   .dashboard-shell {
     @apply relative min-h-screen overflow-x-hidden bg-nio-dark px-4 py-6 text-white sm:px-6 sm:py-8;
@@ -294,13 +302,42 @@
   .dashboard-shell .text-slate-700 { @apply text-white/80; }
   .dashboard-shell .text-slate-600 { @apply text-white/60; }
   .dashboard-shell .text-slate-500 { @apply text-white/50; }
-  .dashboard-shell .bg-slate-50 { @apply bg-white/5; }
+  .dashboard-shell .text-slate-400 { @apply text-white/40; }
+  .dashboard-shell .text-slate-300 { @apply text-white/30; }
+  .dashboard-shell .bg-slate-50,
+  .dashboard-shell .bg-slate-50\/80,
+  .dashboard-shell .bg-slate-50\/60,
+  .dashboard-shell .bg-slate-50\/50 {
+    @apply bg-white/5;
+  }
   .dashboard-shell .bg-slate-100 { @apply bg-white/15; }
   .dashboard-shell .bg-white { @apply bg-white/10; }
   .dashboard-shell .border-slate-200 { @apply border-white/10; }
   .dashboard-shell .border-slate-100 { @apply border-white/5; }
   .dashboard-shell .border-slate-300 { @apply border-white/15; }
   .dashboard-shell .ring-slate-200 { @apply ring-white/10; }
+  .dashboard-shell .text-amber-700,
+  .dashboard-shell .text-amber-800,
+  .dashboard-shell .text-amber-900 {
+    @apply text-amber-300;
+  }
+  .dashboard-shell .bg-amber-50 {
+    @apply border border-amber-500/30 bg-amber-500/10;
+  }
+  .dashboard-shell .border-amber-200 {
+    @apply border-amber-500/30;
+  }
+  .dashboard-shell select,
+  .dashboard-shell .input-field {
+    @apply w-full rounded-xl border border-white/15 bg-white/10 px-4 py-3 text-sm text-white outline-none transition duration-200 placeholder:text-white/30 focus:border-neon-green/50 focus:ring-2 focus:ring-neon-green/20;
+    color-scheme: dark;
+  }
+  .dashboard-shell select option {
+    @apply bg-nio-dark text-white;
+  }
+  .dashboard-shell input[type="file"] {
+    @apply text-white/80 file:mr-3 file:rounded-lg file:border-0 file:bg-neon-green file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-nio-dark;
+  }
   .dashboard-shell .text-brand-700 { @apply text-neon-green; }
   .dashboard-shell .text-brand-800 { @apply text-neon-green; }
   .dashboard-shell .text-brand-900 { @apply text-neon-green; }
@@ -309,7 +346,6 @@
   .dashboard-shell .border-brand-400 { @apply border-neon-green/30; }
   .dashboard-shell .text-emerald-700,
   .dashboard-shell .text-emerald-800 { @apply text-neon-green; }
-  .dashboard-shell .text-amber-800 { @apply text-amber-300; }
   .dashboard-shell .text-red-600 { @apply text-red-400; }
   .dashboard-shell .text-red-700 { @apply text-red-400; }
   .dashboard-shell .text-indigo-700 { @apply text-neon-green; }

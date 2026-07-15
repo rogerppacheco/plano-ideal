@@ -135,11 +135,11 @@ export async function getGdpPricingSummary() {
     pool.query(`SELECT COUNT(*)::INT AS total FROM gdp_city_pricing`),
     pool.query(
       `
-        SELECT id, file_name, imported_at, cities_count, status, error_message,
+        SELECT i.id, i.file_name, i.imported_at, i.cities_count, i.status, i.error_message,
                u.full_name AS imported_by_name
         FROM gdp_pricing_imports i
         LEFT JOIN internal_users u ON u.id = i.imported_by
-        ORDER BY imported_at DESC
+        ORDER BY i.imported_at DESC
         LIMIT 1
       `
     ),
