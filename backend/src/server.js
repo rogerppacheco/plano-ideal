@@ -20,7 +20,7 @@ dotenv.config();
 
 const app = express();
 const port = Number(process.env.PORT || 4000);
-const ALLOWED_METHODS = ["GET", "POST", "PATCH", "DELETE"];
+const ALLOWED_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"];
 
 function normalizeOrigin(value) {
   return String(value || "")
