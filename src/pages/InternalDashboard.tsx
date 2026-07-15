@@ -13,6 +13,7 @@ import {
   canManageApiPartners,
   canManageImports,
   canManagePap,
+  canManageSiteSettings,
   canManageUsers,
   ROLE_LABELS,
 } from "../lib/rbac";
@@ -44,6 +45,7 @@ import { CreditConsultTab } from "../components/CreditConsultTab";
 import { OsConsultTab } from "../components/OsConsultTab";
 import { FloatingBubbles } from "../components/FloatingBubbles";
 import { PapAdminTab } from "../components/PapAdminTab";
+import { SiteSettingsAdminTab } from "../components/SiteSettingsAdminTab";
 import { ApiPartnersAdminTab } from "../components/ApiPartnersAdminTab";
 import { UsersAdminTab } from "../components/UsersAdminTab";
 import { DataTable, DataTableCell, DataTableRow } from "../components/ui/DataTable";
@@ -140,6 +142,7 @@ export default function InternalDashboard() {
   const userRole = sessionUser?.role;
   const showImports = canManageImports(userRole);
   const showPap = canManagePap(userRole);
+  const showSiteSettings = canManageSiteSettings(userRole);
   const showUsers = canManageUsers(userRole);
   const showApiPartners = canManageApiPartners(userRole);
 
@@ -579,6 +582,8 @@ export default function InternalDashboard() {
         {activeTab === "consulta-os" ? <OsConsultTab token={token} /> : null}
 
         {showPap && activeTab === "pap" ? <PapAdminTab token={token} /> : null}
+
+        {showSiteSettings && activeTab === "site" ? <SiteSettingsAdminTab token={token} /> : null}
 
         {showImports && activeTab === "importacoes" ? (
           <PanelCard

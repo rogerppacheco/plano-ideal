@@ -104,6 +104,8 @@ export async function ensureSchema() {
   await ensureOsConsultationSchema(pool);
   await ensureUserGovernanceSchema(pool);
   await ensureExternalApiSchema(pool);
+  await ensureSiteSettingsSchema(pool);
+  await ensureGdpPricingSchema(pool);
 
   const staleHours = Number(process.env.IMPORT_JOB_STALE_HOURS ?? "168");
   if (Number.isFinite(staleHours) && staleHours > 0) {
@@ -594,6 +596,53 @@ async function ensureAuditLogActionConstraint(clientPool) {
     ALTER TABLE audit_logs
       ADD CONSTRAINT audit_logs_action_check
       CHECK (action IN (${auditActionList}))
+  `);
+}
+
+export async function ensureSiteSettingsSchema(clientPool = pool) {
+  await clientPool.query(`
+    CREATE TABLE IF NOT EXISTS site_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_by BIGINT REFERENCES internal_users(id)
+    );
+  `);
+}
+
+export async function ensureGdpPricingSchema(clientPool = pool) {
+  await clientPool.query(`
+    CREATE TABLE IF NOT EXISTS gdp_pricing_imports (
+      id BIGSERIAL PRIMARY KEY,
+      file_name TEXT NOT NULL,
+      imported_by BIGINT REFERENCES internal_users(id),
+      imported_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      cities_count INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL CHECK (status IN ('processing', 'completed', 'failed')),
+      error_message TEXT
+    );
+  `);
+
+  await clientPool.query(`
+    CREATE TABLE IF NOT EXISTS gdp_city_pricing (
+      id BIGSERIAL PRIMARY KEY,
+      uf CHAR(2) NOT NULL,
+      municipio TEXT NOT NULL,
+      municipio_key TEXT NOT NULL,
+      cod_ibge BIGINT,
+      cartao_offer_raw TEXT,
+      dacc_offer_raw TEXT,
+      plans JSONB NOT NULL,
+      import_id BIGINT REFERENCES gdp_pricing_imports(id) ON DELETE SET NULL,
+      source_file TEXT,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (uf, municipio_key)
+    );
+  `);
+
+  await clientPool.query(`
+    CREATE INDEX IF NOT EXISTS idx_gdp_city_pricing_uf
+    ON gdp_city_pricing (uf, municipio ASC);
   `);
 }
 

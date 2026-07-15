@@ -44,6 +44,19 @@ import type {
   PapMutationResponse,
   PapTtMatriculasResponse,
 } from "../types/pap";
+import type {
+  CityPricingResponse,
+  GdpCitiesResponse,
+  GdpPricingSummaryResponse,
+  UploadGdpPricingResponse,
+} from "../types/gdpPricing";
+import type {
+  LeadsWhatsappSettingResponse,
+  PublicCepLocationResponse,
+  PublicSiteConfig,
+  UpdateLeadsWhatsappPayload,
+  UpdateLeadsWhatsappResponse,
+} from "../types/siteSettings";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api";
 const SKIP_AUTH_REDIRECT_PATHS = new Set(["/auth/login"]);
@@ -612,6 +625,77 @@ export function createPartnerApiKey({
       Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify(payload),
+  });
+}
+
+export function getPublicSiteConfig(): Promise<PublicSiteConfig> {
+  return request<PublicSiteConfig>("/public/site-config");
+}
+
+export function getPublicCepLocation(cep: string): Promise<PublicCepLocationResponse> {
+  const digits = cep.replace(/\D/g, "");
+  return request<PublicCepLocationResponse>(`/public/cep-location/${encodeURIComponent(digits)}`);
+}
+
+export function getPublicCitiesByUf(uf: string): Promise<GdpCitiesResponse> {
+  return request<GdpCitiesResponse>(`/public/cities?uf=${encodeURIComponent(uf)}`);
+}
+
+export function getPublicCityPricing({
+  uf,
+  city,
+  ibgeCode,
+}: {
+  uf: string;
+  city?: string;
+  ibgeCode?: number | null;
+}): Promise<CityPricingResponse> {
+  const params = new URLSearchParams({ uf });
+  if (city) params.set("city", city);
+  if (ibgeCode) params.set("ibge", String(ibgeCode));
+  return request<CityPricingResponse>(`/public/city-pricing?${params.toString()}`);
+}
+
+export function getGdpPricingSummary(token: string): Promise<GdpPricingSummaryResponse> {
+  return request<GdpPricingSummaryResponse>("/site-settings/gdp-pricing", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function uploadGdpPricingSpreadsheet({
+  token,
+  file,
+}: {
+  token: string;
+  file: File;
+}): Promise<UploadGdpPricingResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+  return request<UploadGdpPricingResponse>("/site-settings/gdp-pricing/upload", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: formData,
+  });
+}
+
+export function getLeadsWhatsappSetting(token: string): Promise<LeadsWhatsappSettingResponse> {
+  return request<LeadsWhatsappSettingResponse>("/site-settings/leads-whatsapp", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function updateLeadsWhatsappConfig({
+  token,
+  defaultNumber,
+  byUf,
+}: UpdateLeadsWhatsappPayload & { token: string }): Promise<UpdateLeadsWhatsappResponse> {
+  return request<UpdateLeadsWhatsappResponse>("/site-settings/leads-whatsapp", {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ defaultNumber, byUf }),
   });
 }
 

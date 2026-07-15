@@ -1,62 +1,25 @@
-import { useMemo, useState, type ChangeEvent, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from "react";
 import mascotCloud from "../assets/mascot-cloud-hero.png";
-import { getPublicViabilityStatus } from "../services/api";
+import { BRAZILIAN_UFS } from "../constants/brazilianUfs";
+import { DEFAULT_INTERNET_PLANS, type InternetPlan } from "../constants/defaultPlans";
+import {
+  ApiError,
+  getPublicCepLocation,
+  getPublicCitiesByUf,
+  getPublicCityPricing,
+  getPublicSiteConfig,
+  getPublicViabilityStatus,
+} from "../services/api";
+import type { GdpCityOption } from "../types/gdpPricing";
+import type { PublicSiteConfig } from "../types/siteSettings";
 import type { PublicViabilityCode } from "../types/coverage";
 import { isPublicViabilityCode } from "../types/coverage";
+import { matchCityInOptions } from "../utils/cityName";
+import { hasLeadsWhatsappConfig, resolveLeadsWhatsappNumber } from "../utils/leadsWhatsapp";
 import { maskCep } from "../utils/coverage";
-
-const WHATSAPP_NUMBER = "5511999999999";
-
-interface InternetPlan {
-  id: string;
-  name: string;
-  speedLabel: string;
-  benefits: string[];
-  priceStandard: number;
-  priceCard: number;
-  cardDiscount: number;
-  featured: boolean;
-  badge: string | null;
-}
 
 type ViabilitySubmitState =
   { status: "idle" } | { status: "submitting" } | { status: "error"; message: string };
-
-const INTERNET_PLANS: InternetPlan[] = [
-  {
-    id: "essencial-600",
-    name: "Essencial",
-    speedLabel: "600 Mega",
-    benefits: ["Roteador Wi-Fi 5", "Skeelo"],
-    priceStandard: 110,
-    priceCard: 95,
-    cardDiscount: 15,
-    featured: false,
-    badge: null,
-  },
-  {
-    id: "super-800",
-    name: "Super",
-    speedLabel: "800 Mega",
-    benefits: ["Roteador Wi-Fi 6 (nova geração)", "Globoplay 12 meses incluso", "Skeelo"],
-    priceStandard: 135,
-    priceCard: 120,
-    cardDiscount: 15,
-    featured: true,
-    badge: "Mais Assinado",
-  },
-  {
-    id: "ultra-1giga",
-    name: "Ultra",
-    speedLabel: "1 Giga",
-    benefits: ["Roteador Wi-Fi 6", "Globoplay 12 meses incluso", "Skeelo"],
-    priceStandard: 150,
-    priceCard: 135,
-    cardDiscount: 15,
-    featured: false,
-    badge: null,
-  },
-];
 
 const TRUST_PILLS = [
   "Preço fixo até jan/2030",
@@ -80,23 +43,31 @@ function formatPrice(value: number): string {
 }
 
 function buildWhatsappLink({
+  whatsappNumber,
   name,
   cep,
   facade,
   statusCode,
   planLabel,
+  uf,
+  city,
 }: {
+  whatsappNumber: string;
   name: string;
   cep: string;
   facade: string;
   statusCode: PublicViabilityCode;
   planLabel: string | null;
+  uf: string | null;
+  city: string | null;
 }): string {
   const reference = statusCode === "V-OK" ? "[Ref: V-OK]" : "[Ref: V-NOK]";
   const facadeInfo = facade?.trim() ? `Fachada: ${facade.trim()}. ` : "";
   const planInfo = planLabel ? `Plano de interesse: ${planLabel}. ` : "";
-  const message = `Olá! Sou ${name}. Quero contratar internet fibra com o Plano Ideal. ${planInfo}Meu CEP é ${cep}. ${facadeInfo}${reference}`;
-  return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
+  const ufInfo = uf ? `Estado: ${uf}. ` : "";
+  const cityInfo = city ? `Cidade: ${city}. ` : "";
+  const message = `Olá! Sou ${name}. Quero contratar internet fibra com o Plano Ideal. ${planInfo}Meu CEP é ${cep}. ${cityInfo}${ufInfo}${facadeInfo}${reference}`;
+  return `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
 }
 
 function SparkleIcon({ className = "" }) {
@@ -283,9 +254,217 @@ export default function PublicLanding() {
   const [facade, setFacade] = useState("");
   const [selectedPlan, setSelectedPlan] = useState<InternetPlan | null>(null);
   const [cepError, setCepError] = useState("");
+  const [siteConfig, setSiteConfig] = useState<PublicSiteConfig | null>(null);
+  const [selectedUf, setSelectedUf] = useState("");
+  const [selectedCity, setSelectedCity] = useState("");
+  const [detectedUf, setDetectedUf] = useState<string | null>(null);
+  const [detectedCity, setDetectedCity] = useState<string | null>(null);
+  const [detectedCityKey, setDetectedCityKey] = useState<string | null>(null);
+  const [detectedIbge, setDetectedIbge] = useState<number | null>(null);
+  const [locationSource, setLocationSource] = useState<"coverage" | "viacep" | null>(null);
+  const [cityOptions, setCityOptions] = useState<GdpCityOption[]>([]);
+  const [isResolvingLocation, setIsResolvingLocation] = useState(false);
+  const [isLoadingCities, setIsLoadingCities] = useState(false);
+  const [ufError, setUfError] = useState("");
+  const [cityError, setCityError] = useState("");
+  const [displayPlans, setDisplayPlans] = useState<InternetPlan[]>(DEFAULT_INTERNET_PLANS);
+  const [pricingCityLabel, setPricingCityLabel] = useState<string | null>(null);
+  const [isLoadingPricing, setIsLoadingPricing] = useState(false);
+  const [isLoadingConfig, setIsLoadingConfig] = useState(true);
   const [submitState, setSubmitState] = useState<ViabilitySubmitState>({ status: "idle" });
 
-  const canSubmit = useMemo(() => name.trim() && cep.length === 9, [name, cep]);
+  useEffect(() => {
+    let cancelled = false;
+    getPublicSiteConfig()
+      .then((config) => {
+        if (!cancelled) setSiteConfig(config);
+      })
+      .catch(() => {
+        if (!cancelled) setSiteConfig(null);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingConfig(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (cep.length !== 9) {
+      setDetectedUf(null);
+      setDetectedCity(null);
+      setDetectedCityKey(null);
+      setDetectedIbge(null);
+      setLocationSource(null);
+      setSelectedUf("");
+      setSelectedCity("");
+      setCityOptions([]);
+      setUfError("");
+      setCityError("");
+      setIsResolvingLocation(false);
+      setDisplayPlans(DEFAULT_INTERNET_PLANS);
+      setPricingCityLabel(null);
+      return;
+    }
+
+    let cancelled = false;
+    setIsResolvingLocation(true);
+    setUfError("");
+    setCityError("");
+
+    getPublicCepLocation(cep)
+      .then((location) => {
+        if (cancelled) return;
+        setDetectedUf(location.uf);
+        setDetectedCity(location.city);
+        setDetectedCityKey(location.cityKey);
+        setDetectedIbge(location.ibgeCode);
+        setLocationSource(location.source);
+        setSelectedUf(location.uf || "");
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setDetectedUf(null);
+        setDetectedCity(null);
+        setDetectedCityKey(null);
+        setDetectedIbge(null);
+        setLocationSource(null);
+        setSelectedUf("");
+        setSelectedCity("");
+        setUfError("Não foi possível identificar a localização pelo CEP. Selecione estado e cidade.");
+      })
+      .finally(() => {
+        if (!cancelled) setIsResolvingLocation(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [cep]);
+
+  useEffect(() => {
+    if (!selectedUf) {
+      setCityOptions([]);
+      setSelectedCity("");
+      return;
+    }
+
+    let cancelled = false;
+    setIsLoadingCities(true);
+    getPublicCitiesByUf(selectedUf)
+      .then((response) => {
+        if (cancelled) return;
+        const cities = response.cities || [];
+        setCityOptions(cities);
+        const matchedCity =
+          detectedUf === selectedUf
+            ? matchCityInOptions(cities, {
+                city: detectedCity,
+                cityKey: detectedCityKey,
+                ibgeCode: detectedIbge,
+              })
+            : "";
+        setSelectedCity((current) => current || matchedCity);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCityOptions([]);
+          setSelectedCity("");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingCities(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedUf, detectedCity, detectedCityKey, detectedIbge]);
+
+  useEffect(() => {
+    if (!selectedUf || !selectedCity) {
+      setDisplayPlans(DEFAULT_INTERNET_PLANS);
+      setPricingCityLabel(null);
+      return;
+    }
+
+    let cancelled = false;
+    setIsLoadingPricing(true);
+    getPublicCityPricing({
+      uf: selectedUf,
+      city: selectedCity,
+      ibgeCode: detectedIbge,
+    })
+      .then((pricing) => {
+        if (cancelled) return;
+        if (pricing.plans?.length) {
+          setDisplayPlans(pricing.plans);
+          setPricingCityLabel(`${pricing.city}/${pricing.uf}`);
+        } else {
+          setDisplayPlans(DEFAULT_INTERNET_PLANS);
+          setPricingCityLabel(null);
+        }
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        setDisplayPlans(DEFAULT_INTERNET_PLANS);
+        setPricingCityLabel(null);
+        if (error instanceof ApiError && error.status !== 404) {
+          setCityError("Não foi possível carregar os preços desta cidade.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingPricing(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedUf, selectedCity, detectedIbge]);
+
+  useEffect(() => {
+    if (!selectedPlan) return;
+    const refreshed = displayPlans.find((plan) => plan.id === selectedPlan.id);
+    if (refreshed && refreshed.priceCard !== selectedPlan.priceCard) {
+      setSelectedPlan(refreshed);
+    }
+  }, [displayPlans, selectedPlan]);
+
+  const effectiveUf = selectedUf || null;
+  const effectiveCity = selectedCity || null;
+  const locationWasDetected = Boolean(detectedUf || detectedCity);
+
+  const whatsappNumber = useMemo(
+    () => resolveLeadsWhatsappNumber(siteConfig, effectiveUf),
+    [siteConfig, effectiveUf]
+  );
+
+  const canSubmit = useMemo(
+    () =>
+      Boolean(
+        name.trim() &&
+          cep.length === 9 &&
+          effectiveUf &&
+          effectiveCity &&
+          whatsappNumber &&
+          hasLeadsWhatsappConfig(siteConfig) &&
+          !isLoadingConfig &&
+          !isResolvingLocation &&
+          !isLoadingCities
+      ),
+    [
+      name,
+      cep,
+      effectiveUf,
+      effectiveCity,
+      whatsappNumber,
+      siteConfig,
+      isLoadingConfig,
+      isResolvingLocation,
+      isLoadingCities,
+    ]
+  );
   const isSubmitting = submitState.status === "submitting";
   const submitError = submitState.status === "error" ? submitState.message : "";
 
@@ -293,6 +472,20 @@ export default function PublicLanding() {
     const formattedCep = maskCep(event.target.value);
     setCep(formattedCep);
     if (formattedCep.length === 9) setCepError("");
+    setSubmitState({ status: "idle" });
+  };
+
+  const handleManualUfChange = (event: ChangeEvent<HTMLSelectElement>) => {
+    setSelectedUf(event.target.value);
+    setSelectedCity("");
+    setUfError("");
+    setCityError("");
+    setSubmitState({ status: "idle" });
+  };
+
+  const handleManualCityChange = (event: ChangeEvent<HTMLSelectElement>) => {
+    setSelectedCity(event.target.value);
+    setCityError("");
     setSubmitState({ status: "idle" });
   };
 
@@ -311,6 +504,24 @@ export default function PublicLanding() {
       return;
     }
 
+    if (!effectiveUf) {
+      setUfError("Selecione seu estado para continuar.");
+      return;
+    }
+
+    if (!effectiveCity) {
+      setCityError("Selecione sua cidade para continuar.");
+      return;
+    }
+
+    if (!whatsappNumber) {
+      setSubmitState({
+        status: "error",
+        message: "Contato temporariamente indisponível para o seu estado. Tente novamente mais tarde.",
+      });
+      return;
+    }
+
     try {
       setSubmitState({ status: "submitting" });
       const viability = await getPublicViabilityStatus(cep);
@@ -321,11 +532,14 @@ export default function PublicLanding() {
         ? `${selectedPlan.name} ${selectedPlan.speedLabel} — ${formatPrice(selectedPlan.priceCard)}/mês no cartão`
         : null;
       const whatsappLink = buildWhatsappLink({
+        whatsappNumber,
         name: name.trim(),
         cep,
         facade,
         statusCode,
         planLabel,
+        uf: effectiveUf,
+        city: effectiveCity,
       });
       window.open(whatsappLink, "_blank", "noopener,noreferrer");
       setSubmitState({ status: "idle" });
@@ -454,10 +668,20 @@ export default function PublicLanding() {
               <p className="mt-3 text-white/60">
                 Todos com preço fixo até jan/2030 e isenção de taxa de habilitação*
               </p>
+              {pricingCityLabel ? (
+                <p className="mt-2 text-sm font-semibold text-neon-green">
+                  Preços para {pricingCityLabel}
+                  {isLoadingPricing ? " (atualizando…)" : ""}
+                </p>
+              ) : (
+                <p className="mt-2 text-sm text-white/45">
+                  Informe seu CEP na consulta abaixo para ver os preços da sua cidade.
+                </p>
+              )}
             </div>
 
             <div className="grid items-center gap-6 md:grid-cols-3 md:gap-4 lg:gap-6">
-              {INTERNET_PLANS.map((plan) => (
+              {displayPlans.map((plan) => (
                 <PlanCard key={plan.id} plan={plan} onSelect={handlePlanSelect} />
               ))}
             </div>
@@ -561,6 +785,124 @@ export default function PublicLanding() {
                   </div>
 
                   <div>
+                    <label
+                      className="mb-1.5 block text-sm font-semibold text-white/80"
+                      htmlFor="uf"
+                    >
+                      Estado <span className="text-neon-green">*</span>
+                    </label>
+                    {isResolvingLocation ? (
+                      <p className="rounded-full border border-white/15 bg-white/10 px-5 py-3.5 text-sm text-white/60">
+                        Identificando localização pelo CEP…
+                      </p>
+                    ) : (
+                      <>
+                        <select
+                          id="uf"
+                          value={selectedUf}
+                          onChange={handleManualUfChange}
+                          className={`w-full rounded-full border bg-white/10 px-5 py-3.5 text-sm text-white outline-none transition focus:ring-2 ${
+                            ufError
+                              ? "border-red-400 focus:border-red-400 focus:ring-red-400/20"
+                              : "border-white/15 focus:border-neon-green/50 focus:ring-neon-green/20"
+                          }`}
+                          aria-invalid={ufError ? "true" : "false"}
+                          aria-describedby={ufError ? "uf-error" : "uf-hint"}
+                          required
+                        >
+                          <option value="" className="bg-pi-dark text-white">
+                            Selecione seu estado
+                          </option>
+                          {BRAZILIAN_UFS.map((state) => (
+                            <option key={state.uf} value={state.uf} className="bg-pi-dark text-white">
+                              {state.name} ({state.uf})
+                            </option>
+                          ))}
+                        </select>
+                        {detectedUf && selectedUf === detectedUf ? (
+                          <p id="uf-hint" className="mt-1.5 text-xs text-neon-green/80">
+                            Estado identificado automaticamente
+                            {locationSource === "coverage" ? " pela base de cobertura" : " pelo CEP"}.
+                            Você pode alterar se necessário.
+                          </p>
+                        ) : ufError ? (
+                          <p id="uf-error" className="mt-1.5 text-xs text-red-400" role="alert">
+                            {ufError}
+                          </p>
+                        ) : (
+                          <p id="uf-hint" className="mt-1.5 text-xs text-white/40">
+                            Selecione ou confirme seu estado.
+                          </p>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="sm:col-span-2">
+                    <label
+                      className="mb-1.5 block text-sm font-semibold text-white/80"
+                      htmlFor="city"
+                    >
+                      Cidade <span className="text-neon-green">*</span>
+                    </label>
+                    {isLoadingCities ? (
+                      <p className="rounded-full border border-white/15 bg-white/10 px-5 py-3.5 text-sm text-white/60">
+                        Carregando cidades com cobertura…
+                      </p>
+                    ) : (
+                      <>
+                        <select
+                          id="city"
+                          value={selectedCity}
+                          onChange={handleManualCityChange}
+                          disabled={!selectedUf || cityOptions.length === 0}
+                          className={`w-full rounded-full border bg-white/10 px-5 py-3.5 text-sm text-white outline-none transition focus:ring-2 disabled:cursor-not-allowed disabled:opacity-50 ${
+                            cityError
+                              ? "border-red-400 focus:border-red-400 focus:ring-red-400/20"
+                              : "border-white/15 focus:border-neon-green/50 focus:ring-neon-green/20"
+                          }`}
+                          aria-invalid={cityError ? "true" : "false"}
+                          aria-describedby={cityError ? "city-error" : "city-hint"}
+                          required
+                        >
+                          <option value="" className="bg-pi-dark text-white">
+                            {selectedUf ? "Selecione sua cidade" : "Selecione o estado primeiro"}
+                          </option>
+                          {cityOptions.map((city) => (
+                            <option
+                              key={`${city.municipio_key}-${city.cod_ibge ?? "na"}`}
+                              value={city.municipio}
+                              className="bg-pi-dark text-white"
+                            >
+                              {city.municipio}
+                            </option>
+                          ))}
+                        </select>
+                        {detectedCity && selectedCity && locationWasDetected ? (
+                          <p id="city-hint" className="mt-1.5 text-xs text-neon-green/80">
+                            Cidade identificada: {detectedCity}. Você pode trocar manualmente se
+                            necessário.
+                          </p>
+                        ) : cityError ? (
+                          <p id="city-error" className="mt-1.5 text-xs text-red-400" role="alert">
+                            {cityError}
+                          </p>
+                        ) : (
+                          <p id="city-hint" className="mt-1.5 text-xs text-white/40">
+                            {selectedUf
+                              ? "Escolha a cidade para ver os preços corretos do seu município."
+                              : "Informe o CEP ou selecione o estado para carregar as cidades."}
+                          </p>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="sm:col-span-2">
                     <label
                       className="mb-1.5 block text-sm font-semibold text-white/80"
                       htmlFor="facade"

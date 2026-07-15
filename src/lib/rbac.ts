@@ -31,6 +31,10 @@ export function canManagePap(role: Role | string | null | undefined): boolean {
   return role === ROLES.ADMIN;
 }
 
+export function canManageSiteSettings(role: Role | string | null | undefined): boolean {
+  return role === ROLES.ADMIN;
+}
+
 export function canManageImports(role: Role | string | null | undefined): boolean {
   return role === ROLES.ADMIN || role === ROLES.MANAGER;
 }
@@ -51,6 +55,9 @@ export function buildDashboardTabs(role: Role | string | null | undefined): Dash
   }
   if (canManagePap(role)) {
     tabs.push({ id: "pap", label: "PAP", icon: "⚙️" });
+  }
+  if (canManageSiteSettings(role)) {
+    tabs.push({ id: "site", label: "Site", icon: "🌐" });
   }
   if (canManageUsers(role)) {
     tabs.push({ id: "usuarios", label: "Usuários", icon: "👥" });
