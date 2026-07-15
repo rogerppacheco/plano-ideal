@@ -659,6 +659,7 @@ export function getPublicCityPricing({
 export function getGdpPricingSummary(token: string): Promise<GdpPricingSummaryResponse> {
   return request<GdpPricingSummaryResponse>("/site-settings/gdp-pricing", {
     headers: { Authorization: `Bearer ${token}` },
+    timeoutMs: 20_000,
   });
 }
 
@@ -681,6 +682,7 @@ export function uploadGdpPricingSpreadsheet({
 export function getLeadsWhatsappSetting(token: string): Promise<LeadsWhatsappSettingResponse> {
   return request<LeadsWhatsappSettingResponse>("/site-settings/leads-whatsapp", {
     headers: { Authorization: `Bearer ${token}` },
+    timeoutMs: 20_000,
   });
 }
 

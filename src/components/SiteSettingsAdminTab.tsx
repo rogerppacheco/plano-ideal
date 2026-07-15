@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from "react";
+import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { BRAZILIAN_UFS } from "../constants/brazilianUfs";
 import {
   ApiError,
@@ -38,36 +38,65 @@ function buildEmptyRegionalMap(): Record<string, string> {
 export function SiteSettingsAdminTab({ token }: SiteSettingsAdminTabProps) {
   const toast = useToast();
   const [defaultNumber, setDefaultNumber] = useState("");
-  const [byUf, setByUf] = useState<Record<string, string>>(buildEmptyRegionalMap);
+  const [byUf, setByUf] = useState<Record<string, string>>(() => buildEmptyRegionalMap());
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [updatedByName, setUpdatedByName] = useState<string | null>(null);
   const [gdpSummary, setGdpSummary] = useState<GdpPricingSummaryResponse | null>(null);
   const [gdpFile, setGdpFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingGdp, setIsUploadingGdp] = useState(false);
 
-  const loadAll = useCallback(async () => {
-    try {
-      const [whatsappData, pricingSummary] = await Promise.all([
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadAll() {
+      setIsLoading(true);
+      setLoadError(null);
+
+      const [whatsappResult, gdpResult] = await Promise.allSettled([
         getLeadsWhatsappSetting(token),
         getGdpPricingSummary(token),
       ]);
-      setDefaultNumber(whatsappData.defaultNumber ?? "");
-      setByUf({ ...buildEmptyRegionalMap(), ...(whatsappData.byUf ?? {}) });
-      setUpdatedAt(whatsappData.updatedAt);
-      setUpdatedByName(whatsappData.updatedByName);
-      setGdpSummary(pricingSummary);
-    } catch (error: unknown) {
-      toast.error(getErrorMessage(error, "Falha ao carregar configurações do site."));
-    } finally {
+
+      if (cancelled) return;
+
+      const errors: string[] = [];
+
+      if (whatsappResult.status === "fulfilled") {
+        const whatsappData = whatsappResult.value;
+        setDefaultNumber(whatsappData.defaultNumber ?? "");
+        setByUf({ ...buildEmptyRegionalMap(), ...(whatsappData.byUf ?? {}) });
+        setUpdatedAt(whatsappData.updatedAt);
+        setUpdatedByName(whatsappData.updatedByName);
+      } else {
+        errors.push(
+          getErrorMessage(whatsappResult.reason, "Falha ao carregar configuração de WhatsApp.")
+        );
+      }
+
+      if (gdpResult.status === "fulfilled") {
+        setGdpSummary(gdpResult.value);
+      } else {
+        errors.push(getErrorMessage(gdpResult.reason, "Falha ao carregar resumo da planilha GDP."));
+      }
+
+      if (errors.length) {
+        const message = errors.join(" ");
+        setLoadError(message);
+        toast.error(message);
+      }
+
       setIsLoading(false);
     }
-  }, [token, toast]);
 
-  useEffect(() => {
-    loadAll();
-  }, [loadAll]);
+    void loadAll();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token, toast]);
 
   const handleRegionalChange = (uf: string, value: string) => {
     setByUf((current) => ({ ...current, [uf]: value }));
@@ -138,6 +167,12 @@ export function SiteSettingsAdminTab({ token }: SiteSettingsAdminTabProps) {
 
   return (
     <div className="space-y-6">
+      {loadError ? (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          {loadError} Você ainda pode editar e salvar abaixo; recarregue a página para tentar
+          novamente.
+        </div>
+      ) : null}
       <PanelCard
         title="Preços por cidade (GDP)"
         description="Importe a planilha GDP para atualizar os preços exibidos no site conforme a cidade do visitante."
