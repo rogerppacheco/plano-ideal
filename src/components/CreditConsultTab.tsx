@@ -20,6 +20,8 @@ const HISTORY_COLUMNS: DataTableColumn[] = [
   { key: "document", label: "Documento" },
   { key: "requester", label: "Solicitante" },
   { key: "result", label: "Resultado" },
+  { key: "approval", label: "Aprovação" },
+  { key: "duration", label: "Duração" },
   { key: "actions", label: "Ações" },
 ];
 
@@ -30,6 +32,42 @@ function formatDate(iso: string | null | undefined): string {
   } catch {
     return iso;
   }
+}
+
+function formatDuration(seconds: number | null | undefined): string {
+  if (seconds == null || Number.isNaN(Number(seconds))) return "—";
+  const total = Math.round(Number(seconds));
+  if (total < 60) return `${total}s`;
+  const mins = Math.floor(total / 60);
+  const secs = total % 60;
+  return secs > 0 ? `${mins}m ${secs}s` : `${mins}m`;
+}
+
+/** Rótulo curto da elegibilidade de pagamento aprovada no PAP. */
+function approvalTypeLabel(item: CreditConsultation): string {
+  if (isPendingCreditStatus(item.status) || item.status === "failed" || !item.approved) {
+    return "—";
+  }
+
+  const detail = (item.resultDetail || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+  if (detail.includes("apenas") && detail.includes("cartao")) {
+    return "Cartão de crédito";
+  }
+  if (detail.includes("todas") && detail.includes("formas")) {
+    return "Todas formas de pagamento";
+  }
+  if (detail.includes("cartao")) {
+    return "Cartão de crédito";
+  }
+  if (detail.includes("formas de pagamento")) {
+    return "Todas formas de pagamento";
+  }
+
+  return item.resultDetail || "—";
 }
 
 function ResultBadge({ item }: { item: CreditConsultation }) {
@@ -57,8 +95,18 @@ export function CreditConsultTab({ token }: CreditConsultTabProps) {
     isLoadingHistory,
     isSubmitting,
     showRepresentative,
+    historyDateFrom,
+    historyDateTo,
+    historyPage,
+    historyTotal,
+    historyTotalPages,
+    historyPageSize,
     handleDocumentChange,
     handleRepresentativeChange,
+    handleHistoryDateFromChange,
+    handleHistoryDateToChange,
+    resetHistoryToToday,
+    goToHistoryPage,
     submitConsultation,
   } = useCreditConsult(token);
 
@@ -77,6 +125,9 @@ export function CreditConsultTab({ token }: CreditConsultTabProps) {
       toast.error(message);
     }
   };
+
+  const rangeStart = historyTotal === 0 ? 0 : (historyPage - 1) * historyPageSize + 1;
+  const rangeEnd = Math.min(historyPage * historyPageSize, historyTotal);
 
   return (
     <PanelCard
@@ -187,17 +238,54 @@ export function CreditConsultTab({ token }: CreditConsultTabProps) {
       ) : null}
 
       <div className="mt-8">
-        <h3 className="text-sm font-bold text-slate-900">Histórico recente</h3>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h3 className="text-sm font-bold text-slate-900">Histórico recente</h3>
+            <p className="mt-0.5 text-xs text-slate-500">
+              Por padrão, mostra as consultas de hoje. Use as datas para ver outros períodos.
+            </p>
+          </div>
+          <button type="button" className="btn-ghost self-start sm:self-auto" onClick={resetHistoryToToday}>
+            Hoje
+          </button>
+        </div>
+
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <FormField id="credit-history-from" label="De">
+            {({ id }) => (
+              <input
+                id={id}
+                type="date"
+                value={historyDateFrom}
+                onChange={handleHistoryDateFromChange}
+                className="input-modern"
+              />
+            )}
+          </FormField>
+          <FormField id="credit-history-to" label="Até">
+            {({ id }) => (
+              <input
+                id={id}
+                type="date"
+                value={historyDateTo}
+                min={historyDateFrom || undefined}
+                onChange={handleHistoryDateToChange}
+                className="input-modern"
+              />
+            )}
+          </FormField>
+        </div>
+
         <div className="mt-3">
           <DataTable
             columns={HISTORY_COLUMNS}
             caption="Histórico de consultas de crédito"
             isEmpty={!isLoadingHistory && history.length === 0}
             loading={isLoadingHistory}
-            loadingComponent={<SkeletonTable rows={5} cols={5} />}
+            loadingComponent={<SkeletonTable rows={5} cols={7} />}
             emptyIcon="search"
-            emptyTitle="Nenhuma consulta realizada ainda"
-            emptyDescription="As consultas de crédito aparecerão aqui assim que forem enviadas."
+            emptyTitle="Nenhuma consulta neste período"
+            emptyDescription="Ajuste o filtro de datas ou realize uma nova consulta de crédito."
           >
             {history.map((item) => (
               <DataTableRow key={item.id}>
@@ -212,6 +300,10 @@ export function CreditConsultTab({ token }: CreditConsultTabProps) {
                 </DataTableCell>
                 <DataTableCell>
                   <ResultBadge item={item} />
+                </DataTableCell>
+                <DataTableCell className="text-slate-700">{approvalTypeLabel(item)}</DataTableCell>
+                <DataTableCell className="whitespace-nowrap text-slate-600">
+                  {formatDuration(item.durationSeconds)}
                 </DataTableCell>
                 <DataTableCell>
                   {item.hasScreenshot ? (
@@ -230,6 +322,35 @@ export function CreditConsultTab({ token }: CreditConsultTabProps) {
             ))}
           </DataTable>
         </div>
+
+        {historyTotal > 0 ? (
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-slate-500">
+              Mostrando {rangeStart}–{rangeEnd} de {historyTotal}
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="btn-secondary px-3 py-1.5 text-xs"
+                disabled={historyPage <= 1 || isLoadingHistory}
+                onClick={() => goToHistoryPage(historyPage - 1)}
+              >
+                Anterior
+              </button>
+              <span className="text-xs font-medium text-slate-600">
+                Página {historyPage} de {historyTotalPages}
+              </span>
+              <button
+                type="button"
+                className="btn-secondary px-3 py-1.5 text-xs"
+                disabled={historyPage >= historyTotalPages || isLoadingHistory}
+                onClick={() => goToHistoryPage(historyPage + 1)}
+              >
+                Próxima
+              </button>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <ScreenshotModal

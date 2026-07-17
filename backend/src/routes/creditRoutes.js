@@ -45,19 +45,39 @@ router.post(
   })
 );
 
+function parseOptionalDate(value) {
+  if (!value || typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return null;
+  return trimmed;
+}
+
 router.get(
   "/credit/consultations",
   requireAuth,
   asyncHandler(async (req, res) => {
-    const limit = Math.min(Number(req.query.limit) || 50, 200);
+    const pageSize = Math.min(Math.max(Number(req.query.limit) || 20, 1), 100);
+    const page = Math.max(Number(req.query.page) || 1, 1);
+    const offset = (page - 1) * pageSize;
+    const dateFrom = parseOptionalDate(req.query.dateFrom);
+    const dateTo = parseOptionalDate(req.query.dateTo);
     const viewAll = canViewAllCreditHistory(req.user.role);
-    const consultations = await listInternalCreditConsultations({
+
+    const { consultations, total } = await listInternalCreditConsultations({
       userId: req.user.sub,
       viewAll,
-      limit,
+      limit: pageSize,
+      offset,
+      dateFrom,
+      dateTo,
     });
 
-    return res.json({ consultations });
+    return res.json({
+      consultations,
+      total,
+      page,
+      pageSize,
+    });
   })
 );
 

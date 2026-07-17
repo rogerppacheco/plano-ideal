@@ -57,9 +57,24 @@ export async function createExternalCreditConsultation({ apiKeyId, document, cpf
   return rows[0];
 }
 
-export async function listInternalCreditConsultations({ userId, viewAll, limit }) {
-  const { rows } = await pool.query(
-    `
+export async function listInternalCreditConsultations({
+  userId,
+  viewAll,
+  limit = 20,
+  offset = 0,
+  dateFrom = null,
+  dateTo = null,
+}) {
+  const params = [viewAll, userId, dateFrom, dateTo, limit, offset];
+  const whereClause = `
+      WHERE ($1::boolean OR c.requested_by = $2)
+        AND ($3::date IS NULL OR (c.created_at AT TIME ZONE 'America/Sao_Paulo')::date >= $3::date)
+        AND ($4::date IS NULL OR (c.created_at AT TIME ZONE 'America/Sao_Paulo')::date <= $4::date)
+  `;
+
+  const [listResult, countResult] = await Promise.all([
+    pool.query(
+      `
       SELECT c.id, c.document, c.cpf_representative, c.status, c.approved,
              c.result_detail, c.error_message, c.duration_seconds, c.pap_tt_matricula,
              c.requested_by, c.created_at, c.started_at, c.finished_at,
@@ -67,14 +82,27 @@ export async function listInternalCreditConsultations({ userId, viewAll, limit }
              u.full_name AS requester_name
       FROM credit_consultations c
       JOIN internal_users u ON u.id = c.requested_by
-      WHERE ($1::boolean OR c.requested_by = $2)
+      ${whereClause}
       ORDER BY c.created_at DESC
-      LIMIT $3
+      LIMIT $5 OFFSET $6
     `,
-    [viewAll, userId, limit]
-  );
+      params
+    ),
+    pool.query(
+      `
+      SELECT COUNT(*)::int AS total
+      FROM credit_consultations c
+      JOIN internal_users u ON u.id = c.requested_by
+      ${whereClause}
+    `,
+      [viewAll, userId, dateFrom, dateTo]
+    ),
+  ]);
 
-  return rows.map(mapInternalConsultation);
+  return {
+    consultations: listResult.rows.map(mapInternalConsultation),
+    total: countResult.rows[0]?.total ?? 0,
+  };
 }
 
 export async function getInternalCreditConsultationById({ id, userId, viewAll }) {

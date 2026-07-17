@@ -402,9 +402,26 @@ export function getCreditConsultation(
 
 export function getCreditConsultationHistory(
   token: string,
-  limit = 50
+  {
+    limit = 20,
+    page = 1,
+    dateFrom,
+    dateTo,
+  }: {
+    limit?: number;
+    page?: number;
+    dateFrom?: string;
+    dateTo?: string;
+  } = {}
 ): Promise<CreditConsultationsListResponse> {
-  return request<CreditConsultationsListResponse>(`/credit/consultations?limit=${limit}`, {
+  const params = new URLSearchParams({
+    limit: String(limit),
+    page: String(page),
+  });
+  if (dateFrom) params.set("dateFrom", dateFrom);
+  if (dateTo) params.set("dateTo", dateTo);
+
+  return request<CreditConsultationsListResponse>(`/credit/consultations?${params}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
 }

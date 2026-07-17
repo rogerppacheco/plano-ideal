@@ -9,9 +9,19 @@ import { isPendingCreditStatus, isTerminalCreditStatus } from "../types/credit";
 import { useToast } from "../components/ui/Toast";
 
 export const PENDING_CREDIT_CONSULTATION_KEY = "planoideal_pending_credit_consultation_id";
+export const CREDIT_HISTORY_PAGE_SIZE = 20;
 
 function getErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
+}
+
+/** Data local YYYY-MM-DD (fuso do navegador). */
+export function todayLocalDate(): string {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
 export function maskCreditDocumentInput(value: string): string {
@@ -50,25 +60,43 @@ export function useCreditConsult(token: string) {
   const [consultState, setConsultState] = useState<CreditConsultState>({ status: "idle" });
   const [history, setHistory] = useState<CreditConsultation[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+  const [historyDateFrom, setHistoryDateFrom] = useState(todayLocalDate);
+  const [historyDateTo, setHistoryDateTo] = useState(todayLocalDate);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyTotal, setHistoryTotal] = useState(0);
 
   const trackingConsultation =
     consultState.status === "tracking" ? consultState.consultation : null;
   const trackingId = trackingConsultation?.id ?? null;
   const trackingStatus = trackingConsultation?.status ?? null;
 
-  const loadHistory = useCallback(async () => {
-    try {
-      const data = await getCreditConsultationHistory(token);
-      const items = data.consultations ?? [];
-      setHistory(items);
-      return items;
-    } catch {
-      setHistory([]);
-      return [];
-    } finally {
-      setIsLoadingHistory(false);
-    }
-  }, [token]);
+  const loadHistory = useCallback(
+    async (overrides?: { page?: number; dateFrom?: string; dateTo?: string }) => {
+      const page = overrides?.page ?? historyPage;
+      const dateFrom = overrides?.dateFrom ?? historyDateFrom;
+      const dateTo = overrides?.dateTo ?? historyDateTo;
+
+      try {
+        const data = await getCreditConsultationHistory(token, {
+          limit: CREDIT_HISTORY_PAGE_SIZE,
+          page,
+          dateFrom: dateFrom || undefined,
+          dateTo: dateTo || undefined,
+        });
+        const items = data.consultations ?? [];
+        setHistory(items);
+        setHistoryTotal(data.total ?? 0);
+        return items;
+      } catch {
+        setHistory([]);
+        setHistoryTotal(0);
+        return [];
+      } finally {
+        setIsLoadingHistory(false);
+      }
+    },
+    [token, historyPage, historyDateFrom, historyDateTo]
+  );
 
   const resumePendingConsultation = useCallback(async () => {
     const storedId = sessionStorage.getItem(PENDING_CREDIT_CONSULTATION_KEY);
@@ -84,9 +112,13 @@ export function useCreditConsult(token: string) {
   }, [token]);
 
   useEffect(() => {
+    setIsLoadingHistory(true);
     loadHistory();
+  }, [loadHistory]);
+
+  useEffect(() => {
     resumePendingConsultation();
-  }, [loadHistory, resumePendingConsultation]);
+  }, [resumePendingConsultation]);
 
   useEffect(() => {
     const hasPending =
@@ -124,6 +156,27 @@ export function useCreditConsult(token: string) {
     setCpfRepresentative(maskCreditDocumentInput(event.target.value));
   }, []);
 
+  const handleHistoryDateFromChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    setHistoryDateFrom(event.target.value);
+    setHistoryPage(1);
+  }, []);
+
+  const handleHistoryDateToChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    setHistoryDateTo(event.target.value);
+    setHistoryPage(1);
+  }, []);
+
+  const resetHistoryToToday = useCallback(() => {
+    const today = todayLocalDate();
+    setHistoryDateFrom(today);
+    setHistoryDateTo(today);
+    setHistoryPage(1);
+  }, []);
+
+  const goToHistoryPage = useCallback((page: number) => {
+    setHistoryPage(Math.max(1, page));
+  }, []);
+
   const submitConsultation = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
@@ -137,7 +190,11 @@ export function useCreditConsult(token: string) {
         });
         setConsultState({ status: "tracking", consultation: data.consultation });
         syncPendingStorage(data.consultation);
-        await loadHistory();
+        const today = todayLocalDate();
+        setHistoryDateFrom(today);
+        setHistoryDateTo(today);
+        setHistoryPage(1);
+        await loadHistory({ page: 1, dateFrom: today, dateTo: today });
         toast.info("Consulta enviada. O resultado aparecerá em cerca de 30–60 segundos.");
       } catch (error: unknown) {
         const message = getErrorMessage(error, "Não foi possível iniciar a consulta.");
@@ -152,6 +209,7 @@ export function useCreditConsult(token: string) {
   const showRepresentative = documentDigits.length > 11;
   const isSubmitting = consultState.status === "submitting";
   const submitError = consultState.status === "error" ? consultState.message : "";
+  const historyTotalPages = Math.max(1, Math.ceil(historyTotal / CREDIT_HISTORY_PAGE_SIZE));
 
   return {
     document,
@@ -163,8 +221,18 @@ export function useCreditConsult(token: string) {
     isSubmitting,
     submitError,
     showRepresentative,
+    historyDateFrom,
+    historyDateTo,
+    historyPage,
+    historyTotal,
+    historyTotalPages,
+    historyPageSize: CREDIT_HISTORY_PAGE_SIZE,
     handleDocumentChange,
     handleRepresentativeChange,
+    handleHistoryDateFromChange,
+    handleHistoryDateToChange,
+    resetHistoryToToday,
+    goToHistoryPage,
     submitConsultation,
     loadHistory,
   };

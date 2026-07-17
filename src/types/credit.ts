@@ -31,6 +31,9 @@ export interface CreditConsultationResponse {
 
 export interface CreditConsultationsListResponse {
   consultations: CreditConsultation[];
+  total: number;
+  page: number;
+  pageSize: number;
 }
 
 export interface CreditScreenshotResponse {
