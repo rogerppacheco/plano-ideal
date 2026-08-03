@@ -35,10 +35,11 @@ import type {
   CreateApiKeyForm,
   CreateApiKeyResponse,
   CreatePartnerForm,
+  DeleteApiKeyResponse,
+  DeletePartnerResponse,
   PartnerMutationResponse,
   PartnersListResponse,
   RevokeApiKeyResponse,
-  DeleteApiKeyResponse,
   UpdatePartnerForm,
 } from "../types/apiKeys";
 import type {
@@ -637,6 +638,16 @@ export function updatePartner({
       Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify(payload),
+  });
+}
+
+export function deletePartner(
+  partnerId: number,
+  token: string
+): Promise<DeletePartnerResponse> {
+  return request<DeletePartnerResponse>(`/partners/${partnerId}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
   });
 }
 

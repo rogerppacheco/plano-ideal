@@ -11,6 +11,7 @@ import {
 } from "../services/apiKeyService.js";
 import {
   createPartner,
+  deletePartner,
   getPartnerById,
   handlePartnerServiceError,
   listPartners,
@@ -67,6 +68,30 @@ router.patch(
       return res.json({
         partner,
         message: "Parceiro atualizado com sucesso.",
+      });
+    } catch (error) {
+      return handlePartnerServiceError(error, res);
+    }
+  })
+);
+
+router.delete(
+  "/partners/:id",
+  requireAuth,
+  requireRole(ROLES.ADMIN),
+  asyncHandler(async (req, res) => {
+    try {
+      const result = await deletePartner({
+        actorUserId: req.user.sub,
+        partnerId: req.params.id,
+      });
+      return res.json({
+        partner: result.partner,
+        keysDeleted: result.keysDeleted,
+        message:
+          result.keysDeleted > 0
+            ? `Parceiro excluído e ${result.keysDeleted} chave(s) removida(s).`
+            : "Parceiro excluído com sucesso.",
       });
     } catch (error) {
       return handlePartnerServiceError(error, res);

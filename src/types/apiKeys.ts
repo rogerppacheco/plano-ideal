@@ -36,6 +36,12 @@ export interface PartnerMutationResponse {
   message?: string;
 }
 
+export interface DeletePartnerResponse {
+  partner: Partner;
+  keysDeleted?: number;
+  message?: string;
+}
+
 export interface ApiKeysListResponse {
   apiKeys: ApiKeyView[];
 }

@@ -191,6 +191,73 @@ export async function updatePartner({ actorUserId, partnerId, name, contactEmail
   }
 }
 
+/**
+ * Remove parceiro e suas chaves (CASCADE).
+ * Bloqueia se alguma chave tiver consultas de crédito externas vinculadas.
+ */
+export async function deletePartner({ actorUserId, partnerId }) {
+  const id = parsePartnerId(partnerId);
+  const current = await getPartnerById(id);
+  if (!current) {
+    throw new PartnerServiceError("Parceiro não encontrado.", 404, "PARTNER_NOT_FOUND");
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const keysResult = await client.query(
+      `SELECT id, key_prefix, name FROM api_keys WHERE partner_id = $1 FOR UPDATE`,
+      [id]
+    );
+    const keyIds = keysResult.rows.map((row) => Number(row.id));
+
+    if (keyIds.length > 0) {
+      const dependents = await client.query(
+        `
+          SELECT COUNT(*)::INT AS total
+          FROM credit_consultations
+          WHERE api_key_id = ANY($1::bigint[])
+        `,
+        [keyIds]
+      );
+      const dependentCount = dependents.rows[0]?.total ?? 0;
+      if (dependentCount > 0) {
+        throw new PartnerServiceError(
+          `Não é possível excluir: há ${dependentCount} consulta(s) de crédito vinculada(s) às chaves deste parceiro. Inative o parceiro ou revogue as chaves para manter o histórico.`,
+          409,
+          "PARTNER_HAS_DEPENDENTS"
+        );
+      }
+    }
+
+    await insertAuditLog(client, {
+      actorUserId,
+      action: "PARTNER_DELETED",
+      partnerId: id,
+      metadata: {
+        name: current.name,
+        slug: current.slug,
+        keysDeleted: keyIds.length,
+        keyPrefixes: keysResult.rows.map((row) => row.key_prefix),
+      },
+    });
+
+    await client.query(`DELETE FROM partners WHERE id = $1`, [id]);
+    await client.query("COMMIT");
+
+    return {
+      partner: current,
+      keysDeleted: keyIds.length,
+    };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 export function handlePartnerServiceError(error, res) {
   if (error instanceof PartnerServiceError) {
     return res.status(error.status).json({

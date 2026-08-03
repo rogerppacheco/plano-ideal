@@ -4,6 +4,7 @@ import {
   ApiError,
   createPartner,
   createPartnerApiKey,
+  deletePartner,
   deletePartnerApiKey,
   getPartnerApiKeys,
   getPartners,
@@ -152,8 +153,10 @@ export function ApiPartnersAdminTab({ token }: ApiPartnersAdminTabProps) {
   const [isCreatingKey, setIsCreatingKey] = useState(false);
   const [revokeTarget, setRevokeTarget] = useState<ApiKeyView | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ApiKeyView | null>(null);
+  const [deletePartnerTarget, setDeletePartnerTarget] = useState<Partner | null>(null);
   const [isRevoking, setIsRevoking] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isDeletingPartner, setIsDeletingPartner] = useState(false);
   const [revealedPlaintext, setRevealedPlaintext] = useState<string | null>(null);
 
   const [newPartnerName, setNewPartnerName] = useState("");
@@ -240,6 +243,25 @@ export function ApiPartnersAdminTab({ token }: ApiPartnersAdminTabProps) {
       await loadPartners();
     } catch (error: unknown) {
       toast.error(getErrorMessage(error, "Não foi possível atualizar parceiro."));
+    }
+  };
+
+  const handleDeletePartner = async () => {
+    if (!deletePartnerTarget) return;
+    setIsDeletingPartner(true);
+    try {
+      const result = await deletePartner(deletePartnerTarget.id, token);
+      toast.success(result.message || "Parceiro excluído.");
+      if (selectedPartnerId === deletePartnerTarget.id) {
+        setSelectedPartnerId(null);
+        setApiKeys([]);
+      }
+      setDeletePartnerTarget(null);
+      await loadPartners();
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Não foi possível excluir parceiro."));
+    } finally {
+      setIsDeletingPartner(false);
     }
   };
 
@@ -422,12 +444,19 @@ export function ApiPartnersAdminTab({ token }: ApiPartnersAdminTabProps) {
                               type="button"
                               className={`text-xs font-medium transition ${
                                 partner.isActive
-                                  ? "text-red-400 hover:text-red-300"
+                                  ? "text-amber-300 hover:text-amber-200"
                                   : "text-gray-400 hover:text-gray-300"
                               }`}
                               onClick={() => handleTogglePartnerStatus(partner)}
                             >
                               {partner.isActive ? "Inativar" : "Reativar"}
+                            </button>
+                            <button
+                              type="button"
+                              className="text-xs font-medium text-red-400 transition hover:text-red-300"
+                              onClick={() => setDeletePartnerTarget(partner)}
+                            >
+                              Excluir
                             </button>
                           </div>
                         </td>
@@ -585,6 +614,21 @@ export function ApiPartnersAdminTab({ token }: ApiPartnersAdminTabProps) {
         open={Boolean(revealedPlaintext)}
         plaintext={revealedPlaintext || ""}
         onClose={() => setRevealedPlaintext(null)}
+      />
+
+      <ConfirmDialog
+        open={Boolean(deletePartnerTarget)}
+        title="Excluir parceiro?"
+        description={
+          deletePartnerTarget
+            ? `O parceiro "${deletePartnerTarget.name}" (${deletePartnerTarget.slug}) e todas as chaves de API vinculadas serão removidos permanentemente. Esta ação não pode ser desfeita.`
+            : ""
+        }
+        confirmLabel="Excluir parceiro"
+        variant="danger"
+        isLoading={isDeletingPartner}
+        onConfirm={handleDeletePartner}
+        onCancel={() => setDeletePartnerTarget(null)}
       />
 
       <ConfirmDialog
