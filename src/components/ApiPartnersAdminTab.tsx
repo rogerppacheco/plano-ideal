@@ -4,6 +4,7 @@ import {
   ApiError,
   createPartner,
   createPartnerApiKey,
+  deletePartnerApiKey,
   getPartnerApiKeys,
   getPartners,
   revokePartnerApiKey,
@@ -150,7 +151,9 @@ export function ApiPartnersAdminTab({ token }: ApiPartnersAdminTabProps) {
   const [isCreatingPartner, setIsCreatingPartner] = useState(false);
   const [isCreatingKey, setIsCreatingKey] = useState(false);
   const [revokeTarget, setRevokeTarget] = useState<ApiKeyView | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ApiKeyView | null>(null);
   const [isRevoking, setIsRevoking] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [revealedPlaintext, setRevealedPlaintext] = useState<string | null>(null);
 
   const [newPartnerName, setNewPartnerName] = useState("");
@@ -287,6 +290,22 @@ export function ApiPartnersAdminTab({ token }: ApiPartnersAdminTabProps) {
       toast.error(getErrorMessage(error, "Não foi possível revogar chave."));
     } finally {
       setIsRevoking(false);
+    }
+  };
+
+  const handleDeleteKey = async () => {
+    if (!deleteTarget || !selectedPartnerId) return;
+    setIsDeleting(true);
+    try {
+      const result = await deletePartnerApiKey(deleteTarget.id, token);
+      toast.success(result.message || "Chave excluída.");
+      setDeleteTarget(null);
+      await loadApiKeys(selectedPartnerId);
+      await loadPartners();
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Não foi possível excluir chave."));
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -532,17 +551,24 @@ export function ApiPartnersAdminTab({ token }: ApiPartnersAdminTabProps) {
                             </span>
                           </td>
                           <td className="px-4 py-3">
-                            {!apiKey.isRevoked ? (
+                            <div className="flex flex-wrap items-center gap-3">
+                              {!apiKey.isRevoked ? (
+                                <button
+                                  type="button"
+                                  className="text-xs font-medium text-amber-300 transition hover:text-amber-200"
+                                  onClick={() => setRevokeTarget(apiKey)}
+                                >
+                                  Revogar
+                                </button>
+                              ) : null}
                               <button
                                 type="button"
                                 className="text-xs font-medium text-red-400 transition hover:text-red-300"
-                                onClick={() => setRevokeTarget(apiKey)}
+                                onClick={() => setDeleteTarget(apiKey)}
                               >
-                                Revogar
+                                Excluir
                               </button>
-                            ) : (
-                              <span className="text-gray-500">—</span>
-                            )}
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -574,6 +600,21 @@ export function ApiPartnersAdminTab({ token }: ApiPartnersAdminTabProps) {
         isLoading={isRevoking}
         onConfirm={handleRevokeKey}
         onCancel={() => setRevokeTarget(null)}
+      />
+
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title="Excluir API Key?"
+        description={
+          deleteTarget
+            ? `A chave "${deleteTarget.name}" (${deleteTarget.displayPrefix}••••) será removida do banco permanentemente e sairá desta lista. Esta ação não pode ser desfeita.`
+            : ""
+        }
+        confirmLabel="Excluir chave"
+        variant="danger"
+        isLoading={isDeleting}
+        onConfirm={handleDeleteKey}
+        onCancel={() => setDeleteTarget(null)}
       />
     </>
   );

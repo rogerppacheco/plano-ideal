@@ -257,6 +257,80 @@ export async function revokeApiKey(apiKeyId, revokedBy = null, actorUserId = nul
   }
 }
 
+/**
+ * Remove a chave do banco. Falha se houver consultas de crédito externas vinculadas
+ * (a constraint de origem impede SET NULL em source=external).
+ */
+export async function deleteApiKey(apiKeyId, actorUserId = null) {
+  const id = Number(apiKeyId);
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new ApiKeyServiceError("ID de chave inválido.");
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const { rows } = await client.query(
+      `
+        SELECT
+          id, partner_id, key_prefix, name, scopes, is_active,
+          last_used_at, expires_at, revoked_at, created_at
+        FROM api_keys
+        WHERE id = $1
+        FOR UPDATE
+      `,
+      [id]
+    );
+
+    if (!rows[0]) {
+      throw new ApiKeyServiceError("Chave não encontrada.", 404, "API_KEY_NOT_FOUND");
+    }
+
+    const apiKey = toPublicApiKey(rows[0]);
+
+    const dependents = await client.query(
+      `
+        SELECT COUNT(*)::INT AS total
+        FROM credit_consultations
+        WHERE api_key_id = $1
+      `,
+      [id]
+    );
+    const dependentCount = dependents.rows[0]?.total ?? 0;
+    if (dependentCount > 0) {
+      throw new ApiKeyServiceError(
+        `Não é possível excluir: há ${dependentCount} consulta(s) de crédito vinculada(s). Revogue a chave para desativá-la sem apagar o histórico.`,
+        409,
+        "API_KEY_HAS_DEPENDENTS"
+      );
+    }
+
+    if (actorUserId) {
+      await insertAuditLog(client, {
+        actorUserId,
+        action: "API_KEY_DELETED",
+        partnerId: apiKey.partnerId,
+        apiKeyId: apiKey.id,
+        metadata: {
+          name: apiKey.name,
+          keyPrefix: apiKey.keyPrefix,
+          wasRevoked: apiKey.isRevoked,
+        },
+      });
+    }
+
+    await client.query(`DELETE FROM api_keys WHERE id = $1`, [id]);
+    await client.query("COMMIT");
+    return apiKey;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 export async function listApiKeysByPartner(partnerId) {
   const { rows } = await pool.query(
     `

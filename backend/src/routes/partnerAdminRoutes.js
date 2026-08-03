@@ -4,6 +4,7 @@ import { requireAuth, requireRole } from "../middleware/auth.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import {
   createApiKey,
+  deleteApiKey,
   handleApiKeyServiceError,
   listApiKeysByPartner,
   revokeApiKey,
@@ -117,8 +118,8 @@ router.post(
   })
 );
 
-router.delete(
-  "/api-keys/:id",
+router.post(
+  "/api-keys/:id/revoke",
   requireAuth,
   requireRole(ROLES.ADMIN),
   asyncHandler(async (req, res) => {
@@ -127,6 +128,24 @@ router.delete(
       return res.json({
         apiKey,
         message: "Chave revogada com sucesso.",
+      });
+    } catch (error) {
+      return handleApiKeyServiceError(error, res);
+    }
+  })
+);
+
+/** Compat: DELETE antigo revogava — agora exclui de vez. Use POST .../revoke para só revogar. */
+router.delete(
+  "/api-keys/:id",
+  requireAuth,
+  requireRole(ROLES.ADMIN),
+  asyncHandler(async (req, res) => {
+    try {
+      const apiKey = await deleteApiKey(req.params.id, req.user.sub);
+      return res.json({
+        apiKey,
+        message: "Chave excluída permanentemente.",
       });
     } catch (error) {
       return handleApiKeyServiceError(error, res);

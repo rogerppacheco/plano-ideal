@@ -38,6 +38,7 @@ import type {
   PartnerMutationResponse,
   PartnersListResponse,
   RevokeApiKeyResponse,
+  DeleteApiKeyResponse,
   UpdatePartnerForm,
 } from "../types/apiKeys";
 import type {
@@ -738,7 +739,17 @@ export function revokePartnerApiKey(
   apiKeyId: number,
   token: string
 ): Promise<RevokeApiKeyResponse> {
-  return request<RevokeApiKeyResponse>(`/api-keys/${apiKeyId}`, {
+  return request<RevokeApiKeyResponse>(`/api-keys/${apiKeyId}/revoke`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function deletePartnerApiKey(
+  apiKeyId: number,
+  token: string
+): Promise<DeleteApiKeyResponse> {
+  return request<DeleteApiKeyResponse>(`/api-keys/${apiKeyId}`, {
     method: "DELETE",
     headers: { Authorization: `Bearer ${token}` },
   });

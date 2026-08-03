@@ -69,6 +69,11 @@ export interface RevokeApiKeyResponse {
   message?: string;
 }
 
+export interface DeleteApiKeyResponse {
+  apiKey: ApiKeyView;
+  message?: string;
+}
+
 export function isApiScope(value: string): value is ApiScope {
   return (API_SCOPES as readonly string[]).includes(value);
 }
