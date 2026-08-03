@@ -1,41 +1,22 @@
-import { pool } from "../db.js";
+import {
+  DfvPowerBiError,
+  getNioCoverageFromPowerBi,
+  hasNioCoverageInPowerBi,
+} from "./dfvPowerBiService.js";
 
+export { DfvPowerBiError };
+
+/**
+ * Contagem simplificada para viabilidade pública: 1 se houver fachada Nio no PBI.
+ */
 export async function countCoverageByCep(cepDigits) {
-  const { rows } = await pool.query(
-    `
-      SELECT COUNT(*)::INT AS total
-      FROM coverage_records
-      WHERE cep_digits = $1
-    `,
-    [cepDigits]
-  );
-
-  return rows[0]?.total ?? 0;
+  const has = await hasNioCoverageInPowerBi(cepDigits);
+  return has ? 1 : 0;
 }
 
+/**
+ * Consulta de cobertura: somente Nio via Power BI público (DFV), sem bases legadas.
+ */
 export async function getCoverageByCep(cepDigits) {
-  const operatorsQuery = `
-    SELECT DISTINCT operator
-    FROM coverage_records
-    WHERE cep_digits = $1
-    ORDER BY operator ASC
-  `;
-  const detailsQuery = `
-    SELECT operator, source_file, sheet_name, row_data, imported_at
-    FROM coverage_records
-    WHERE cep_digits = $1
-    ORDER BY operator ASC, imported_at DESC
-    LIMIT 200
-  `;
-
-  const [operatorsResult, detailsResult] = await Promise.all([
-    pool.query(operatorsQuery, [cepDigits]),
-    pool.query(detailsQuery, [cepDigits]),
-  ]);
-
-  return {
-    cep: cepDigits,
-    operators: operatorsResult.rows.map((row) => row.operator),
-    records: detailsResult.rows,
-  };
+  return getNioCoverageFromPowerBi(cepDigits);
 }

@@ -1,6 +1,6 @@
 import express from "express";
 import { recordAuditEvent } from "../../services/auditService.js";
-import { getCoverageByCep } from "../../services/coverageService.js";
+import { DfvPowerBiError, getCoverageByCep } from "../../services/coverageService.js";
 import { toExternalCoverageDto } from "../../dto/external/coverageDto.js";
 import { sendExternalError } from "../../dto/external/errorDto.js";
 import { externalRateLimit } from "../../middleware/externalRateLimit.js";
@@ -21,8 +21,23 @@ router.get(
       return sendExternalError(res, 400, "INVALID_CEP", "CEP inválido. Informe 8 dígitos.");
     }
 
-    const coverage = await getCoverageByCep(cepDigits);
+    let coverage;
+    try {
+      coverage = await getCoverageByCep(cepDigits);
+    } catch (error) {
+      if (error instanceof DfvPowerBiError) {
+        return sendExternalError(
+          res,
+          error.status || 502,
+          error.code || "UPSTREAM_ERROR",
+          error.message || "Falha ao consultar cobertura no Power BI."
+        );
+      }
+      throw error;
+    }
+
     const payload = toExternalCoverageDto(coverage);
+    payload.source = coverage.source || "powerbi_dfv";
 
     recordAuditEvent({
       action: "EXTERNAL_COVERAGE_LOOKUP",
@@ -32,6 +47,7 @@ router.get(
         cep: cepDigits,
         hasCoverage: payload.hasCoverage,
         operatorCount: payload.operators.length,
+        source: payload.source,
       },
     }).catch(() => {});
 

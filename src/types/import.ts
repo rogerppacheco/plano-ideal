@@ -91,3 +91,9 @@ export interface RevertImportJobResponse {
   deletedRows?: number;
   estimatedRows?: number;
 }
+
+export interface ClearAllImportedBasesResponse {
+  message: string;
+  deletedRows?: number;
+  deletedJobs?: number;
+}

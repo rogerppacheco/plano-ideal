@@ -12,6 +12,20 @@ export type CoverageConsultState =
       cep: string;
       operators: string[];
       records: CoverageRecord[];
+      source?: string;
+      meta?: {
+        onlyViable?: boolean;
+        cdoCodes?: string[];
+        totalRaw?: number;
+        regions?: Array<{
+          id: string;
+          label: string;
+          count: number;
+          ok: boolean;
+          error?: string;
+        }>;
+        activeRegions?: string[];
+      };
     }
   | { status: "error"; message: string };
 
@@ -83,6 +97,8 @@ export function useCoverageConsult(token: string) {
           cep,
           operators,
           records,
+          source: data.source,
+          meta: data.meta,
         });
 
         if (operators.length > 0) {

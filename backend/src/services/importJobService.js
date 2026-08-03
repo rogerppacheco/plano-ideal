@@ -131,3 +131,56 @@ export async function revertImportJob(pool, jobId) {
 
   return { ok: true, deleted };
 }
+
+const CLEAR_ALL_CONFIRMATION = "EXCLUIR TODAS";
+
+/**
+ * Remove TODAS as bases importadas (coverage_records + histórico de jobs).
+ * Não afeta usuários internos nem schema public (CRM Record).
+ */
+export async function clearAllImportedBases(pool, { confirmation } = {}) {
+  if (String(confirmation || "").trim() !== CLEAR_ALL_CONFIRMATION) {
+    return {
+      ok: false,
+      status: 400,
+      message: `Confirmação inválida. Envie confirmation: "${CLEAR_ALL_CONFIRMATION}".`,
+    };
+  }
+
+  const active = await pool.query(
+    `
+      SELECT id
+      FROM import_jobs
+      WHERE status IN ('queued', 'processing')
+      LIMIT 1
+    `
+  );
+  if (active.rows[0]) {
+    return {
+      ok: false,
+      status: 409,
+      message: "Há importação em andamento. Aguarde concluir antes de limpar tudo.",
+    };
+  }
+
+  const counts = await pool.query(`
+    SELECT
+      (SELECT COUNT(*)::INT FROM coverage_records) AS coverage,
+      (SELECT COUNT(*)::INT FROM import_jobs) AS jobs
+  `);
+  const before = counts.rows[0] || { coverage: 0, jobs: 0 };
+
+  await pool.query(`
+    TRUNCATE TABLE coverage_records, import_job_files, import_jobs
+    RESTART IDENTITY CASCADE
+  `);
+
+  return {
+    ok: true,
+    deletedRows: before.coverage ?? 0,
+    deletedJobs: before.jobs ?? 0,
+    confirmation: CLEAR_ALL_CONFIRMATION,
+  };
+}
+
+export { CLEAR_ALL_CONFIRMATION };

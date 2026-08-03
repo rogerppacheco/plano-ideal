@@ -8,6 +8,8 @@ import { pool } from "../db.js";
 import { ROLES } from "../constants/roles.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import {
+  CLEAR_ALL_CONFIRMATION,
+  clearAllImportedBases,
   countRecordsForJob,
   registerImportJobFiles,
   revertImportJob,
@@ -359,6 +361,29 @@ router.delete(
       message: `Importação #${jobId} removida do banco.`,
       deletedRows: outcome.deleted,
       estimatedRows: estimate,
+    });
+  }
+);
+
+router.delete(
+  "/import/all",
+  requireAuth,
+  requireRole(ROLES.ADMIN),
+  async (req, res) => {
+    const confirmation = req.body?.confirmation ?? req.query?.confirmation;
+    const outcome = await clearAllImportedBases(pool, { confirmation });
+    if (!outcome.ok) {
+      return res.status(outcome.status).json({
+        message: outcome.message,
+        requiredConfirmation: CLEAR_ALL_CONFIRMATION,
+      });
+    }
+
+    return res.json({
+      message:
+        "Todas as bases importadas foram excluídas do banco (Nio, Vivo, Vero e demais).",
+      deletedRows: outcome.deletedRows,
+      deletedJobs: outcome.deletedJobs,
     });
   }
 );

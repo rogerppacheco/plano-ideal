@@ -39,13 +39,17 @@ export function canManageImports(role: Role | string | null | undefined): boolea
   return role === ROLES.ADMIN || role === ROLES.MANAGER;
 }
 
+export function canClearAllImportedBases(role: Role | string | null | undefined): boolean {
+  return role === ROLES.ADMIN;
+}
+
 export function canViewAllCreditHistory(role: Role | string | null | undefined): boolean {
   return role === ROLES.ADMIN || role === ROLES.MANAGER;
 }
 
 export function buildDashboardTabs(role: Role | string | null | undefined): DashboardTab[] {
   const tabs: DashboardTab[] = [
-    { id: "consulta", label: "Consulta", icon: "📍" },
+    { id: "consulta", label: "Consulta DFV", icon: "📍" },
     { id: "credito", label: "Consulta Crédito", icon: "💳" },
     { id: "consulta-os", label: "Consulta OS", icon: "📋" },
   ];

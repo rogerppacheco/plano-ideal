@@ -5,7 +5,7 @@ const OPERATOR_COVERAGE_CONFIG = {
   },
   Nio: {
     mode: "facades",
-    keys: ["NUM_FACHADA", "Num_Fachada", "num_fachada"],
+    keys: ["NUM_FACHADA", "Num_Fachada", "num_fachada", "NO_FACHADA"],
   },
   Vero: {
     mode: "streets",

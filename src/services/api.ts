@@ -22,6 +22,7 @@ import type {
 } from "../types/os";
 import type {
   ActiveImportJobResponse,
+  ClearAllImportedBasesResponse,
   CompleteImportJobResponse,
   CreateImportJobResponse,
   ImportJobStatusResponse,
@@ -271,6 +272,20 @@ export function revertImportJob(
     headers: {
       Authorization: `Bearer ${token}`,
     },
+  });
+}
+
+export function clearAllImportedBases(
+  token: string,
+  confirmation = "EXCLUIR TODAS"
+): Promise<ClearAllImportedBasesResponse> {
+  return request<ClearAllImportedBasesResponse>("/import/all", {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ confirmation }),
   });
 }
 

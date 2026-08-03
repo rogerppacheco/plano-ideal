@@ -10,6 +10,7 @@ import { useNavigate } from "react-router-dom";
 import { clearSession, getSessionToken, getSessionUser } from "../lib/authSession";
 import {
   buildDashboardTabs,
+  canClearAllImportedBases,
   canManageApiPartners,
   canManageImports,
   canManagePap,
@@ -18,6 +19,7 @@ import {
   ROLE_LABELS,
 } from "../lib/rbac";
 import {
+  clearAllImportedBases,
   completeStuckImportJob,
   createImportJob,
   getActiveImportJob,
@@ -141,6 +143,7 @@ export default function InternalDashboard() {
   const token = useMemo(() => getSessionToken(), []);
   const userRole = sessionUser?.role;
   const showImports = canManageImports(userRole);
+  const showClearAllBases = canClearAllImportedBases(userRole);
   const showPap = canManagePap(userRole);
   const showSiteSettings = canManageSiteSettings(userRole);
   const showUsers = canManageUsers(userRole);
@@ -174,6 +177,7 @@ export default function InternalDashboard() {
   const [summaryError, setSummaryError] = useState("");
   const [revertingJobId, setRevertingJobId] = useState<number | null>(null);
   const [completingJobId, setCompletingJobId] = useState<number | null>(null);
+  const [isClearingAllBases, setIsClearingAllBases] = useState(false);
   const [isLoadingImportHistory, setIsLoadingImportHistory] = useState(false);
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
 
@@ -282,6 +286,43 @@ export default function InternalDashboard() {
     }
   };
 
+  const handleClearAllImportedBases = async () => {
+    const firstOk = window.confirm(
+      "Isso apaga TODAS as bases importadas em produção (Nio, Vivo, Vero e demais), além do histórico de importações.\n\nA consulta de fachadas Nio continua funcionando via Power BI.\n\nEsta ação não pode ser desfeita. Continuar?"
+    );
+    if (!firstOk) return;
+
+    const confirmation = window.prompt(
+      'Para confirmar, digite exatamente: EXCLUIR TODAS'
+    );
+    if (confirmation == null) return;
+    if (confirmation.trim() !== "EXCLUIR TODAS") {
+      toast.error('Confirmação inválida. Digite exatamente: EXCLUIR TODAS');
+      return;
+    }
+
+    try {
+      setIsClearingAllBases(true);
+      const result = await clearAllImportedBases(token, "EXCLUIR TODAS");
+      const message =
+        result.message ||
+        `Bases limpas: ${Number(result.deletedRows || 0).toLocaleString("pt-BR")} registro(s).`;
+      setImportFeedback(message);
+      setImportError("");
+      toast.success(message);
+      await loadSummary();
+      await loadImportHistory();
+    } catch (error: unknown) {
+      const message =
+        (error instanceof Error ? error.message : null) ||
+        "Não foi possível limpar as bases importadas.";
+      setImportError(message);
+      toast.error(message);
+    } finally {
+      setIsClearingAllBases(false);
+    }
+  };
+
   const handleLogout = () => {
     clearSession();
     navigate("/");
@@ -290,8 +331,13 @@ export default function InternalDashboard() {
   const handleConsultSubmit = (event: FormEvent<HTMLFormElement>) =>
     submitConsult(
       event,
-      (count) => toast.success(`${count} operadora(s) encontrada(s).`),
-      () => toast.warning("Nenhuma operadora disponível para este CEP."),
+      (count) =>
+        toast.success(
+          count > 0
+            ? "Cobertura Nio encontrada no Power BI (DFV)."
+            : "Consulta concluída."
+        ),
+      () => toast.warning("Nenhuma fachada Nio encontrada neste CEP no Power BI."),
       (message) => toast.error(message)
     );
 
@@ -482,8 +528,8 @@ export default function InternalDashboard() {
         {activeTab === "consulta" ? (
           <PanelCard
             id="panel-consulta"
-            title="Consulta por CEP"
-            description="Consulta de cobertura por CEP para todos os perfis internos."
+            title="Consulta DFV (Nio)"
+            description="Consulta online de fachadas Nio via Power BI público (Sudeste, SP e Sul) — mesma base da automação DFV."
           >
             <form
               className="flex flex-col gap-3 sm:flex-row sm:items-end"
@@ -513,7 +559,7 @@ export default function InternalDashboard() {
                 )}
               </FormField>
               <button type="submit" className="btn-primary shrink-0" disabled={isConsulting}>
-                {isConsulting ? "Consultando…" : "Consultar"}
+                {isConsulting ? "Consultando Power BI…" : "Consultar"}
               </button>
             </form>
 
@@ -527,9 +573,35 @@ export default function InternalDashboard() {
                   CEP consultado: {consultResult.cep}
                   {consultedAddress ? `, ${consultedAddress}` : ""}
                 </p>
+                <p className="mt-1 text-xs text-emerald-200/80">
+                  Fonte: Power BI DFV ao vivo
+                  {consultResult.meta?.activeRegions?.length
+                    ? ` · ${consultResult.meta.activeRegions.join(", ")}`
+                    : ""}
+                  {consultResult.meta?.cdoCodes?.length
+                    ? ` · CDO: ${consultResult.meta.cdoCodes.slice(0, 8).join(", ")}${
+                        consultResult.meta.cdoCodes.length > 8 ? "…" : ""
+                      }`
+                    : ""}
+                </p>
+                {consultResult.meta?.regions?.some((r) => !r.ok) ? (
+                  <p className="mt-1 text-xs text-amber-200/80">
+                    Alguma região falhou:{" "}
+                    {consultResult.meta.regions
+                      .filter((r) => !r.ok)
+                      .map((r) => r.label)
+                      .join(", ")}
+                    . Resultado parcial exibido.
+                  </p>
+                ) : null}
+                {consultResult.meta?.onlyViable === false && consultResult.records.length > 0 ? (
+                  <p className="mt-2 text-xs text-amber-200/90">
+                    Sem fachadas viáveis neste CEP — exibindo todos os status encontrados.
+                  </p>
+                ) : null}
                 {consultResult.operators.length > 0 ? (
                   <>
-                    <p className="mt-3 text-sm font-semibold text-white">Resumo por operadora</p>
+                    <p className="mt-3 text-sm font-semibold text-white">Resumo</p>
                     <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                       {consultResult.operators.map((operatorName) => (
                         <OperatorSummaryCard
@@ -541,13 +613,13 @@ export default function InternalDashboard() {
                       ))}
                     </div>
                     <p className="mt-2 text-xs text-white/55">
-                      Total no CEP: {consultResult.records.length} registro(s)
+                      Total no CEP: {consultResult.records.length} fachada(s)
                     </p>
                   </>
                 ) : null}
-                <details className="mt-3 rounded-lg border border-white/10 bg-black/15 p-3">
+                <details className="mt-3 rounded-lg border border-white/10 bg-black/15 p-3" open>
                   <summary className="cursor-pointer text-sm font-semibold text-white/85">
-                    Ver detalhes por operadora
+                    Números de fachada
                   </summary>
                   <div className="mt-3 space-y-4">
                     {consultResult.operators.map((operatorName) => (
@@ -561,7 +633,7 @@ export default function InternalDashboard() {
                 </details>
                 {consultResult.operators.length === 0 ? (
                   <p className="mt-2 text-sm font-semibold text-slate-800">
-                    Nenhuma operadora disponível para este CEP.
+                    Nenhuma fachada Nio encontrada para este CEP no Power BI.
                   </p>
                 ) : null}
               </div>
@@ -570,7 +642,7 @@ export default function InternalDashboard() {
                 <EmptyState
                   icon="search"
                   title="Nenhum CEP consultado ainda"
-                  description="Digite um CEP válido e clique em consultar para ver operadoras e detalhes de cobertura."
+                  description="Digite um CEP válido para consultar fachadas Nio no Power BI (DFV)."
                 />
               </div>
             )}
@@ -589,7 +661,7 @@ export default function InternalDashboard() {
           <PanelCard
             id="panel-importacoes"
             title="Importar bases para o banco interno"
-            description='Coluna com nome contendo "CEP" é obrigatória. Todos os outros campos da planilha são preservados integralmente.'
+            description="As consultas de fachada Nio usam o Power BI. As importações abaixo servem apenas como armazenamento legado (ex.: Vivo/Vero) e podem ser limpas a qualquer momento."
           >
             <div className="mt-4 flex flex-wrap gap-2">
               <button
@@ -844,15 +916,36 @@ export default function InternalDashboard() {
             <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h3 className="text-sm font-bold text-slate-900">Resumo das importações</h3>
-                <button
-                  type="button"
-                  className="btn-ghost"
-                  onClick={() => loadSummary()}
-                  disabled={isLoadingSummary}
-                >
-                  {isLoadingSummary ? "Atualizando…" : "Atualizar resumo"}
-                </button>
+                <div className="flex flex-wrap gap-2">
+                  {showClearAllBases ? (
+                    <button
+                      type="button"
+                      className="btn-danger"
+                      onClick={handleClearAllImportedBases}
+                      disabled={isClearingAllBases || Boolean(jobProgress)}
+                    >
+                      {isClearingAllBases
+                        ? "Excluindo bases…"
+                        : "Excluir todas as bases do banco"}
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    className="btn-ghost"
+                    onClick={() => loadSummary()}
+                    disabled={isLoadingSummary}
+                  >
+                    {isLoadingSummary ? "Atualizando…" : "Atualizar resumo"}
+                  </button>
+                </div>
               </div>
+              {showClearAllBases ? (
+                <p className="mt-2 text-xs text-rose-700/90">
+                  O botão vermelho apaga todos os registros de cobertura e o histórico de
+                  importações (Nio, Vivo, Vero e demais) no schema plano_ideal. Não altera o CRM
+                  Record.
+                </p>
+              ) : null}
               {summaryError ? (
                 <p className="mt-2 text-sm text-amber-800" role="alert">
                   {summaryError}

@@ -85,6 +85,20 @@ export interface CoverageByCepResponse {
   cep: string;
   operators: string[];
   records: CoverageRecordInput[];
+  source?: "powerbi_dfv" | string;
+  meta?: {
+    onlyViable?: boolean;
+    cdoCodes?: string[];
+    totalRaw?: number;
+    regions?: Array<{
+      id: string;
+      label: string;
+      count: number;
+      ok: boolean;
+      error?: string;
+    }>;
+    activeRegions?: string[];
+  };
 }
 
 /** Código de viabilidade retornado pela API pública */
@@ -123,9 +137,9 @@ export const OPERATOR_COVERAGE_CONFIG: Record<CoverageOperator, OperatorCoverage
   },
   Nio: {
     title: "Números de fachada",
-    hint: "Coluna NUM_FACHADA + complemento",
+    hint: "Power BI DFV ao vivo (NUM_FACHADA + complemento)",
     mode: "numbers",
-    keys: ["NUM_FACHADA", "Num_Fachada", "num_fachada"],
+    keys: ["NUM_FACHADA", "Num_Fachada", "num_fachada", "NO_FACHADA"],
   },
   Vero: {
     title: "Logradouros cobertos",
