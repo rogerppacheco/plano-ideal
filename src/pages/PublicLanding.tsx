@@ -83,7 +83,7 @@ function SparkleIcon({ className = "" }) {
 
 function HeroMascot() {
   return (
-    <div className="relative z-0 mx-auto mb-8 flex w-full max-w-md shrink-0 items-center justify-center lg:mx-0 lg:mb-0 lg:max-w-lg">
+    <div className="relative z-0 mx-auto flex w-full max-w-sm shrink-0 items-center justify-center sm:max-w-md lg:mx-0 lg:max-w-lg">
       <div
         className="pointer-events-none absolute left-1/2 top-1/2 h-full w-full max-h-[28rem] max-w-[28rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(57,255,20,0.12)_0%,transparent_70%)]"
         aria-hidden="true"
@@ -107,11 +107,11 @@ function HeroMascot() {
         aria-hidden="true"
       />
 
-      <div className="animate-float relative z-0 w-full max-w-xs shrink-0 bg-transparent sm:max-w-sm lg:max-w-md">
+      <div className="animate-float relative z-0 w-full max-w-xs shrink-0 bg-transparent sm:max-w-sm lg:max-w-[22rem]">
         <img
           src={mascotCloud}
           alt={`Mascote ${SITE_NAME} — consultor de internet fibra sobre nuvem`}
-          className="mx-auto h-auto max-h-[min(55vh,28rem)] w-full object-contain object-center drop-shadow-[0_12px_40px_rgba(0,0,0,0.5)]"
+          className="mx-auto h-auto max-h-[min(38vh,20rem)] w-full object-contain object-center drop-shadow-[0_12px_40px_rgba(0,0,0,0.5)]"
           width={512}
           height={512}
           loading="eager"
@@ -562,42 +562,28 @@ export default function PublicLanding() {
 
       <main>
         {/* Hero */}
-        <section className="hero-mesh relative flex min-h-[100dvh] flex-col overflow-hidden border-b border-white/5">
+        <section className="hero-mesh relative flex min-h-[calc(100svh-4.75rem)] flex-col overflow-hidden border-b border-white/5">
           <GlowingBlobs />
-          <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center px-4 py-16 md:px-8 md:py-24">
-            <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-12">
+          <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center px-4 py-6 md:px-8 md:py-8">
+            <div className="grid items-center gap-6 lg:grid-cols-2 lg:gap-10">
               <div className="relative z-10 order-1 mx-auto max-w-2xl text-center lg:order-none lg:mx-0 lg:text-left">
                 <span className="inline-block rounded-full border border-neon-green/25 bg-neon-green/10 px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-neon-green">
                   Nossa Fibra · ultra rápida
                 </span>
 
-                <h1 className="mt-6 text-4xl font-black leading-[1.08] tracking-tight md:text-6xl">
+                <h1 className="mt-4 text-4xl font-black leading-[1.08] tracking-tight md:text-5xl xl:text-6xl">
                   Internet fibra que <span className="text-neon-green">simplesmente funciona</span>
                 </h1>
 
-                <p className="mt-5 text-base leading-relaxed text-white/70 md:text-xl">
+                <p className="mt-4 text-base leading-relaxed text-white/70 md:text-lg">
                   Velocidade real, Wi-Fi de última geração e{" "}
                   <strong className="font-bold text-neon-green">
                     preço fixo até janeiro de 2030
                   </strong>
                   . Sem surpresas na fatura.
                 </p>
-                <p className="mt-3 text-sm leading-relaxed text-white/50">
-                  {COMPANY_DISCLAIMER}
-                </p>
 
-                <div className="mt-6 flex flex-wrap items-center justify-center gap-2 lg:justify-start">
-                  {TRUST_PILLS.map((pill) => (
-                    <span
-                      key={pill}
-                      className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-white/80 backdrop-blur-sm"
-                    >
-                      {pill}
-                    </span>
-                  ))}
-                </div>
-
-                <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row lg:justify-start">
+                <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row lg:justify-start">
                   <a
                     href="#planos"
                     className="w-full rounded-full bg-neon-green px-8 py-4 text-center text-base font-extrabold text-pi-dark shadow-neon-glow transition hover:scale-105 hover:shadow-neon-glow-lg sm:w-auto"
@@ -611,6 +597,20 @@ export default function PublicLanding() {
                     Consultar meu CEP
                   </a>
                 </div>
+
+                <div className="mt-5 flex flex-wrap items-center justify-center gap-2 lg:justify-start">
+                  {TRUST_PILLS.map((pill) => (
+                    <span
+                      key={pill}
+                      className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-white/80 backdrop-blur-sm"
+                    >
+                      {pill}
+                    </span>
+                  ))}
+                </div>
+                <p className="mt-4 text-xs leading-relaxed text-white/45 md:text-sm">
+                  {COMPANY_DISCLAIMER}
+                </p>
               </div>
 
               <div className="relative z-0 order-2 shrink-0 lg:order-none">
@@ -618,7 +618,7 @@ export default function PublicLanding() {
               </div>
             </div>
 
-            <div className="mt-14 grid gap-4 sm:grid-cols-3">
+            <div className="mt-8 grid gap-4 sm:grid-cols-3">
               {HERO_FEATURES.map((item) => (
                 <div
                   key={item.title}
