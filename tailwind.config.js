@@ -29,7 +29,7 @@ export default {
           800: "#1e293b",
           900: "#0f172a",
         },
-        /* Paleta white-label — Plano Ideal */
+        /* Paleta white-label — Fibra Aqui */
         pi: {
           dark: "#0A1A0A",
           darker: "#111111",

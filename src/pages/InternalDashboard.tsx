@@ -46,6 +46,7 @@ import { useCoverageConsult } from "../hooks/useCoverageConsult";
 import { CreditConsultTab } from "../components/CreditConsultTab";
 import { OsConsultTab } from "../components/OsConsultTab";
 import { FloatingBubbles } from "../components/FloatingBubbles";
+import { SiteFooter } from "../components/SiteFooter";
 import { PapAdminTab } from "../components/PapAdminTab";
 import { SiteSettingsAdminTab } from "../components/SiteSettingsAdminTab";
 import { ApiPartnersAdminTab } from "../components/ApiPartnersAdminTab";
@@ -481,6 +482,7 @@ export default function InternalDashboard() {
   }
 
   return (
+    <>
     <div className="dashboard-shell">
       <DashboardBrandWatermark />
       <FloatingBubbles variant="dark" />
@@ -1023,6 +1025,8 @@ export default function InternalDashboard() {
         ) : null}
       </div>
     </div>
+    <SiteFooter compact showNav={false} />
+    </>
   );
 }
 

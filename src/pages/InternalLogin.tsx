@@ -1,7 +1,9 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import mascotHero from "../assets/mascot-cloud-hero.png";
+import { SiteFooter } from "../components/SiteFooter";
 import { FormField } from "../components/ui/FormField";
+import { SITE_NAME } from "../content/company";
 import { useToast } from "../components/ui/Toast";
 import { saveSession } from "../lib/authSession";
 import { consumeSessionExitNotice } from "../lib/sessionExit";
@@ -92,7 +94,8 @@ export default function InternalLogin() {
   };
 
   return (
-    <div className="hero-mesh relative flex min-h-screen items-center overflow-x-hidden px-4 py-10 sm:px-6">
+    <div className="flex min-h-screen flex-col bg-pi-dark">
+    <div className="hero-mesh relative flex flex-1 items-center overflow-x-hidden px-4 py-10 sm:px-6">
       <LoginBackground />
 
       <div className="relative z-10 mx-auto grid w-full max-w-5xl items-center gap-10 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,22rem)] lg:gap-14 xl:max-w-6xl">
@@ -104,7 +107,7 @@ export default function InternalLogin() {
             />
             <img
               src={mascotHero}
-              alt="Mascote Plano Ideal — consultor na nuvem"
+              alt={`Mascote ${SITE_NAME} — consultor na nuvem`}
               className="relative z-10 mx-auto h-auto w-full object-contain drop-shadow-[0_20px_45px_rgba(0,0,0,0.55)]"
               width={320}
               height={320}
@@ -117,7 +120,7 @@ export default function InternalLogin() {
           <div className="rounded-[2rem] border border-white/20 bg-white/10 p-6 shadow-[0_24px_80px_rgba(0,0,0,0.45)] backdrop-blur-md sm:p-8">
             <div className="text-center lg:text-left">
               <p className="text-xs font-bold uppercase tracking-[0.2em] text-neon-green">
-                Plano Ideal
+                {SITE_NAME}
               </p>
               <h1 className="mt-2 text-2xl font-extrabold text-white sm:text-3xl">Área interna</h1>
               <p className="mx-auto mt-2 max-w-xs text-sm leading-relaxed text-white/65 lg:mx-0">
@@ -183,6 +186,8 @@ export default function InternalLogin() {
           </div>
         </div>
       </div>
+    </div>
+    <SiteFooter compact showNav={false} />
     </div>
   );
 }

@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from "react";
 import mascotCloud from "../assets/mascot-cloud-hero.png";
+import { SiteFooter } from "../components/SiteFooter";
+import { SiteHeader } from "../components/SiteHeader";
 import { BRAZILIAN_UFS } from "../constants/brazilianUfs";
+import { COMPANY_DISCLAIMER, SITE_NAME } from "../content/company";
 import { DEFAULT_INTERNET_PLANS, type InternetPlan } from "../constants/defaultPlans";
 import {
   ApiError,
@@ -66,7 +69,7 @@ function buildWhatsappLink({
   const planInfo = planLabel ? `Plano de interesse: ${planLabel}. ` : "";
   const ufInfo = uf ? `Estado: ${uf}. ` : "";
   const cityInfo = city ? `Cidade: ${city}. ` : "";
-  const message = `Olá! Sou ${name}. Quero contratar internet fibra com o Plano Ideal. ${planInfo}Meu CEP é ${cep}. ${cityInfo}${ufInfo}${facadeInfo}${reference}`;
+  const message = `Olá! Sou ${name}. Quero contratar internet fibra com a ${SITE_NAME}. ${planInfo}Meu CEP é ${cep}. ${cityInfo}${ufInfo}${facadeInfo}${reference}`;
   return `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
 }
 
@@ -107,7 +110,7 @@ function HeroMascot() {
       <div className="animate-float relative z-0 w-full max-w-xs shrink-0 bg-transparent sm:max-w-sm lg:max-w-md">
         <img
           src={mascotCloud}
-          alt="Mascote Plano Ideal — consultor de internet fibra sobre nuvem"
+          alt={`Mascote ${SITE_NAME} — consultor de internet fibra sobre nuvem`}
           className="mx-auto h-auto max-h-[min(55vh,28rem)] w-full object-contain object-center drop-shadow-[0_12px_40px_rgba(0,0,0,0.5)]"
           width={512}
           height={512}
@@ -555,28 +558,7 @@ export default function PublicLanding() {
 
   return (
     <div className="min-h-[100dvh] bg-pi-dark text-white">
-      <header className="sticky top-0 z-30 border-b border-white/10 bg-pi-dark/80 backdrop-blur-md">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 md:px-8">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-neon-green text-sm font-black text-pi-dark">
-              PI
-            </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-neon-green">
-                Plano Ideal
-              </p>
-              <h1 className="text-lg font-extrabold tracking-tight md:text-xl">Internet Fibra</h1>
-            </div>
-          </div>
-          <a
-            href="#planos"
-            className="hidden rounded-full bg-neon-green px-5 py-2.5 text-sm font-extrabold text-pi-dark shadow-neon-glow transition hover:scale-105 sm:inline-flex"
-            aria-label="Ver planos de internet disponíveis"
-          >
-            Ver planos
-          </a>
-        </div>
-      </header>
+      <SiteHeader variant="landing" />
 
       <main>
         {/* Hero */}
@@ -589,9 +571,9 @@ export default function PublicLanding() {
                   Nossa Fibra · ultra rápida
                 </span>
 
-                <h2 className="mt-6 text-4xl font-black leading-[1.08] tracking-tight md:text-6xl">
+                <h1 className="mt-6 text-4xl font-black leading-[1.08] tracking-tight md:text-6xl">
                   Internet fibra que <span className="text-neon-green">simplesmente funciona</span>
-                </h2>
+                </h1>
 
                 <p className="mt-5 text-base leading-relaxed text-white/70 md:text-xl">
                   Velocidade real, Wi-Fi de última geração e{" "}
@@ -599,6 +581,9 @@ export default function PublicLanding() {
                     preço fixo até janeiro de 2030
                   </strong>
                   . Sem surpresas na fatura.
+                </p>
+                <p className="mt-3 text-sm leading-relaxed text-white/50">
+                  {COMPANY_DISCLAIMER}
                 </p>
 
                 <div className="mt-6 flex flex-wrap items-center justify-center gap-2 lg:justify-start">
@@ -945,18 +930,7 @@ export default function PublicLanding() {
         </section>
       </main>
 
-      <footer className="border-t border-white/5 bg-pi-darker">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 py-8 text-center text-sm text-white/40 md:flex-row md:px-8 md:text-left">
-          <p>© {new Date().getFullYear()} Plano Ideal. Todos os direitos reservados.</p>
-          <a
-            href="/interno"
-            className="rounded-full px-3 py-1 text-xs text-white/30 transition hover:bg-white/5 hover:text-white/60"
-            aria-label="Acesso interno para equipe"
-          >
-            Acesso interno
-          </a>
-        </div>
-      </footer>
+      <SiteFooter showNav showInternalAccess />
     </div>
   );
 }

@@ -3,21 +3,29 @@ import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-
 import { ToastProvider, useToast } from "./components/ui/Toast";
 import { isSessionAuthenticated } from "./lib/authSession";
 import { registerForcedLogoutHandler } from "./lib/sessionExit";
+import ContatoPage from "./pages/ContatoPage";
 import InternalDashboard from "./pages/InternalDashboard";
 import InternalLogin from "./pages/InternalLogin";
+import PrivacidadePage from "./pages/PrivacidadePage";
 import PublicLanding from "./pages/PublicLanding";
+import SobrePage from "./pages/SobrePage";
+import TermosPage from "./pages/TermosPage";
 
 const PAGE_TITLES = {
-  "/": "Plano Ideal | Compare Planos de Internet Fibra",
-  "/interno": "Login | Plano Ideal",
-  "/interno/painel": "Painel Interno | Plano Ideal",
+  "/": "Fibra Aqui | Compare planos de internet fibra",
+  "/sobre": "Sobre | Fibra Aqui",
+  "/contato": "Contato | Fibra Aqui",
+  "/termos": "Termos de Uso | Fibra Aqui",
+  "/privacidade": "Política de Privacidade | Fibra Aqui",
+  "/interno": "Login | Fibra Aqui",
+  "/interno/painel": "Painel interno | Fibra Aqui",
 };
 
 function PageTitle() {
   const { pathname } = useLocation();
 
   useEffect(() => {
-    document.title = PAGE_TITLES[pathname] || "Plano Ideal";
+    document.title = PAGE_TITLES[pathname] || "Fibra Aqui";
   }, [pathname]);
 
   return null;
@@ -49,6 +57,10 @@ export default function App() {
       <AuthSessionBridge />
       <Routes>
         <Route path="/" element={<PublicLanding />} />
+        <Route path="/sobre" element={<SobrePage />} />
+        <Route path="/contato" element={<ContatoPage />} />
+        <Route path="/termos" element={<TermosPage />} />
+        <Route path="/privacidade" element={<PrivacidadePage />} />
         <Route path="/interno" element={<InternalLogin />} />
         <Route
           path="/interno/painel"

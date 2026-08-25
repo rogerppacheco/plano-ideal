@@ -11,7 +11,7 @@ export function BalloonMascot({
   size = "lg",
   className = "",
   animate = true,
-  label = "Mascote Plano Ideal",
+  label = "Mascote Fibra Aqui",
 }) {
   return (
     <div
