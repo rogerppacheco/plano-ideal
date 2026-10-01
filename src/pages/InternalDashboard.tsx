@@ -531,7 +531,7 @@ export default function InternalDashboard() {
           <PanelCard
             id="panel-consulta"
             title="Consulta DFV (Nio)"
-            description="Consulta online de fachadas Nio via Power BI público (Sudeste, SP e Sul) — mesma base da automação DFV."
+            description="Consulta online de fachadas Nio via Power BI público (Sudeste, SP, Sul, Centro-Oeste e Norte/Nordeste) — mesma base da automação DFV."
           >
             <form
               className="flex flex-col gap-3 sm:flex-row sm:items-end"

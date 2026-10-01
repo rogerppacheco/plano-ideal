@@ -1,6 +1,6 @@
 /**
  * Consulta ao vivo de fachadas no Power BI público (DFV multi-região).
- * Relatórios: DFV_SUDESTE, DFV_SP, DFV_SUL — entidade BASE_HP_F.
+ * Relatórios: DFV_SUDESTE, DFV_SP, DFV_SUL, DFV_CO, DFV_NNE — entidade BASE_HP_F.
  * Independente das bases importadas legadas.
  */
 import { randomUUID } from "node:crypto";
@@ -21,25 +21,51 @@ export const SELECT_COLS = [
   "CODIGO_CDO",
 ];
 
-/** Relatórios públicos Nio por região (resource key + modelId). */
+/**
+ * Relatórios públicos Nio por região (resource key + modelId).
+ * `envPrefix` permite sobrescrever via `${envPrefix}_RESOURCE_KEY` / `${envPrefix}_MODEL_ID`.
+ */
 export const DEFAULT_DFV_SOURCES = Object.freeze([
   {
     id: "sudeste",
     label: "DFV Sudeste",
     resourceKey: "8a9db8f9-7cf1-4db5-90d2-5259ad149eba",
     modelId: 6061538,
+    ufs: ["MG", "ES", "RJ"],
+    envPrefix: "DFV_POWERBI",
   },
   {
     id: "sp",
     label: "DFV SP",
     resourceKey: "81e95c1a-e770-44e3-9646-19df8443756c",
     modelId: 7340452,
+    ufs: ["SP"],
+    envPrefix: "DFV_POWERBI_SP",
   },
   {
     id: "sul",
     label: "DFV Sul",
     resourceKey: "cc212c25-1b6a-4301-877b-703e2c7aa788",
     modelId: 6062850,
+    ufs: ["PR", "SC", "RS"],
+    envPrefix: "DFV_POWERBI_SUL",
+  },
+  // UFs reais de cada relatório (o recorte Nio mistura alguns estados do Norte no CO).
+  {
+    id: "co",
+    label: "DFV Centro-Oeste",
+    resourceKey: "a321b404-8186-4645-8070-507a8fea6abb",
+    modelId: 6063900,
+    ufs: ["AC", "DF", "GO", "MS", "MT", "RO", "TO"],
+    envPrefix: "DFV_POWERBI_CO",
+  },
+  {
+    id: "nne",
+    label: "DFV Norte e Nordeste",
+    resourceKey: "7b6cd391-63ef-4af2-9b09-1b0b1caa29a9",
+    modelId: 6064171,
+    ufs: ["AL", "AM", "AP", "BA", "CE", "MA", "PA", "PB", "PE", "PI", "RN", "RR", "SE"],
+    envPrefix: "DFV_POWERBI_NNE",
   },
 ]);
 
@@ -88,8 +114,9 @@ function featureEnabled() {
 /**
  * Fontes ativas. Ordem de prioridade:
  * 1. DFV_POWERBI_SOURCES (JSON array)
- * 2. Defaults (Sudeste + SP + Sul), com overrides opcionais do Sudeste via
- *    DFV_POWERBI_RESOURCE_KEY / DFV_POWERBI_MODEL_ID
+ * 2. Defaults (Sudeste, SP, Sul, Centro-Oeste, Norte/Nordeste), com overrides
+ *    opcionais por região: DFV_POWERBI_RESOURCE_KEY / DFV_POWERBI_MODEL_ID (Sudeste),
+ *    DFV_POWERBI_{SP,SUL,CO,NNE}_RESOURCE_KEY / _MODEL_ID.
  */
 export function getDfvSources() {
   const raw = cfg("DFV_POWERBI_SOURCES", "");
@@ -111,6 +138,7 @@ export function getDfvSources() {
           label: String(item.label || id).trim(),
           resourceKey,
           modelId,
+          ufs: Array.isArray(item.ufs) ? item.ufs.map((uf) => String(uf).toUpperCase()) : [],
         };
       });
     } catch (error) {
@@ -121,17 +149,23 @@ export function getDfvSources() {
     }
   }
 
-  const overrideKey = String(cfg("DFV_POWERBI_RESOURCE_KEY", "") || "").trim();
-  const overrideModel = cfgInt("DFV_POWERBI_MODEL_ID", 0);
-
-  return DEFAULT_DFV_SOURCES.map((source) => {
-    if (source.id !== "sudeste") return { ...source };
+  return DEFAULT_DFV_SOURCES.map(({ envPrefix, ...source }) => {
+    const overrideKey = String(cfg(`${envPrefix}_RESOURCE_KEY`, "") || "").trim();
+    const overrideModel = cfgInt(`${envPrefix}_MODEL_ID`, 0);
     return {
       ...source,
+      ufs: [...source.ufs],
       resourceKey: overrideKey || source.resourceKey,
       modelId: overrideModel > 0 ? overrideModel : source.modelId,
     };
-  });
+  }).filter((source) => source.resourceKey && source.modelId > 0);
+}
+
+/** Localiza a região DFV que cobre a UF informada. */
+export function getDfvSourceByUf(uf) {
+  const ufLimpa = String(uf || "").trim().toUpperCase();
+  if (!ufLimpa) return null;
+  return getDfvSources().find((source) => source.ufs?.includes(ufLimpa)) || null;
 }
 
 export function limparCep(cep) {

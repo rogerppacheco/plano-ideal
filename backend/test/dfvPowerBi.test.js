@@ -141,15 +141,42 @@ describe("dfvPowerBiService", () => {
     assert.deepEqual(mapped.cdoCodes, ["CDO-1"]);
   });
 
-  it("expõe Sudeste, SP e Sul como fontes padrão", async () => {
+  it("expõe as 5 regiões DFV como fontes padrão", async () => {
     const { getDfvSources, DEFAULT_DFV_SOURCES } = await import(
       "../src/services/dfvPowerBiService.js"
     );
     const sources = getDfvSources();
-    assert.equal(sources.length, 3);
+    assert.deepEqual(
+      sources.map((s) => s.id),
+      ["sudeste", "sp", "sul", "co", "nne"]
+    );
     assert.deepEqual(
       sources.map((s) => s.id),
       DEFAULT_DFV_SOURCES.map((s) => s.id)
     );
+    assert.ok(sources.every((s) => !("envPrefix" in s)));
+  });
+
+  it("cobre todas as 27 UFs sem sobreposição", async () => {
+    const { getDfvSources, getDfvSourceByUf } = await import(
+      "../src/services/dfvPowerBiService.js"
+    );
+    const ufs = getDfvSources().flatMap((s) => s.ufs);
+    assert.equal(ufs.length, 27);
+    assert.equal(new Set(ufs).size, 27);
+    assert.equal(getDfvSourceByUf("go").id, "co");
+    assert.equal(getDfvSourceByUf("BA").id, "nne");
+    assert.equal(getDfvSourceByUf("XX"), null);
+  });
+
+  it("aplica override de env por região", async () => {
+    const { getDfvSources } = await import("../src/services/dfvPowerBiService.js");
+    process.env.DFV_POWERBI_NNE_MODEL_ID = "123";
+    try {
+      const nne = getDfvSources().find((s) => s.id === "nne");
+      assert.equal(nne.modelId, 123);
+    } finally {
+      delete process.env.DFV_POWERBI_NNE_MODEL_ID;
+    }
   });
 });
